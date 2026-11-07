@@ -27,6 +27,7 @@ input,select,textarea{background:#0d1218;color:var(--fg);border:1px solid #33475
 input{width:90px}textarea{width:100%;height:320px;font-family:monospace;font-size:12px}
 canvas{display:block;margin:auto;max-width:100%}.mut{color:var(--mut);font-size:13px}.f{font-weight:700}
 .okc{color:var(--ok)}.bad{color:var(--red)}
+a{color:var(--acc)}#about p{margin:6px 0;font-size:13px}
 </style></head><body>
 <header><svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="25 15 890 985" role="img" aria-label="APRS LoRa+"><rect x="25" y="15" width="890" height="985" rx="60" fill="#000000"/><g id="ondas" fill="#19AE19" stroke="#19AE19" stroke-width="18" stroke-linejoin="round"><path d="M57.4 229.9 A551 551 0 0 1 881 229.9 L864.5 244.1 A529.2 529.2 0 0 0 73.9 244.1 Z"/><path d="M146.4 301.4 A437 437 0 0 1 792 301.4 L776.1 315.4 A415.8 415.8 0 0 0 162.3 315.4 Z"/><path d="M240.1 368.5 A322.9 322.9 0 0 1 698.3 368.5 L682.4 383.5 A301 301 0 0 0 256 383.5 Z"/></g><path id="pin" fill="#109110" stroke="#109110" stroke-width="18" stroke-linejoin="round" d="M179.3 421.3 A302 302 0 0 0 170.1 563.9 C173.6 544.2 161.1 718.2 467.5 975.3 C773.9 718.2 761.4 544.2 764.9 563.9 A302 302 0 0 0 756.3 423.1 L706.9 454.7 A246 246 0 1 1 228.6 452.8 Z"/><g id="lmas" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="9" stroke-linejoin="round"><path d="M350.7 397.9 L340.5 411.5 L340.5 623.8 L380.6 655.5 L547.7 655.5 L598.5 623.5 L598.5 615.5 L399.4 613.5 L386.5 591.2 L386.5 387.1 Z"/><path d="M554.7 385.8 L546.2 390.7 L540.1 446.8 L483.4 457.9 L478.9 471.5 L482.7 477.8 L534.8 483.9 L546.8 543.9 L565.9 546.3 L574.7 540.4 L579.9 489.3 L637.4 477.2 L641.1 463.9 L635.5 456.3 L585.3 451.1 L572.2 389.8 Z"/></g></svg><span class="brand"><span class="brand-name">APRS LoRa+</span><small class="brand-sub">Rotor <span class="ver" id="ver"></span></small></span><span class="right" id="hdr"></span></header>
 <main>
@@ -55,6 +56,11 @@ canvas{display:block;margin:auto;max-width:100%}.mut{color:var(--mut);font-size:
 <textarea id="cfg" spellcheck="false"></textarea>
 <p class="mut">Referencia de campos en docs/CONFIG.md del repositorio. Las contraseñas aparecen; no compartas esta página.</p>
 <div class="row mut" id="info"></div></div>
+<div class="c" style="grid-column:1/-1" id="about"><h3>Acerca de</h3>
+<p class="mut" id="buildInfo"></p>
+<p>APRS LoRa+ Rotor - by <b>Manuel EA7JRS</b> &middot; &copy; 2026 Manuel - EA7JRS</p>
+<p><b>APRS LoRa+</b> &mdash; EA7JRS: <a href="https://github.com/EA7JRS/APRS-LoRa-Plus" target="_blank" rel="noopener">github.com/EA7JRS/APRS-LoRa-Plus</a> (tracker, app Android, rotor y gateway).</p>
+<p class="mut">Compatible con Hamlib (rotctld), Yaesu GS-232A/B, SPID Rot2Prog y EasyComm II. Librerías: NimBLE-Arduino, RadioLib, ArduinoJson; en la Raspberry Pi, rotctld de Hamlib. Licencia GPL-3.0-or-later.</p></div>
 </main>
 <script>
 const $=id=>document.getElementById(id);let pos={},lim={maxAz:360};
@@ -81,7 +87,7 @@ async function loadCfg(){const r=await api([{c:'cfgget'}]);$('cfg').value=JSON.s
 async function saveCfg(){let t;try{t=JSON.stringify(JSON.parse($('cfg').value))}catch(e){return alert('JSON no válido')}
 const n=Math.ceil(t.length/180),L=[];for(let i=0;i<n;i++)L.push({c:'cfgset',i,n,d:t.substr(i*180,180)});
 const r=await api(L);const e=r.find(x=>x.e=='err');alert(e?('Error: '+e.m):'Guardado. Reiniciando...')}
-async function info(){try{const r=await api([{c:'info'}]);const i=r[0];lim=i.lim;$('ver').textContent=i.ver;$('hdr').textContent=i.name+' · '+i.call;
+async function info(){try{const r=await api([{c:'info'}]);const i=r[0];lim=i.lim;$('ver').textContent=i.ver;$('buildInfo').textContent=`Rotor ${i.ver} · ${i.board} (${i.chip})`;$('hdr').textContent=i.name+' · '+i.call;
 $('info').textContent=`${i.board} (${i.chip}) · mando: ${i.drv} · IP ${i.ip} · rotctld ${i.rotctld||'off'} · rango AZ ${i.lim.minAz}–${i.lim.maxAz}, EL ${i.lim.minEl}–${i.lim.maxEl}`}catch(e){}}
 info();poll();setInterval(poll,1000);setInterval(raw,2000);
 </script></body></html>)HTML";
