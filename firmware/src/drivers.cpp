@@ -251,6 +251,8 @@ namespace Drv {
         direct.az.cfg = Cfg.az;
         direct.el.cfg = Cfg.el;
         direct.el.cfg.enabled = Cfg.elEnabled;
+        direct.az.cfg.sensorless = Cfg.azPins.sensor == 2;
+        direct.el.cfg.sensorless = Cfg.elPins.sensor == 2;
         direct.parkAz = Cfg.parkAz;
         direct.parkEl = Cfg.parkEl;
         direct.reportMech = Cfg.reportMech;

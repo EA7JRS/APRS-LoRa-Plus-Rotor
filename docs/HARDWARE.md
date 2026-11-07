@@ -40,7 +40,7 @@ Conector DIN de 8 pines «EXTERNAL CONTROL» de la parte trasera del mando (manu
 
 **Lecturas de posición**: divisor de 10 kΩ (arriba) y 18 kΩ (abajo) en cada salida: 4,5 V → 2,89 V; 5 V → 3,21 V. Añade 100 nF a masa en la entrada del ADC. Los valores por defecto de la configuración ya cuentan con este divisor (1,286 V = 0°, 2,893 V = 450° / 180°); luego se afinan con «Punto A / Punto B» en la WebUI. Comprueba antes con un polímetro la tensión máxima del pin 6 con el rotor a tope en CW (el mando tiene un ajuste «OUT VOLTAGE ADJ»).
 
-**Órdenes de giro**: un NPN (BC547 / 2N2222, base con 2,2 kΩ desde el pin de la placa) o un ULN2003 por línea, colector al pin del DIN y emisor a masa. Con transistores o ULN2003, `activeHigh: true`. Con optoacopladores (PC817) también: ánodo desde el pin con 330 Ω, colector al DIN y emisor a masa (aísla del todo las dos masas).
+**Órdenes de giro**: un NPN (BC547 / 2N2222, base con 2,2 kΩ desde el pin de la placa) o un ULN2003 por línea, colector al pin del DIN y emisor a masa. Con transistores o ULN2003, `activeHigh: true`. Pon una resistencia de 10 kΩ de la base a masa (o usa el ULN2003, que ya la lleva): durante el arranque los pines quedan al aire y el rotor no debe moverse. Con optoacopladores (PC817) también: ánodo desde el pin con 330 Ω, colector al DIN y emisor a masa (aísla del todo las dos masas).
 
 Configuración típica:
 
@@ -58,7 +58,8 @@ El G-5500 necesita una pausa antes de invertir el giro (`reverseMs`, 1,2 s) y no
 - **Rotor de un eje** (Yaesu G-450 / G-650 / G-1000DXC, Create RC5…): `elEnabled: false`. Los de la serie DXC y el G-2800 aceptan velocidad por tensión: pon un pin en `pinPwm` y filtra el PWM (RC de 10 kΩ / 10 µF) hacia la entrada de velocidad del mando.
 - **Hy-Gain con freno** (Ham-IV, T2X): relé del freno en `brakePin`, `brakeMs` 2000-3000 (suelta el freno antes de girar y lo echa después de parar).
 - **Motor de continua con puente H** (casero, motores de antena parabólica): `outMode: 1`; IN1 en `pinA` e IN2 en `pinB` con PWM (BTS7960, L298N, DRV8871). Arranque suave (`rampMs`) y frenada progresiva cerca del objetivo (`slowZone`, `minSpeed`).
-- **Sensor ADS1115** (16 bits, I2C, recomendable si el ADC de la placa va justo): `sensor: 1`, canal en `adsCh`; ganancia `adsGain` 1 = ±4,096 V. Puede leer hasta 5 V si se alimenta a 5 V… pero entonces el I2C necesita adaptador de nivel: más sencillo alimentarlo a 3,3 V y mantener el divisor.
+- **Sensor ADS1115** (16 bits, I2C, recomendable si el ADC de la placa va justo): `sensor: 1`, canal en `adsCh`; ganancia `adsGain` 1 = ±4,096 V. Aliméntalo a 3,3 V y mantén el divisor.
+- **Sin sensor** (`sensor: 2`): solo movimiento manual (botones, `M` de rotctld, `move` de la app), que se para solo a los 90 s; los topes los ponen los finales de carrera del rotor.
 
 Seguridad del control directo: para en los topes (`limitMargin`), da fallo de atasco si no avanza `stallDeg` en `stallMs` y apaga todo si el sensor deja de leer. Tras un fallo, una orden de posición nueva o `clear` lo rearma.
 

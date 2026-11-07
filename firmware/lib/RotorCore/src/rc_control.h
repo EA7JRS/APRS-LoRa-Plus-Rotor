@@ -45,6 +45,8 @@ namespace RC {
         uint32_t brakeMs        = 0;        // freno (Hy-Gain): se suelta antes de arrancar y se echa despues de parar (0 = sin freno)
         double   filter         = 0.35;     // filtro de la lectura (0-1; 1 = sin filtro)
         double   limitMargin    = 0.5;      // grados antes de los topes en que se para
+        bool     sensorless     = false;    // sin sensor de posicion: solo movimiento manual (con tiempo maximo)
+        uint32_t manualMaxMs    = 90000;    // sin sensor: el manual se para solo pasado este tiempo
     };
 
     struct AxisOut {
@@ -69,13 +71,14 @@ namespace RC {
         }
 
         void setTarget(double deg) {
+            if (cfg.sensorless) return;           // sin sensor no hay posicion a la que ir
             if (deg < cfg.minDeg) deg = cfg.minDeg;
             if (deg > cfg.maxDeg) deg = cfg.maxDeg;
             target_ = deg;
             manual_ = 0;
             if (fault_ == F_NONE) idleArmed_ = true;
         }
-        void setManual(int dir, double speed) { manual_ = dir; manualSpeed_ = speed; target_ = NAN; }
+        void setManual(int dir, double speed) { manual_ = dir; manualSpeed_ = speed; target_ = NAN; manualAt_ = lastNow_; }
         void stop() { target_ = NAN; manual_ = 0; }
         void clearFault() { fault_ = F_NONE; }
         void setFault(uint8_t f) { fault_ = f; target_ = NAN; manual_ = 0; }
@@ -83,8 +86,11 @@ namespace RC {
         // Lectura nueva (NAN = sensor sin dato). Devuelve la salida que hay que aplicar.
         AxisOut update(uint32_t now, double raw) {
             AxisOut o;
+            lastNow_ = now;
             if (!cfg.enabled) { out_ = o; return o; }
-            if (isnan(raw)) {
+            if (cfg.sensorless) {
+                if (manual_ != 0 && now - manualAt_ > cfg.manualMaxMs) manual_ = 0;
+            } else if (isnan(raw)) {
                 if (fault_ == F_NONE) setFault(F_SENSOR);
             } else {
                 const double d = toDeg(raw);
@@ -95,7 +101,7 @@ namespace RC {
             // Sentido deseado
             int want = 0;
             double err = 0;
-            if (fault_ == F_NONE && havePos_) {
+            if (fault_ == F_NONE && (havePos_ || cfg.sensorless)) {
                 if (manual_ != 0) {
                     want = manual_;
                 } else if (!isnan(target_)) {
@@ -110,7 +116,8 @@ namespace RC {
                     }
                 }
                 // Topes
-                if (want > 0 && pos_ >= cfg.maxDeg - cfg.limitMargin) { want = 0; atLimit_ = 1; }
+                if (cfg.sensorless) { /* sin posicion: los finales de carrera del propio rotor */ }
+                else if (want > 0 && pos_ >= cfg.maxDeg - cfg.limitMargin) { want = 0; atLimit_ = 1; }
                 else if (want < 0 && pos_ <= cfg.minDeg + cfg.limitMargin) { want = 0; atLimit_ = -1; }
                 else if (want != 0) atLimit_ = 0;
                 if (want == 0 && manual_ != 0) manual_ = 0;               // el manual se acaba en el tope
@@ -165,7 +172,7 @@ namespace RC {
                 o.dir = cur_;
                 o.speed = sp;
                 // Atasco
-                if (cfg.stallMs > 0) {
+                if (cfg.stallMs > 0 && !cfg.sensorless) {
                     if (fabs(pos_ - stallRef_) >= cfg.stallDeg) { stallRef_ = pos_; stallT_ = now; }
                     else if (now - stallT_ > cfg.stallMs + cfg.rampMs) {
                         setFault(stallFault_);
@@ -213,6 +220,7 @@ namespace RC {
         bool     releasing_ = false;
         uint32_t releaseAt_ = 0;
         uint32_t brakeHoldUntil_ = 0;
+        uint32_t manualAt_ = 0, lastNow_ = 0;
         AxisOut  out_;
     };
 

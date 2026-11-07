@@ -113,8 +113,8 @@ namespace Net {
     void begin() {
         if (Cfg.wifiMode == 0) { WiFi.mode(WIFI_OFF); return; }
         if (Cfg.wifiMode == 2 || Cfg.ssid.empty()) { startAp(); return; }
+        WiFi.setHostname(Cfg.name.c_str());     // antes de WiFi.mode() en arduino-esp32 3.x
         WiFi.mode(WIFI_STA);
-        WiFi.setHostname(Cfg.name.c_str());
         WiFi.begin(Cfg.ssid.c_str(), Cfg.pass.c_str());
         staSince = millis();
     }

@@ -250,6 +250,20 @@ static void testControl() {
     o = b.update(tb += 600, 50);  CHECK(o.dir == 0 && !o.brakeRelease);
 }
 
+static void testSensorless() {
+    Axis a;
+    a.cfg.sensorless = true; a.cfg.rampMs = 0; a.cfg.manualMaxMs = 1000;
+    uint32_t t = 5000;
+    AxisOut o = a.update(t, NAN);
+    CHECK(a.fault() == F_NONE && o.dir == 0);
+    a.setTarget(100);                       // sin sensor: ignorado
+    o = a.update(t += 20, NAN); CHECK(o.dir == 0);
+    a.setManual(1, 0);
+    o = a.update(t += 100, NAN); CHECK(o.dir == 1);
+    o = a.update(t += 500, NAN); CHECK(o.dir == 1);
+    o = a.update(t += 600, NAN); CHECK(o.dir == 0);   // tiempo maximo
+}
+
 static void testTotp() {
     // RFC 6238, anexo B (SHA1, clave "12345678901234567890")
     uint8_t key[32];
@@ -374,6 +388,7 @@ int main() {
     testEasyComm();
     testRot2Prog();
     testControl();
+    testSensorless();
     testTotp();
     testAprs();
     testApi();
