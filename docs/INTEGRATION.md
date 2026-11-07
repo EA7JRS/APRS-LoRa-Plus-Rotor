@@ -23,5 +23,5 @@ Servidor del protocolo de red de Hamlib 4.x (el de `rotctld`): `P`, `p`, `S`, `K
 
 ## Pendiente en los otros repositorios
 
-- **App Android**: pestaña / sección *Rotor* con el servicio BLE de arriba (conectar, `auth`, `info`, `sub`, posición en una brújula, ir a, mover, parar, park, calibrar, configuración con `cfgget` / `cfgset`) y la opción de mandar el evento `rot` del tracker al rotor por BLE o por el puerto JSON (4534).
+- ~~App Android~~: hecho (pestaña **Rotor**, 2026-11-07): BLE o WiFi (4534), PIN, brújula, ir a, mover manteniendo pulsado, STOP, park, seguir al tracker (evento `rot`), calibración y configuración. Además el servidor rotctld del móvil ya responde `\dump_state` con el protocolo 1.
 - **Tracker**: transporte «LoRa APRS» para el rotor (mandar `P az el` al indicativo del rotor con paso e intervalo mínimos) y el `\dump_state` corregido.

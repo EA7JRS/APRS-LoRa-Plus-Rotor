@@ -31,7 +31,8 @@ Controlador de rotores compatible con Hamlib, manejado por el tracker APRS LoRa+
 ## Estado (2026-11-07)
 - Núcleo probado en el PC; demonio de la Raspberry probado en el PC con un rotctld simulado y un TNC KISS simulado.
 - Firmware: compila en la CI; **sin probar en placas**. BLE en la Pico 2 W: pendiente (arduino-pico usa BTstack, otro API).
-- Pendiente fuera de este repositorio: sección Rotor en la app (BLE / JSON), transporte LoRa APRS del rotor y `\dump_state` corregido en el tracker.
+- App Android: pestaña **Rotor** hecha (commit 8655fab de APRS-LoRa-Plus-Android, sin probar con una caja real).
+- Pendiente fuera de este repositorio: transporte LoRa APRS del rotor y `\dump_state` corregido en el tracker.
 
 ## Cómo trabajar
 - No publicar releases ni tocar otros repositorios sin que lo pida Manuel.
