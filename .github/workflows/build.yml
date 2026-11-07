@@ -1,0 +1,57 @@
+name: Build
+
+on:
+    push:
+        branches: ['*']
+    pull_request:
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+jobs:
+    core-tests:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - name: ArduinoJson para las pruebas en el PC
+              run: git clone --depth 1 --branch v7.4.3 https://github.com/bblanchon/ArduinoJson /tmp/ArduinoJson
+            - name: Pruebas del nucleo C++
+              run: make -C firmware/test_host run ARDUINOJSON=/tmp/ArduinoJson/src
+            - uses: actions/setup-python@v5
+              with:
+                  python-version: "3.11"
+            - name: Pruebas del demonio de la Raspberry Pi
+              run: if [ -d raspberrypi/tests ]; then cd raspberrypi && python -m unittest discover -s tests -v; fi
+
+    firmware:
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                env: [esp32dev, esp32s3, ttgo-lora32-v21, heltec_v3, pico2w, pico2]
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-python@v5
+              with:
+                  python-version: "3.13"
+            - uses: actions/cache@v4
+              with:
+                  path: |
+                      ~/.platformio/.cache
+                      ~/.platformio/packages
+                      ~/.platformio/platforms
+                  key: pio-${{ matrix.env }}-${{ hashFiles('firmware/platformio.ini') }}
+            - name: PlatformIO
+              run: pip install --upgrade platformio
+            - name: Compilar
+              run: cd firmware && pio run -e ${{ matrix.env }}
+            - uses: actions/upload-artifact@v4
+              with:
+                  name: firmware-${{ matrix.env }}
+                  path: |
+                      firmware/.pio/build/${{ matrix.env }}/firmware.bin
+                      firmware/.pio/build/${{ matrix.env }}/firmware.uf2
+                      firmware/.pio/build/${{ matrix.env }}/bootloader.bin
+                      firmware/.pio/build/${{ matrix.env }}/partitions.bin
+                  if-no-files-found: ignore

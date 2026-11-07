@@ -1,0 +1,6 @@
+.pio/
+.vscode/
+firmware/test_host/test_core
+__pycache__/
+*.pyc
+.venv/
