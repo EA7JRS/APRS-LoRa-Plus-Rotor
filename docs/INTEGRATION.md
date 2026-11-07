@@ -19,9 +19,9 @@ En la Raspberry Pi el rotor real lo maneja el rotctld de Hamlib, así que vale *
 
 Servidor del protocolo de red de Hamlib 4.x (el de `rotctld`): `P`, `p`, `S`, `K`, `M`, `s` (get_status), `_`, `\dump_state` (protocolo 1 con `min_az=…` y `done`), `\dump_caps`, `q`. Varios clientes a la vez (4 en las placas). Si el cliente pide un acimut por encima de 360 dentro del rango mecánico (p. ej. 400 en un rotor de 450°), se respeta; si pide 0-360, el control elige el giro más corto que no pase por los topes.
 
-> Aviso para el firmware del tracker: el `\dump_state` de `include/rot_proto.h` del tracker responde con el formato antiguo sin la línea `done`. El cliente `netrotctl` de Hamlib 4.x espera las etiquetas `clave=valor` y `done` (ver `rigs/dummy/netrotctl.c`), así que GPredict con Hamlib reciente puede quedarse esperando. El rotor usa el formato correcto (`firmware/lib/RotorCore/src/rc_rotctld.h`); conviene copiar ese bloque al tracker.
+> El `\dump_state` de `include/rot_proto.h` del tracker daba el formato antiguo sin `done`, que el cliente `netrotctl` de Hamlib 4.x espera (`rotctl -m 2` se quedaba esperando; GPredict solo usa `P` / `p`). Corregido en la PR #3 del tracker y en la app.
 
 ## Pendiente en los otros repositorios
 
 - ~~App Android~~: hecho (pestaña **Rotor**, 2026-11-07): BLE o WiFi (4534), PIN, brújula, ir a, mover manteniendo pulsado, STOP, park, seguir al tracker (evento `rot`), calibración y configuración. Además el servidor rotctld del móvil ya responde `\dump_state` con el protocolo 1.
-- **Tracker**: transporte «LoRa APRS» para el rotor (mandar `P az el` al indicativo del rotor con paso e intervalo mínimos) y el `\dump_state` corregido.
+- ~~Tracker~~: `\dump_state` corregido y nuevas fuentes del rotor (última estación APRS oída, baliza CW con locator, estimación de estaciones en movimiento) en la PR #3 de APRS-LoRa-Plus. El transporte «LoRa APRS» desde el tracker se descarta: su radio está escuchando lo que sigue (satélite, APRS, CW) y emitir órdenes lo dejaría sordo; el control por APRS queda para mover el rotor a mano desde otra estación.

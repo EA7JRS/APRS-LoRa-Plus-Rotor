@@ -24,7 +24,7 @@ Controlador de rotores compatible con Hamlib, manejado por el tracker APRS LoRa+
 
 ## Protocolos
 - BLE: servicio `4c6f5261-2b00-4ea7-b000-000000000001`, órdenes `…0002`, eventos `…0003` (el tracker usa `…-a000-…`). JSON por líneas, PIN con `auth`, emparejamiento Just Works cifrado. Documento: `docs/CONTROL_PROTOCOL.md`.
-- rotctld: `\dump_state` con protocolo 1 (`clave=valor` y `done`), como Hamlib 4.x. El `rot_proto.h` del tracker usa el formato antiguo sin `done` (avisado a Manuel).
+- rotctld: `\dump_state` con protocolo 1 (`clave=valor` y `done`), como Hamlib 4.x. El tracker lo corrige en su PR #3.
 - APRS: destino `APZLRR` (experimental), `docs/APRS_CONTROL.md`.
 - G-5500: DIN pin 6 = AZ 2-4,5 V (0-450°), pin 1 = EL 2-4,5 V (0-180°), 2 CW, 4 CCW, 3 UP, 5 DOWN, 8 masa (manual de Yaesu). Divisor 10 k / 18 k.
 
@@ -32,7 +32,7 @@ Controlador de rotores compatible con Hamlib, manejado por el tracker APRS LoRa+
 - Núcleo probado en el PC; demonio de la Raspberry probado en el PC con un rotctld simulado y un TNC KISS simulado.
 - Firmware: compila en la CI; **sin probar en placas**. BLE en la Pico 2 W: pendiente (arduino-pico usa BTstack, otro API).
 - App Android: pestaña **Rotor** hecha (commit 8655fab de APRS-LoRa-Plus-Android, sin probar con una caja real).
-- Pendiente fuera de este repositorio: transporte LoRa APRS del rotor y `\dump_state` corregido en el tracker.
+- Tracker: PR #3 (rama `rotor-follow`): `\dump_state` corregido, fuentes 4 (última estación oída) y 5 (baliza CW con locator) y estimación de estaciones en movimiento; app con lo mismo (a4fa810). Transporte LoRa APRS desde el tracker descartado (su radio escucha lo que sigue).
 
 ## Cómo trabajar
 - No publicar releases ni tocar otros repositorios sin que lo pida Manuel.
