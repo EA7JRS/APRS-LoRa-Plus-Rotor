@@ -331,7 +331,7 @@ struct FakeHost : ApiHost {
     std::string applied;
     bool rebooted = false;
     Rotor& rotor() override { return r; }
-    void info(JsonObject o) override { o["dev"] = "APRS LoRa+ Rotor"; o["ver"] = "0.1.0"; }
+    void info(JsonObject o) override { o["dev"] = "APRS LoRa+ Rotor"; o["ver"] = "5.3.4"; }
     std::string configJson() override { return cfg; }
     bool applyConfig(const std::string& j, std::string& e) override { JsonDocument d; if (deserializeJson(d, j)) { e = "json"; return false; } applied = j; return true; }
     bool calibrate(const char*, const char*, double, std::string&) override { return true; }

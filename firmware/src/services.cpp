@@ -11,6 +11,9 @@
 #include "lora_aprs.h"
 #include "net.h"
 #include "bt.h"
+#if ROTOR_ESP32
+    #include <esp_ota_ops.h>
+#endif
 
 RotorApiHost ApiHost;
 
@@ -34,6 +37,7 @@ void ProtoPort::poll(Stream& s, RC::Rotor& rot) {
         buf[n++] = (uint8_t)c;
     }
     if (n == 0) return;
+    probe(s, buf, n);
     std::string out;
     switch (proto_) {
         case 0: case 1: gs_.feed((const char*)buf, n, rot, out); break;
@@ -43,6 +47,35 @@ void ProtoPort::poll(Stream& s, RC::Rotor& rot) {
         default: return;
     }
     if (!out.empty()) s.write((const uint8_t*)out.data(), out.size());
+}
+
+void ProtoPort::probe(Stream& s, const uint8_t* buf, int n) {
+    for (int i = 0; i < n; i++) {
+        const char c = (char)buf[i];
+        if (c == '\n' || c == '\r') {
+            if (probe_ == "APRS-INFO?") {
+                bool ota = false;
+            #if ROTOR_ESP32
+                ota = esp_ota_get_next_update_partition(nullptr) != nullptr;
+            #else
+                ota = ROTOR_HAS_WIFI != 0;
+            #endif
+            #if ROTOR_ESP32
+                const char* chip = CONFIG_IDF_TARGET;
+            #else
+                const char* chip = "rp2350";
+            #endif
+                char line[160];
+                snprintf(line, sizeof(line), "\r\nAPRS-LoRa-Plus: device=rotor board=%s version=%s chip=%s ota=%d\r\n", ROTOR_BOARD, ROTOR_VERSION, chip, ota ? 1 : 0);
+                s.print(line);
+            }
+            probe_.clear();
+        } else if (probe_.size() < 16 && c >= ' ' && c < 127) {
+            probe_ += c;
+        } else {
+            probe_.clear();
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------

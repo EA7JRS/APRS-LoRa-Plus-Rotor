@@ -12,8 +12,12 @@ static const char WEB_PAGE[] = R"HTML(<!DOCTYPE html>
 <style>
 :root{--bg:#10151c;--card:#19212b;--fg:#e6edf3;--mut:#8b98a5;--acc:#4aa3ff;--red:#ff5d5d;--ok:#3fb950}
 *{box-sizing:border-box}body{margin:0;font-family:system-ui,sans-serif;background:var(--bg);color:var(--fg)}
-header{padding:12px 16px;background:var(--card);display:flex;justify-content:space-between;align-items:center}
-header b{font-size:18px}header span{color:var(--mut);font-size:13px}
+/* Cabecera como la del tracker APRS LoRa+: logo, "APRS LoRa+" y debajo "Rotor" con la version */
+header{background:#b21d1d;border-bottom:1px solid rgba(0,0,0,.25);height:56px;display:flex;align-items:center;gap:10px;padding:0 16px;position:sticky;top:0;z-index:10}
+header .logo{height:40px;width:auto;flex-shrink:0}
+header .brand{font-weight:600;color:#fff;font-size:1.1rem;display:flex;flex-direction:column;line-height:1.1}
+header .brand-sub{font-weight:400;font-size:.68rem;opacity:.85;letter-spacing:.02em}
+header .right{margin-left:auto;color:#fff;opacity:.85;font-size:12px;text-align:right}
 main{max-width:980px;margin:auto;padding:12px;display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
 .c{background:var(--card);border-radius:10px;padding:14px}h3{margin:0 0 10px;font-size:15px;color:var(--mut);font-weight:600}
 .big{font-size:34px;font-variant-numeric:tabular-nums}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0}
@@ -24,7 +28,7 @@ input{width:90px}textarea{width:100%;height:320px;font-family:monospace;font-siz
 canvas{display:block;margin:auto;max-width:100%}.mut{color:var(--mut);font-size:13px}.f{font-weight:700}
 .okc{color:var(--ok)}.bad{color:var(--red)}
 </style></head><body>
-<header><b>APRS LoRa+ Rotor</b><span id="hdr"></span></header>
+<header><svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="25 15 890 985" role="img" aria-label="APRS LoRa+"><rect x="25" y="15" width="890" height="985" rx="60" fill="#000000"/><g id="ondas" fill="#19AE19" stroke="#19AE19" stroke-width="18" stroke-linejoin="round"><path d="M57.4 229.9 A551 551 0 0 1 881 229.9 L864.5 244.1 A529.2 529.2 0 0 0 73.9 244.1 Z"/><path d="M146.4 301.4 A437 437 0 0 1 792 301.4 L776.1 315.4 A415.8 415.8 0 0 0 162.3 315.4 Z"/><path d="M240.1 368.5 A322.9 322.9 0 0 1 698.3 368.5 L682.4 383.5 A301 301 0 0 0 256 383.5 Z"/></g><path id="pin" fill="#109110" stroke="#109110" stroke-width="18" stroke-linejoin="round" d="M179.3 421.3 A302 302 0 0 0 170.1 563.9 C173.6 544.2 161.1 718.2 467.5 975.3 C773.9 718.2 761.4 544.2 764.9 563.9 A302 302 0 0 0 756.3 423.1 L706.9 454.7 A246 246 0 1 1 228.6 452.8 Z"/><g id="lmas" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="9" stroke-linejoin="round"><path d="M350.7 397.9 L340.5 411.5 L340.5 623.8 L380.6 655.5 L547.7 655.5 L598.5 623.5 L598.5 615.5 L399.4 613.5 L386.5 591.2 L386.5 387.1 Z"/><path d="M554.7 385.8 L546.2 390.7 L540.1 446.8 L483.4 457.9 L478.9 471.5 L482.7 477.8 L534.8 483.9 L546.8 543.9 L565.9 546.3 L574.7 540.4 L579.9 489.3 L637.4 477.2 L641.1 463.9 L635.5 456.3 L585.3 451.1 L572.2 389.8 Z"/></g></svg><span class="brand"><span class="brand-name">APRS LoRa+</span><small class="brand-sub">Rotor <span class="ver" id="ver"></span></small></span><span class="right" id="hdr"></span></header>
 <main>
 <div class="c"><h3>Posición</h3>
 <canvas id="cmp" width="260" height="260"></canvas>
@@ -77,7 +81,7 @@ async function loadCfg(){const r=await api([{c:'cfgget'}]);$('cfg').value=JSON.s
 async function saveCfg(){let t;try{t=JSON.stringify(JSON.parse($('cfg').value))}catch(e){return alert('JSON no válido')}
 const n=Math.ceil(t.length/180),L=[];for(let i=0;i<n;i++)L.push({c:'cfgset',i,n,d:t.substr(i*180,180)});
 const r=await api(L);const e=r.find(x=>x.e=='err');alert(e?('Error: '+e.m):'Guardado. Reiniciando...')}
-async function info(){try{const r=await api([{c:'info'}]);const i=r[0];lim=i.lim;$('hdr').textContent=i.name+' · '+i.call+' · v'+i.ver;
+async function info(){try{const r=await api([{c:'info'}]);const i=r[0];lim=i.lim;$('ver').textContent=i.ver;$('hdr').textContent=i.name+' · '+i.call;
 $('info').textContent=`${i.board} (${i.chip}) · mando: ${i.drv} · IP ${i.ip} · rotctld ${i.rotctld||'off'} · rango AZ ${i.lim.minAz}–${i.lim.maxAz}, EL ${i.lim.minEl}–${i.lim.maxEl}`}catch(e){}}
 info();poll();setInterval(poll,1000);setInterval(raw,2000);
 </script></body></html>)HTML";

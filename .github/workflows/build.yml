@@ -46,6 +46,11 @@ jobs:
               run: pip install --upgrade platformio
             - name: Compilar
               run: cd firmware && pio run -e ${{ matrix.env }}
+            - name: Ficheros del instalador web (comprobacion)
+              run: |
+                  CHIP=$(case "${{ matrix.env }}" in esp32dev|ttgo-lora32-v21) echo esp32;; esp32s3|heltec_v3) echo esp32s3;; *) echo rp2350;; esac)
+                  APP0=$(find ~/.platformio/packages -path '*tools/partitions/boot_app0.bin' | head -n 1)
+                  python3 tools/make_web_assets.py board --board ${{ matrix.env }} --chip $CHIP --build-dir firmware/.pio/build/${{ matrix.env }} --boot-app0 "$APP0" --out web_site
             - uses: actions/upload-artifact@v4
               with:
                   name: firmware-${{ matrix.env }}

@@ -17,7 +17,9 @@ public:
     void setProto(int p) { proto_ = p; gs_.setModeB(p != 0); }
     void poll(Stream& s, RC::Rotor& rot);
 private:
+    void probe(Stream& s, const uint8_t* buf, int n);   // "APRS-INFO?" del instalador web: placa y version (en cualquier protocolo)
     int                  proto_ = 1;
+    std::string          probe_;
     RC::GS232::Server    gs_;
     RC::EasyComm::Server ec_;
     RC::Rot2Prog::Server r2p_;

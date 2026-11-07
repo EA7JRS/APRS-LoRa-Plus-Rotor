@@ -1,0 +1,87 @@
+# APRS LoRa+ Rotor - Copyright (C) 2026 Manuel - EA7JRS - GPL-3.0-or-later
+# Release: compila todas las placas, adjunta un .zip por placa y web-site-rotor.zip (ficheros del instalador web).
+# El instalador web es el del tracker (EA7JRS/APRS-LoRa-Plus, GitHub Pages): al publicar la release del tracker con la MISMA
+# version, su workflow descarga web-site-rotor.zip de aqui y lo pone en rotor/. Etiqueta = v + ROTOR_VERSION (p. ej. v5.3.4).
+name: Release
+
+on:
+    release:
+        types: [published]
+    workflow_dispatch:
+        inputs:
+            tag:
+                description: "Release ya creada a la que adjuntar los ficheros (p. ej. v5.3.4)"
+                required: true
+
+permissions:
+    contents: write
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                target:
+                    - { env: esp32dev, chip: esp32 }
+                    - { env: esp32s3, chip: esp32s3 }
+                    - { env: ttgo-lora32-v21, chip: esp32 }
+                    - { env: heltec_v3, chip: esp32s3 }
+                    - { env: pico2w, chip: rp2350 }
+                    - { env: pico2, chip: rp2350 }
+        env:
+            TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  ref: ${{ env.TAG }}
+            - uses: actions/setup-python@v5
+              with:
+                  python-version: "3.13"
+            - name: La etiqueta coincide con ROTOR_VERSION
+              run: |
+                  V=$(sed -n 's/#define ROTOR_VERSION "\([^"]*\)".*/\1/p' firmware/src/config.h)
+                  echo "ROTOR_VERSION=$V, etiqueta=$TAG"
+                  test "v$V" = "$TAG" || { echo "::error::La etiqueta $TAG no es v$V"; exit 1; }
+            - name: PlatformIO
+              run: pip install --upgrade platformio
+            - name: Compilar
+              run: cd firmware && pio run -e ${{ matrix.target.env }}
+            - name: Ficheros del instalador web
+              run: |
+                  B=firmware/.pio/build/${{ matrix.target.env }}
+                  APP0=$(find ~/.platformio/packages -path '*tools/partitions/boot_app0.bin' | head -n 1)
+                  python3 tools/make_web_assets.py board --board ${{ matrix.target.env }} --chip ${{ matrix.target.chip }} \
+                      --build-dir "$B" --boot-app0 "$APP0" --out web_site
+                  mkdir -p pkg && cp -r web_site/firmware/${{ matrix.target.env }} pkg/ && (cd pkg && zip -qr ../rotor-${{ matrix.target.env }}.zip .)
+            - uses: actions/upload-artifact@v4
+              with:
+                  name: web-${{ matrix.target.env }}
+                  path: web_site
+            - name: Adjuntar a la release
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: gh release upload "$TAG" rotor-${{ matrix.target.env }}.zip --clobber --repo "$GITHUB_REPOSITORY"
+
+    site:
+        needs: build
+        runs-on: ubuntu-latest
+        env:
+            TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  ref: ${{ env.TAG }}
+            - uses: actions/download-artifact@v4
+              with:
+                  pattern: web-*
+                  merge-multiple: true
+                  path: site
+            - name: latest.json y web-site-rotor.zip
+              run: |
+                  python3 tools/make_web_assets.py site --root site
+                  (cd site && zip -qr ../web-site-rotor.zip .)
+            - name: Adjuntar a la release
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: gh release upload "$TAG" web-site-rotor.zip --clobber --repo "$GITHUB_REPOSITORY"

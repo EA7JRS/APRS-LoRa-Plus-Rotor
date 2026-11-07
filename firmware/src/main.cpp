@@ -53,7 +53,7 @@ void setup() {
 
 void loop() {
     Drv::loop();
-    if (Cfg.usbProto != 5) usb.poll(Serial, Drv::rotor());
+    usb.poll(Serial, Drv::rotor());                     // con usb.proto 5 (registro) solo atiende la pregunta del instalador web
     Net::loop();
     Bt::loop();
     LoraAprs::loop();

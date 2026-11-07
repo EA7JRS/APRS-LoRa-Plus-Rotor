@@ -28,6 +28,14 @@ Controlador de rotores de antena **compatible con Hamlib** para el ecosistema **
 | USB como controlador de Hamlib | ✔ | ✔ | ✔ | ✔ | USB gadget (Zero 2 W) |
 | Actualización por la WebUI | placas de 8 MB | ✔ | ✔ | — | `git pull` + `install.sh` |
 
+## Versión
+
+Todos los repositorios del proyecto llevan **el mismo número de versión**: el rotor es la **5.3.4**, como el tracker APRS LoRa+ y la app Android. Se publican juntos.
+
+## Instalar
+
+**Instalador web** (Chrome o Edge, placa por USB): https://ea7jrs.github.io/APRS-LoRa-Plus/ → elige **Rotor** y tu placa. ESP32 y ESP32-S3 se instalan desde el navegador; para la Pico 2 / Pico 2 W descarga el `.uf2` y cópialo a la unidad que aparece al conectarla con BOOTSEL pulsado. El instalador reconoce la placa conectada y su versión (pregunta `APRS-INFO?` por USB).
+
 ## Firmware (ESP32, ESP32-S3, Pico 2)
 
 PlatformIO (VS Code):

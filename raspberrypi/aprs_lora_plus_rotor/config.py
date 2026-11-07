@@ -11,7 +11,7 @@ import os
 
 from .aprs import b32key
 
-VERSION = "0.1.0"
+from . import __version__ as VERSION
 MASK = "********"
 DEFAULT_PATH = "/etc/aprs-lora-plus-rotor/config.json"
 
