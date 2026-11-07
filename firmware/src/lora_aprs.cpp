@@ -68,7 +68,6 @@ namespace LoraAprs {
                 else                   st = ((SX1268*)r)->begin(Cfg.loraFreq, Cfg.loraBw, Cfg.loraSf, Cfg.loraCr, sync, Cfg.loraPower, 8, Cfg.loraTcxo);
                 if (st == RADIOLIB_ERR_NONE) {
                     r->setDio2AsRfSwitch(true);
-                    r->setCRC(true);
                     r->setPacketReceivedAction(onIrq);
                     phy = r;
                 }
@@ -81,7 +80,6 @@ namespace LoraAprs {
                 if (Cfg.loraChip == 3) st = ((SX1276*)r)->begin(Cfg.loraFreq, Cfg.loraBw, Cfg.loraSf, Cfg.loraCr, sync, Cfg.loraPower, 8, 0);
                 else                   st = ((SX1278*)r)->begin(Cfg.loraFreq, Cfg.loraBw, Cfg.loraSf, Cfg.loraCr, sync, Cfg.loraPower, 8, 0);
                 if (st == RADIOLIB_ERR_NONE) {
-                    r->setCRC(true);
                     r->setPacketReceivedAction(onIrq);
                     phy = r;
                 }
