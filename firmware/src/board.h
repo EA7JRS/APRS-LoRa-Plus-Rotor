@@ -17,6 +17,8 @@
     #endif
 #elif defined(ARDUINO_ARCH_RP2040)
     #define ROTOR_RP2 1
+    // Las cabeceras de WiFi de arduino-pico ocultan sobrecargas virtuales (aviso que -Werror convierte en error)
+    #pragma GCC diagnostic ignored "-Woverloaded-virtual"
 #else
     #error "Placa no soportada"
 #endif

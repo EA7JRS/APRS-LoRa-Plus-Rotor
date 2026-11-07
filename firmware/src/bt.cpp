@@ -16,7 +16,7 @@ namespace BtSpp { void begin(); void loop(); bool connected(); }
 
 namespace Bt {
 
-    static int mode = 0;   // modo que de verdad se ha arrancado
+    [[maybe_unused]] static int mode = 0;   // modo que de verdad se ha arrancado
 
     void begin() {
     #if ROTOR_HAS_BLE
