@@ -1,0 +1,18 @@
+# APRS LoRa+ Rotor - Copyright (C) 2026 Manuel - EA7JRS - GPL-3.0-or-later
+[Unit]
+Description=APRS LoRa+ Rotor (rotctld de Hamlib + tracker / app APRS LoRa+)
+After=network-online.target bluetooth.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 -m aprs_lora_plus_rotor.main -c /etc/aprs-lora-plus-rotor/config.json
+WorkingDirectory=/opt/aprs-lora-plus-rotor
+Environment=PYTHONUNBUFFERED=1
+Restart=always
+RestartSec=2
+# Puertos serie del rotor (dialout) y Bluetooth (bluetooth)
+SupplementaryGroups=dialout bluetooth
+
+[Install]
+WantedBy=multi-user.target

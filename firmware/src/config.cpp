@@ -15,18 +15,18 @@ namespace Config {
 
     void defaults(RotorConfig& c) {
         c = RotorConfig();
-        // Acimut: Yaesu G-5500 / G-450 (450 grados, tope a la izquierda en el norte); calibracion orientativa (0-3,3 V)
+        // Yaesu G-5500 / G-5500DC: el mando da 2-4,5 V por el DIN (acimut 0-450, elevacion 0-180). Con el divisor de
+        // docs/HARDWARE.md (10 k / 18 k, factor 0,643) llegan 1,286-2,893 V a la placa. Se afina luego con "Punto A / B".
         c.az.minDeg = 0;  c.az.maxDeg = 450;
-        c.az.rawA = 0;    c.az.degA = 0;
-    #if ROTOR_ESP32
-        c.az.rawB = 3000; c.el.rawB = 3000;        // milivoltios
-    #else
-        c.az.rawB = 3723; c.el.rawB = 3723;        // cuentas (3,0 V de 3,3 V)
-    #endif
-        c.az.degB = 450;
         c.el.minDeg = 0;  c.el.maxDeg = 180;
-        c.el.rawA = 0;    c.el.degA = 0;
-        c.el.degB = 180;
+    #if ROTOR_ESP32
+        c.az.rawA = 1286; c.az.rawB = 2893;        // milivoltios
+    #else
+        c.az.rawA = 1596; c.az.rawB = 3590;        // cuentas de 12 bits con referencia de 3,3 V
+    #endif
+        c.el.rawA = c.az.rawA; c.el.rawB = c.az.rawB;
+        c.az.degA = 0; c.az.degB = 450;
+        c.el.degA = 0; c.el.degB = 180;
         c.azPins.pinA = DEF_AZ_CW;   c.azPins.pinB = DEF_AZ_CCW;  c.azPins.adcPin = DEF_AZ_ADC; c.azPins.adsChannel = 0;
         c.elPins.pinA = DEF_EL_UP;   c.elPins.pinB = DEF_EL_DOWN; c.elPins.adcPin = DEF_EL_ADC; c.elPins.adsChannel = 1;
         c.aprs.callsign = "N0CALL-12";

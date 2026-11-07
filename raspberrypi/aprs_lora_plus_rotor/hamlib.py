@@ -97,7 +97,7 @@ class HamlibRotor(Rotor):
         self.max_az = float(lim.get("maxAz") if lim.get("maxAz") is not None else 360)
         self.min_el = float(lim.get("minEl") if lim.get("minEl") is not None else 0)
         self.max_el = float(lim.get("maxEl") if lim.get("maxEl") is not None else 90)
-        self.has_el = bool(cfg.get("hasEl", True))
+        self.has_el = True if cfg.get("hasEl") is None else bool(cfg["hasEl"])
 
     # ---- interfaz Rotor -------------------------------------------------------------------------------------------------
     def set_pos(self, az: float, el: float) -> bool:
