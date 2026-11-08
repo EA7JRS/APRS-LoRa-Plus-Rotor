@@ -8,7 +8,7 @@ Repositorio: `EA7JRS/APRS-LoRa-Plus-Rotor` (privado, creado por Manuel el 2026-1
 Controlador de rotores compatible con Hamlib, manejado por el tracker APRS LoRa+, la app Android y cualquier programa con Hamlib.
 
 ## Decisiones (Manuel, 2026-11-07)
-- Placas: **ESP32 y ESP32-S3**, **Raspberry Pi Pico 2 / Pico 2 W** (RP2350, pedido después) y **Raspberry Pi** (Zero 2 W, 3, 4, 5).
+- Placas: **ESP32 y ESP32-S3**, **Raspberry Pi Pico 2 / Pico 2 W** (RP2350, pedido después), **Raspberry Pi** (Zero 2 W, 3, 4, 5) y **Waveshare ESP32-C5-Touch-LCD-3.5** (pedida 2026-11-08; Manuel eligió «rotor con pantalla»).
 - ESP32 / Pico: **control directo** (relés / puente H + potenciómetro por ADC o ADS1115) **y pasarela serie** a un controlador comercial (GS-232A/B, Rot2Prog, EasyComm II).
 - Raspberry Pi: **rotctld real de Hamlib + demonio Python** (cualquier modelo de Hamlib).
 - Enlaces: **rotctld TCP por WiFi**, **BLE propio** (protocolo JSON, para la app), **Bluetooth SPP GS-232** (tracker con ESP32 original) y **rotor por LoRa/APRS** (mensajes `P az el` con lista de indicativos y TOTP opcional).
@@ -17,10 +17,18 @@ Controlador de rotores compatible con Hamlib, manejado por el tracker APRS LoRa+
 ## Estructura
 - `firmware/lib/RotorCore/src/`: núcleo C++ puro, sin Arduino (`rc_rotctld.h`, `rc_serialproto.h`, `rc_control.h`, `rc_aprs.h`, `rc_api.h`). Pruebas: `firmware/test_host` (`make run ARDUINOJSON=…/ArduinoJson/src`; 168 comprobaciones).
 - `firmware/src/`: `board` (capa ESP32 / RP2350), `config` (LittleFS `/rotor_conf.json`), `drivers` (directo + pasarela), `services` (puerto serie con protocolo, anfitrión JSON), `net` (WiFi, rotctld 4533, JSON 4534, WebUI 80, OTA `/update`, mDNS), `bt_ble` (NimBLE), `bt_spp`, `lora_aprs` (RadioLib, emisión sin bloquear), `web_page.h` (la WebUI; la Raspberry la usa también).
-- Entornos: `esp32dev`, `esp32s3`, `ttgo-lora32-v21`, `heltec_v3`, `pico2w`, `pico2`. Versiones como el tracker: espressif32 8.0.0, NimBLE 2.5.2, RadioLib 7.8.1, ArduinoJson 7.4.3; RP2350 con maxgerhardt/platform-raspberrypi (arduino-pico). `-Werror` solo en `src` (`build_src_flags`).
+- Entornos: `esp32dev`, `esp32s3`, `ttgo-lora32-v21`, `heltec_v3`, `waveshare_c5_lcd35`, `pico2w`, `pico2`. Versiones como el tracker: espressif32 8.0.0, NimBLE 2.5.2, RadioLib 7.8.1, ArduinoJson 7.4.3; RP2350 con maxgerhardt/platform-raspberrypi (arduino-pico). `-Werror` solo en `src` (`build_src_flags`).
 - ESP32 de 4 MB: partición `huge_app.csv` (BLE + SPP + WiFi no caben con OTA): sin OTA por la WebUI.
 - `raspberrypi/aprs_lora_plus_rotor/`: demonio asyncio (stdlib + `python3-dbus-next` para BLE/SPP): `hamlib.py` (arranca y vigila `rotctld` en 127.0.0.1:4535 y es su cliente), `protocols.py`, `api.py`, `aprs.py`, `kiss.py`, `bluez.py`, `web.py`, `serialport.py` (termios), `main.py`. Pruebas: `python3 -m unittest discover -s tests` (incluye un rotctld simulado).
 - CI: `.github/workflows/build.yml` (pruebas del núcleo, pruebas Python y las 6 placas; binarios como artefactos).
+
+## Waveshare ESP32-C5-Touch-LCD-3.5 (`waveshare_c5_lcd35`, 2026-11-08)
+- Plataforma **pioarduino** 55.03.312-1 (Arduino 3.3.12 como espressif32 8.0.0, que no trae el C5), placa `esp32-c5-devkitc1-n8r4` con 16 MB (`default_16MB.csv`). Sin Bluetooth clásico (no SPP) ni LoRa.
+- Expansor CH32V en I2C 0x24 (`exio.cpp`; SDA 27, SCL 26, compartido con FT6336, ADS1115, RTC, IMU, PMU): EXIO0 reset táctil, EXIO1 reset LCD, EXIO5 amplificador, registro 0x05 = brillo. Pines virtuales: **100-115 = EXIOn**, **200 = EXIO_ADC** (`Board::pinOutput`, `digitalOut`, `readAdc`). Por defecto relés en EXIO8-11 (conector J3 pines 6-12), potenciómetro AZ en EXIO_ADC, elevación apagada (necesita ADS1115), pasarela por U0TXD/U0RXD (GPIO11/12, `Serial1`: el C5 tiene dos UART).
+- Pantalla (`lcd_gfx.h`, `lcd_ui.h` sin Arduino; `lcd_hw.cpp` con ST7796 por SPI 40 MHz, MOSI 7, SCLK 6, CS 8, DC 5, CS de la microSD 9 arriba): dos imágenes de 320×480 en PSRAM, solo se mandan las franjas de 16 filas que cambian (3 por vuelta del bucle). Mando (brújula, AZ/EL, CCW/STOP/CW/DOWN/PARK/UP, apuntar manteniendo la brújula 0,5 s), información y Acerca de. `lcd.bright`, `lcd.dimS`; `caps.lcd`.
+- Fuentes (DejaVu, `NOTICE_FONTS.md`) y logo generados por `tools/make_lcd_assets.py` (necesita rsvg-convert). Prueba en PC: `test_host/lcd_preview` (24 comprobaciones; PPM en `lcd_out/`).
+- Instalador web: ESP32-C5 necesita ESP Web Tools ≥ 10.2 (el tracker pasa a 10.4.0 en el PR #3); cargador en 0x2000.
+- Sin probar en la placa (orientación del táctil, formato de 16 bits del expansor: Waveshare tiene ejemplos con CH32V006 de 16 pines y CH32V003 de 8).
 
 ## Protocolos
 - BLE: servicio `4c6f5261-2b00-4ea7-b000-000000000001`, órdenes `…0002`, eventos `…0003` (el tracker usa `…-a000-…`). JSON por líneas, PIN con `auth`, emparejamiento Just Works cifrado. Documento: `docs/CONTROL_PROTOCOL.md`.

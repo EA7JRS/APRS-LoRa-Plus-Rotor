@@ -18,6 +18,10 @@ Se edita entera desde la WebUI (*Configuración*) o la app (`cfgget` / `cfgset`)
 | `bt.sppProto` | 1 | protocolo del SPP (como `usb.proto`, 0-4) |
 | `driver` | 0 | 0 control directo, 1 pasarela serie |
 | `led` | según placa | LED de estado: fijo moviéndose, parpadeo rápido con fallo |
+| `lcd.bright` | 80 | brillo de la pantalla táctil, 10-100 % (solo placas con pantalla; también desde la pantalla de información) |
+| `lcd.dimS` | 300 | segundos sin tocar la pantalla hasta bajar el brillo al 10 % (0 = nunca); el primer toque solo la enciende |
+
+**Pines del expansor** (Waveshare ESP32-C5-Touch-LCD-3.5): `100`-`115` son EXIO0-EXIO15 del expansor CH32V (en el conector, EXIO8-EXIO15; solo salidas de nivel, sin PWM: `outMode` 0) y `200` es EXIO_ADC (lectura en cuentas). Ver [WAVESHARE_C5_LCD35.md](WAVESHARE_C5_LCD35.md).
 
 ## `direct` (control directo)
 

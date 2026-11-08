@@ -2,7 +2,7 @@
 
 Controlador de rotores de antena **compatible con Hamlib** para el ecosistema **APRS LoRa+**: lo manejan el [tracker APRS LoRa+](https://github.com/EA7JRS/APRS-LoRa-Plus), la app Android APRS LoRa+ y cualquier programa con Hamlib (GPredict, Look4Sat, PstRotator…).
 
-**Placas**: ESP32, ESP32-S3 (incluidas TTGO LoRa32 V2.1 y Heltec V3 con LoRa), Raspberry Pi Pico 2 / Pico 2 W y Raspberry Pi (Zero 2 W, 3, 4, 5).
+**Placas**: ESP32, ESP32-S3 (incluidas TTGO LoRa32 V2.1 y Heltec V3 con LoRa), **Waveshare ESP32-C5-Touch-LCD-3.5** (con pantalla táctil: mando del rotor en la propia caja), Raspberry Pi Pico 2 / Pico 2 W y Raspberry Pi (Zero 2 W, 3, 4, 5).
 
 ```
                        ┌──────────────── APRS LoRa+ Rotor ────────────────┐
@@ -17,16 +17,17 @@ Controlador de rotores de antena **compatible con Hamlib** para el ecosistema **
 
 ## Qué hace cada placa
 
-| | ESP32 | ESP32-S3 | Pico 2 W | Pico 2 | Raspberry Pi |
-|---|---|---|---|---|---|
-| Control directo (relés / puente H, ADC / ADS1115) | ✔ | ✔ | ✔ | ✔ | — |
-| Pasarela serie a un controlador | ✔ | ✔ | ✔ | ✔ | ✔ (rotctld de Hamlib: todos los modelos) |
-| rotctld por WiFi, JSON por TCP, WebUI | ✔ | ✔ | ✔ | — | ✔ |
-| BLE para la app | ✔ | ✔ | pendiente | — | ✔ |
-| SPP (GS-232) para el tracker | ✔ | — | ✔ | — | ✔ |
-| LoRa APRS | con módulo (LoRa32 V2.1 integrado) | con módulo (Heltec V3 integrado) | HAT SX1262 | HAT SX1262 | por TNC KISS |
-| USB como controlador de Hamlib | ✔ | ✔ | ✔ | ✔ | USB gadget (Zero 2 W) |
-| Actualización por la WebUI | placas de 8 MB | ✔ | ✔ | — | `git pull` + `install.sh` |
+| | ESP32 | ESP32-S3 | ESP32-C5 LCD 3,5" | Pico 2 W | Pico 2 | Raspberry Pi |
+|---|---|---|---|---|---|---|
+| Control directo (relés / puente H, ADC / ADS1115) | ✔ | ✔ | relés (EXIO8-15) + EXIO_ADC / ADS1115 | ✔ | ✔ | — |
+| Pasarela serie a un controlador | ✔ | ✔ | ✔ (U0TXD / U0RXD) | ✔ | ✔ | ✔ (rotctld de Hamlib: todos los modelos) |
+| rotctld por WiFi, JSON por TCP, WebUI | ✔ | ✔ | ✔ (WiFi 2,4 y 5 GHz) | ✔ | — | ✔ |
+| BLE para la app | ✔ | ✔ | ✔ | pendiente | — | ✔ |
+| SPP (GS-232) para el tracker | ✔ | — | — | ✔ | — | ✔ |
+| LoRa APRS | con módulo (LoRa32 V2.1 integrado) | con módulo (Heltec V3 integrado) | — | HAT SX1262 | HAT SX1262 | por TNC KISS |
+| Pantalla táctil (mando local) | — | — | ✔ | — | — | — |
+| USB como controlador de Hamlib | ✔ | ✔ | ✔ | ✔ | ✔ | USB gadget (Zero 2 W) |
+| Actualización por la WebUI | placas de 8 MB | ✔ | ✔ | ✔ | — | `git pull` + `install.sh` |
 
 ## Versión
 
@@ -34,15 +35,15 @@ Todos los repositorios del proyecto llevan **el mismo número de versión**: el 
 
 ## Instalar
 
-**Instalador web** (Chrome o Edge, placa por USB): https://ea7jrs.github.io/APRS-LoRa-Plus/ → elige **Rotor** y tu placa. ESP32 y ESP32-S3 se instalan desde el navegador; para la Pico 2 / Pico 2 W descarga el `.uf2` y cópialo a la unidad que aparece al conectarla con BOOTSEL pulsado. El instalador reconoce la placa conectada y su versión (pregunta `APRS-INFO?` por USB).
+**Instalador web** (Chrome o Edge, placa por USB): https://ea7jrs.github.io/APRS-LoRa-Plus/ → elige **Rotor** y tu placa. ESP32, ESP32-S3 y ESP32-C5 se instalan desde el navegador; para la Pico 2 / Pico 2 W descarga el `.uf2` y cópialo a la unidad que aparece al conectarla con BOOTSEL pulsado. El instalador reconoce la placa conectada y su versión (pregunta `APRS-INFO?` por USB).
 
-## Firmware (ESP32, ESP32-S3, Pico 2)
+## Firmware (ESP32, ESP32-S3, ESP32-C5, Pico 2)
 
 PlatformIO (VS Code):
 
 ```sh
 cd firmware
-pio run -e esp32s3 -t upload          # esp32dev · esp32s3 · ttgo-lora32-v21 · heltec_v3 · pico2w · pico2
+pio run -e esp32s3 -t upload          # esp32dev · esp32s3 · ttgo-lora32-v21 · heltec_v3 · waveshare_c5_lcd35 · pico2w · pico2
 ```
 
 En la Pico 2 se puede copiar `firmware.uf2` arrastrándolo con BOOTSEL pulsado. La CI de GitHub compila todas las placas en cada subida y deja los binarios como artefactos.
@@ -60,6 +61,7 @@ Ver [docs/RASPBERRY_PI.md](docs/RASPBERRY_PI.md).
 ## Documentación
 
 - [docs/HARDWARE.md](docs/HARDWARE.md): pines, Yaesu G-5500 por el DIN, transistores, divisores, pasarela serie
+- [docs/WAVESHARE_C5_LCD35.md](docs/WAVESHARE_C5_LCD35.md): placa con pantalla táctil (conector, relés, potenciómetro, pantalla)
 - [docs/CONFIG.md](docs/CONFIG.md): todas las opciones de las placas
 - [docs/CONTROL_PROTOCOL.md](docs/CONTROL_PROTOCOL.md): protocolo JSON (BLE, TCP, WebUI) para la app
 - [docs/APRS_CONTROL.md](docs/APRS_CONTROL.md): mover el rotor con mensajes APRS por LoRa, con código TOTP
@@ -69,9 +71,9 @@ Ver [docs/RASPBERRY_PI.md](docs/RASPBERRY_PI.md).
 ## Estructura
 
 ```
-firmware/                    PlatformIO: ESP32, ESP32-S3, RP2350
+firmware/                    PlatformIO: ESP32, ESP32-S3, ESP32-C5, RP2350
   lib/RotorCore/src/         núcleo en C++ puro (rotctld, GS-232, EasyComm, Rot2Prog, control, APRS, JSON)
-  test_host/                 pruebas del núcleo en el PC (make run)
+  test_host/                 pruebas del núcleo y de la pantalla táctil en el PC (make run)
   src/                       placa, configuración, mando, red, Bluetooth, LoRa, WebUI
 raspberrypi/                 demonio en Python (asyncio, sin dependencias salvo dbus-next para Bluetooth)
 docs/
@@ -83,3 +85,4 @@ Pruebas: `make -C firmware/test_host run ARDUINOJSON=/ruta/ArduinoJson/src` y `c
 
 GPL-3.0-or-later. Copyright (C) 2026 Manuel - EA7JRS.
 Formatos de los protocolos tomados del código de [Hamlib](https://github.com/Hamlib/Hamlib) (GS-232A/B, SPID, EasyComm, rotctld).
+Pantalla: secuencia del ST7796 y registros del expansor tomados de los ejemplos de Waveshare; letras de DejaVu Sans ([firmware/src/NOTICE_FONTS.md](firmware/src/NOTICE_FONTS.md)).
