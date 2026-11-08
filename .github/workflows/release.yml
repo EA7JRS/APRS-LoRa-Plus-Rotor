@@ -45,10 +45,23 @@ jobs:
                   V=$(sed -n 's/#define ROTOR_VERSION "\([^"]*\)".*/\1/p' firmware/src/config.h)
                   echo "ROTOR_VERSION=$V, etiqueta=$TAG"
                   test "v$V" = "$TAG" || { echo "::error::La etiqueta $TAG no es v$V"; exit 1; }
+            - uses: actions/cache/restore@v4
+              with:
+                  path: |
+                      ~/.platformio/.cache
+                      ~/.platformio/packages
+                      ~/.platformio/platforms
+                  key: pio-${{ matrix.target.env }}-${{ hashFiles('firmware/platformio.ini') }}
             - name: PlatformIO
               run: pip install --upgrade platformio
-            - name: Compilar
-              run: cd firmware && pio run -e ${{ matrix.target.env }}
+            - name: Compilar con reintentos (las descargas de GitHub dan 504 a veces)
+              run: |
+                  cd firmware
+                  for i in 1 2 3 4 5; do
+                      pio run -e ${{ matrix.target.env }} && exit 0
+                      echo "Intento $i fallido"; sleep 30
+                  done
+                  exit 1
             - name: Ficheros del instalador web
               run: |
                   B=firmware/.pio/build/${{ matrix.target.env }}
