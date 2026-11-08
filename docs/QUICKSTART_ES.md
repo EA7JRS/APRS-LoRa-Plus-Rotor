@@ -12,6 +12,7 @@ Controlador de rotores de antena compatible con Hamlib. Lo manejan el tracker AP
 | ESP32-S3 DevKitC-1 (`esp32s3`) | Control directo o pasarela, BLE para la app |
 | Waveshare ESP32-C5-Touch-LCD-3.5 (`waveshare_c5_lcd35`) | Caja con pantalla táctil de 3,5" (WiFi 2,4 y 5 GHz) |
 | Waveshare ESP32-S3-Touch-AMOLED-2.41 (`waveshare_s3_amoled241`) | Caja con pantalla AMOLED apaisada |
+| Waveshare ESP32-S3-Touch-LCD-7B (`waveshare_s3_lcd7b`) | Caja con pantalla de 7" (la de APRS LoRa+ Display); relés por una placa PCF8574 en el I2C |
 | Raspberry Pi Pico 2 W / Pico 2 (`pico2w`, `pico2`) | Control directo o pasarela; LoRa con el HAT SX1262 |
 | Raspberry Pi (Zero 2 W, 3, 4, 5) | Cualquier rotor de Hamlib por su controlador (ver el manual) |
 

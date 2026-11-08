@@ -4,7 +4,7 @@ Controlador de rotores de antena **compatible con Hamlib** para el ecosistema **
 
 **Manual**: [español](docs/MANUAL_ES.md) · [English](docs/MANUAL_EN.md) · **Guía rápida / Quick start**: [ES](docs/QUICKSTART_ES.md) · [EN](docs/QUICKSTART_EN.md)
 
-**Placas**: ESP32, ESP32-S3, **Waveshare ESP32-C5-Touch-LCD-3.5** y **ESP32-S3-Touch-AMOLED-2.41** (con pantalla táctil: mando del rotor en la propia caja), Raspberry Pi Pico 2 / Pico 2 W y Raspberry Pi (Zero 2 W, 3, 4, 5).
+**Placas**: ESP32, ESP32-S3, **Waveshare ESP32-C5-Touch-LCD-3.5**, **ESP32-S3-Touch-AMOLED-2.41** y **ESP32-S3-Touch-LCD-7B** (con pantalla táctil: mando del rotor en la propia caja), Raspberry Pi Pico 2 / Pico 2 W y Raspberry Pi (Zero 2 W, 3, 4, 5).
 
 ```
                        ┌──────────────── APRS LoRa+ Rotor ────────────────┐
@@ -20,18 +20,18 @@ Controlador de rotores de antena **compatible con Hamlib** para el ecosistema **
 
 ## Qué hace cada placa
 
-| | ESP32 | ESP32-S3 | ESP32-C5 LCD 3,5" | ESP32-S3 AMOLED 2,41" | Pico 2 W | Pico 2 | Raspberry Pi |
-|---|---|---|---|---|---|---|---|
-| Control directo (relés / puente H, ADC / ADS1115) | ✔ | ✔ | relés (EXIO8-15) + EXIO_ADC / ADS1115 | ✔ | ✔ | ✔ | — |
-| Pasarela serie a un controlador | ✔ | ✔ | ✔ (U0TXD / U0RXD) | ✔ (TXD / RXD) | ✔ | ✔ | ✔ (rotctld de Hamlib: todos los modelos) |
-| rotctld por WiFi, JSON por TCP, WebUI | ✔ | ✔ | ✔ (WiFi 2,4 y 5 GHz) | ✔ | ✔ | — | ✔ |
-| BLE para la app | ✔ | ✔ | ✔ | ✔ | pendiente | — | ✔ |
-| SPP (GS-232) para el tracker | ✔ | — | — | — | ✔ | — | ✔ |
-| LoRa APRS | con módulo SX127x / SX126x | con módulo SX127x / SX126x | — | — | HAT SX1262 | HAT SX1262 | por TNC KISS |
-| Pantalla táctil (mando local) | — | — | ✔ (vertical) | ✔ (apaisada) | — | — | — |
-| USB como controlador de Hamlib | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | USB gadget (Zero 2 W) |
-| CAT de emisora / SDR (CI-V, Yaesu, Kenwood, SDRconnect, rigctl) + rigctld 4532 | ✔ | ✔ | ✔ (UART compartida con la pasarela) | ✔ | ✔ | UART | ✔ (rigctld de Hamlib: todas las emisoras) |
-| Actualización por la WebUI | placas de 8 MB | ✔ | ✔ | ✔ | ✔ | — | `git pull` + `install.sh` |
+| | ESP32 | ESP32-S3 | ESP32-C5 LCD 3,5" | ESP32-S3 AMOLED 2,41" | ESP32-S3 LCD 7" | Pico 2 W | Pico 2 | Raspberry Pi |
+|---|---|---|---|---| --- |---|---|---|
+| Control directo (relés / puente H, ADC / ADS1115) | ✔ | ✔ | relés (EXIO8-15) + EXIO_ADC / ADS1115 | ✔ | relés por PCF8574 (I2C) + GPIO6 / ADS1115 | ✔ | ✔ | — |
+| Pasarela serie a un controlador | ✔ | ✔ | ✔ (U0TXD / U0RXD) | ✔ (TXD / RXD) | ✔ (conector UART) | ✔ | ✔ | ✔ (rotctld de Hamlib: todos los modelos) |
+| rotctld por WiFi, JSON por TCP, WebUI | ✔ | ✔ | ✔ (WiFi 2,4 y 5 GHz) | ✔ | ✔ | ✔ | — | ✔ |
+| BLE para la app | ✔ | ✔ | ✔ | ✔ | ✔ | pendiente | — | ✔ |
+| SPP (GS-232) para el tracker | ✔ | — | — | — | — | ✔ | — | ✔ |
+| LoRa APRS | con módulo SX127x / SX126x | con módulo SX127x / SX126x | — | — | — | HAT SX1262 | HAT SX1262 | por TNC KISS |
+| Pantalla táctil (mando local) | — | — | ✔ (vertical) | ✔ (apaisada) | ✔ (7", apaisada) | — | — | — |
+| USB como controlador de Hamlib | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | USB gadget (Zero 2 W) |
+| CAT de emisora / SDR (CI-V, Yaesu, Kenwood, SDRconnect, rigctl) + rigctld 4532 | ✔ | ✔ | ✔ (UART compartida con la pasarela) | ✔ | ✔ (UART compartida con la pasarela) | ✔ | UART | ✔ (rigctld de Hamlib: todas las emisoras) |
+| Actualización por la WebUI | placas de 8 MB | ✔ | ✔ | ✔ | ✔ | ✔ | — | `git pull` + `install.sh` |
 
 ## Versión
 
@@ -47,7 +47,7 @@ PlatformIO (VS Code):
 
 ```sh
 cd firmware
-pio run -e esp32s3 -t upload          # esp32dev · esp32s3 · waveshare_c5_lcd35 · waveshare_s3_amoled241 · pico2w · pico2
+pio run -e esp32s3 -t upload          # esp32dev · esp32s3 · waveshare_c5_lcd35 · waveshare_s3_amoled241 · waveshare_s3_lcd7b · pico2w · pico2
 ```
 
 En la Pico 2 se puede copiar `firmware.uf2` arrastrándolo con BOOTSEL pulsado. La CI de GitHub compila todas las placas en cada subida y deja los binarios como artefactos.
@@ -69,6 +69,7 @@ Ver [docs/RASPBERRY_PI.md](docs/RASPBERRY_PI.md).
 - [docs/HARDWARE.md](docs/HARDWARE.md): pines, Yaesu G-5500 por el DIN, transistores, divisores, pasarela serie
 - [docs/WAVESHARE_C5_LCD35.md](docs/WAVESHARE_C5_LCD35.md): placa con pantalla táctil (conector, relés, potenciómetro, pantalla)
 - [docs/WAVESHARE_S3_AMOLED241.md](docs/WAVESHARE_S3_AMOLED241.md): placa con pantalla AMOLED apaisada
+- [docs/WAVESHARE_S3_LCD7B.md](docs/WAVESHARE_S3_LCD7B.md): placa con pantalla de 7" (la de APRS LoRa+ Display): relés por PCF8574, potenciómetro en el conector Sensor
 - [docs/CAT.md](docs/CAT.md): emisoras (Icom, Yaesu, Kenwood / Elecraft) y receptores SDR (SDRplay RSPdx-R2 con SDRconnect, SDR++, gqrx): conexión, Doppler, CTCSS, PTT, rigctld
 - [docs/CONFIG.md](docs/CONFIG.md): todas las opciones de las placas
 - [docs/CONTROL_PROTOCOL.md](docs/CONTROL_PROTOCOL.md): protocolo JSON (BLE, TCP, WebUI) para la app

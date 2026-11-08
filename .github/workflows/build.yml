@@ -29,7 +29,7 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                env: [esp32dev, esp32s3, waveshare_c5_lcd35, waveshare_s3_amoled241, pico2w, pico2]
+                env: [esp32dev, esp32s3, waveshare_c5_lcd35, waveshare_s3_amoled241, waveshare_s3_lcd7b, pico2w, pico2]
         steps:
             - uses: actions/checkout@v4
             - uses: actions/setup-python@v5
@@ -48,7 +48,7 @@ jobs:
               run: cd firmware && pio run -e ${{ matrix.env }}
             - name: Ficheros del instalador web (comprobacion)
               run: |
-                  CHIP=$(case "${{ matrix.env }}" in esp32dev) echo esp32;; esp32s3|waveshare_s3_amoled241) echo esp32s3;; waveshare_c5_lcd35) echo esp32c5;; *) echo rp2350;; esac)
+                  CHIP=$(case "${{ matrix.env }}" in esp32dev) echo esp32;; esp32s3|waveshare_s3_amoled241|waveshare_s3_lcd7b) echo esp32s3;; waveshare_c5_lcd35) echo esp32c5;; *) echo rp2350;; esac)
                   APP0=$(find ~/.platformio/packages -path '*tools/partitions/boot_app0.bin' | head -n 1)
                   python3 tools/make_web_assets.py board --board ${{ matrix.env }} --chip $CHIP --build-dir firmware/.pio/build/${{ matrix.env }} --boot-app0 "$APP0" --out web_site
             - uses: actions/upload-artifact@v4

@@ -68,6 +68,7 @@ struct RotorConfig {
     int         pwmFreq = 1000;
     int         i2cSda = DEF_I2C_SDA, i2cScl = DEF_I2C_SCL;
     int         adsAddr = 0x48;
+    int         pcfAddr = 0x20;             // PCF8574 de una placa de relés en el I2C (pines 120-127)
     int         adsGain = 1;                // 0: +-6,144 V  1: +-4,096 V  2: +-2,048 V
     double      parkAz = 0, parkEl = 0;
     bool        reportMech = false;

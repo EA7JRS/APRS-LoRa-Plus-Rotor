@@ -112,6 +112,7 @@ namespace Board {
     const char* chip();                         // "ESP32", "ESP32-S3", "RP2350"...
     void        reboot();
     double      readAdc(int pin);               // ESP32: milivoltios calibrados; RP2350 y EXIO_ADC (pin 200): cuentas. NAN si el pin no vale
+    bool        i2cBegin();                     // I2C de la configuración (o el del expansor), una sola vez
     void        pinOutput(int pin);             // pinMode(OUTPUT) o, con expansor, EXIOn (pines 100-115) como salida
     bool        adcIsCounts(int pin);           // la lectura va en cuentas del ADC (no en milivoltios)
     void        pwmAttach(int pin, int freq);

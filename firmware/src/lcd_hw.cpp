@@ -24,6 +24,7 @@
 
 // Pantallas: 1 = ST7796 por SPI, 320 x 480 vertical (ESP32-C5-Touch-LCD-3.5)
 //            2 = RM690B0 AMOLED por QSPI, 600 x 450 apaisada (ESP32-S3-Touch-AMOLED-2.41)
+//            3 = panel RGB de 16 bits, 1024 x 600 apaisada, táctil GT911 (ESP32-S3-Touch-LCD-7B)
 #ifndef LCD_PANEL
     #define LCD_PANEL 1
 #endif
@@ -52,6 +53,18 @@
     #endif
     #define LCD_Y_OFFSET 16             // la memoria del panel empieza 16 filas más abajo (ejemplo de Waveshare)
     #define LCD_DIM_PCT 0               // AMOLED: sin uso se apaga (evita marcas en la pantalla)
+#elif LCD_PANEL == 3
+    #include <esp_lcd_panel_ops.h>
+    #include <esp_lcd_panel_rgb.h>
+    #define LCD_W 1024
+    #define LCD_H 600
+    #define LCD_DIM_PCT 10
+    #ifndef LCD_PCLK_HZ
+        #define LCD_PCLK_HZ 30000000    // el del ejemplo de Waveshare; bajarlo (p. ej. 21 MHz) si la imagen tiembla
+    #endif
+    #ifndef LCD_TP_INT
+        #define LCD_TP_INT 4
+    #endif
 #else
     #define LCD_W 320
     #define LCD_H 480
@@ -82,7 +95,11 @@
 
 namespace LcdHw {
     static const int W = LCD_W, H = LCD_H, BAND = 16, BANDS = (H + BAND - 1) / BAND;
+#if LCD_PANEL == 3
+    static uint8_t TOUCH_ADDR = 0x5D;               // GT911: 0x5D con INT bajo en el reset; 0x14 si no
+#else
     static const uint8_t TOUCH_ADDR = 0x38;
+#endif
 
     static bool         ok = false;
     static uint16_t*    draw_ = nullptr;          // donde se dibuja
@@ -165,6 +182,55 @@ namespace LcdHw {
     }
 
     static void busPins() {}
+#elif LCD_PANEL == 3
+    // ------------------------------------------------------------------------------------------------ panel RGB (LCD-7B)
+    // Pines y tiempos del ejemplo 06_LCD de Waveshare (rgb_lcd_port.cpp). El ESP32-S3 refresca el panel solo desde su
+    // imagen en la PSRAM; aquí solo se copian las franjas que cambian.
+    static esp_lcd_panel_handle_t panel = nullptr;
+
+    static void setBright(int pct) { Exio::backlight((uint8_t)pct); }
+
+    static void pushRows(int y0, int rows) {
+        esp_lcd_panel_draw_bitmap(panel, 0, y0, W, y0 + rows, shown_ + (size_t)y0 * W);
+    }
+
+    static bool panelInit() {
+        esp_lcd_rgb_panel_config_t c = {};
+        c.clk_src = LCD_CLK_SRC_DEFAULT;
+        c.timings.pclk_hz = LCD_PCLK_HZ;
+        c.timings.h_res = W;
+        c.timings.v_res = H;
+        c.timings.hsync_pulse_width = 162;
+        c.timings.hsync_back_porch = 152;
+        c.timings.hsync_front_porch = 48;
+        c.timings.vsync_pulse_width = 45;
+        c.timings.vsync_back_porch = 13;
+        c.timings.vsync_front_porch = 3;
+        c.timings.flags.pclk_active_neg = 1;
+        c.data_width = 16;
+        c.bits_per_pixel = 16;
+        c.num_fbs = 1;
+        c.bounce_buffer_size_px = W * 10;
+        c.hsync_gpio_num = 46;
+        c.vsync_gpio_num = 3;
+        c.de_gpio_num = 5;
+        c.pclk_gpio_num = 7;
+        c.disp_gpio_num = -1;
+        // B3-B7, G2-G7, R3-R7
+        static const int data[16] = { 14, 38, 18, 17, 10, 39, 0, 45, 48, 47, 21, 1, 2, 42, 41, 40 };
+        for (int i = 0; i < 16; i++) c.data_gpio_nums[i] = data[i];
+        c.flags.fb_in_psram = 1;
+        if (esp_lcd_new_rgb_panel(&c, &panel) != ESP_OK) { logf("lcd: panel RGB\n"); return false; }
+        esp_lcd_panel_reset(panel);
+        esp_lcd_panel_init(panel);
+        return true;
+    }
+
+    // GT911: INT bajo durante el reset del táctil -> dirección 0x5D (como el ejemplo 08_TOUCH)
+    static void busPins() {
+        pinMode(LCD_TP_INT, OUTPUT);
+        digitalWrite(LCD_TP_INT, LOW);
+    }
 #else
     // ------------------------------------------------------------------------------------------------ ST7796
     static void cmd(uint8_t c, const uint8_t* d = nullptr, size_t n = 0) {
@@ -230,6 +296,33 @@ namespace LcdHw {
 
 #endif
 
+#if LCD_PANEL == 3
+    // ------------------------------------------------------------------------------------------------ GT911
+    static bool gtRead(uint16_t reg, uint8_t* d, uint8_t n) {
+        Wire.beginTransmission(TOUCH_ADDR);
+        Wire.write((uint8_t)(reg >> 8)); Wire.write((uint8_t)reg);
+        if (Wire.endTransmission(false) != 0) return false;
+        if (Wire.requestFrom(TOUCH_ADDR, n) != n) return false;
+        for (int i = 0; i < n; i++) d[i] = Wire.read();
+        return true;
+    }
+    static bool touchDown = false;
+    static int  touchX = 0, touchY = 0;
+    static bool touchRead(int& x, int& y) {
+        uint8_t st = 0;
+        if (gtRead(0x814E, &st, 1) && (st & 0x80)) {           // dato nuevo
+            const int n = st & 0x0F;
+            uint8_t p[6];
+            touchDown = n >= 1 && n <= 5 && gtRead(0x814F, p, 6);
+            if (touchDown) { touchX = p[1] | (p[2] << 8); touchY = p[3] | (p[4] << 8); }
+            Wire.beginTransmission(TOUCH_ADDR);                 // borrar el aviso
+            Wire.write((uint8_t)0x81); Wire.write((uint8_t)0x4E); Wire.write((uint8_t)0);
+            Wire.endTransmission();
+        }
+        x = touchX; y = touchY;
+        return touchDown && x >= 0 && y >= 0 && x < W && y < H;
+    }
+#else
     // ------------------------------------------------------------------------------------------------ FT6336
     static bool touchRead(int& x, int& y) {
         Wire.beginTransmission(TOUCH_ADDR);
@@ -248,6 +341,7 @@ namespace LcdHw {
     #endif
         return x >= 0 && y >= 0 && x < W && y < H;
     }
+#endif
 
     // ------------------------------------------------------------------------------------------------ estado
     static void fillState() {
@@ -344,17 +438,28 @@ namespace LcdHw {
         shown_ = (uint16_t*)heap_caps_malloc((size_t)W * H * 2, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
         if (!draw_ || !shown_) { logf("lcd: sin PSRAM para la imagen\n"); return; }
         Exio::backlight(0);
+        busPins();                              // antes del reset: el GT911 elige su dirección con INT
         Exio::resetLcdTouch();
-        busPins();
         if (!panelInit()) return;
+    #if LCD_PANEL == 3
+        delay(50);
+        pinMode(LCD_TP_INT, INPUT);
+        for (uint8_t a : { (uint8_t)0x5D, (uint8_t)0x14 }) {
+            Wire.beginTransmission(a);
+            if (Wire.endTransmission() == 0) { TOUCH_ADDR = a; touchOk = true; break; }
+        }
+        if (!touchOk) logf("lcd: no hay táctil GT911\n");
+    #else
         Wire.beginTransmission(TOUCH_ADDR);
         touchOk = Wire.endTransmission() == 0;
         if (!touchOk) logf("lcd: no hay táctil FT6336\n");
+    #endif
         fb.attach(draw_, W, H);
         memset(shown_, 0, (size_t)W * H * 2);
         ok = true;
         lastActivity = millis();
-        logf("lcd: %s %dx%d%s\n", LCD_PANEL == 2 ? "RM690B0" : "ST7796", W, H, touchOk ? " + FT6336" : "");
+        logf("lcd: %s %dx%d%s\n", LCD_PANEL == 3 ? "RGB" : LCD_PANEL == 2 ? "RM690B0" : "ST7796", W, H,
+             touchOk ? (LCD_PANEL == 3 ? " + GT911" : " + FT6336") : "");
     }
 
     void loop() {

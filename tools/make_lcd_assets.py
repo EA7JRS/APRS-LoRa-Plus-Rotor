@@ -29,6 +29,10 @@ FONTS = [
     ("FontS2", "DejaVuSans.ttf", 22, ASCII + EXTRA),
     ("FontM2", "DejaVuSans-Bold.ttf", 28, ASCII + EXTRA),
     ("FontL2", "DejaVuSans-Bold.ttf", 54, list(" 0123456789.-°AZEL")),
+    # pantallas de 1024 x 600 (ESP32-S3-Touch-LCD-7B)
+    ("FontS3", "DejaVuSans.ttf", 29, ASCII + EXTRA),
+    ("FontM3", "DejaVuSans-Bold.ttf", 37, ASCII + EXTRA),
+    ("FontL3", "DejaVuSans-Bold.ttf", 72, list(" 0123456789.-°AZEL")),
 ]
 
 

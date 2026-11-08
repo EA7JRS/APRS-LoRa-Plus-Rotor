@@ -17,9 +17,12 @@ Todos se cambian en la configuración (WebUI o app). `-1` = sin usar.
 | ESP32-S3 DevKitC-1 (`esp32s3`) | 4 | 5 | 6 | 7 | 1 | 2 | 8 / 9 | 18 / 17 | — |
 | Waveshare ESP32-C5-Touch-LCD-3.5 (`waveshare_c5_lcd35`) | EXIO8 (108) | EXIO9 (109) | EXIO10 (110) | EXIO11 (111) | EXIO_ADC (200) | ADS1115 canal 1 | 27 / 26 | GPIO12 / GPIO11 (U0RXD / U0TXD) | — |
 | Waveshare ESP32-S3-Touch-AMOLED-2.41 (`waveshare_s3_amoled241`) | 38 | 39 | 40 | 41 | 1 | 7 | 47 / 48 | 44 / 43 | — |
+| Waveshare ESP32-S3-Touch-LCD-7B (`waveshare_s3_lcd7b`) | PCF8574 P0 (120) | P1 (121) | P2 (122) | P3 (123) | GPIO6 (conector Sensor) | ADS1115 canal 1 | 8 / 9 | 44 / 43 (conector UART) | — |
 | Pico 2 W (`pico2w`) / Pico 2 (`pico2`) | GP6 | GP7 | GP8 | GP9 | GP26 | GP27 | GP4 / GP5 | GP1 / GP0 | HAT SX1262 Waveshare (opcional) |
 
-ADC: en ESP32 usa solo pines del ADC1 (el ADC2 no funciona con la WiFi encendida). En la Pico, GP26-GP28. Placas con pantalla: [WAVESHARE_C5_LCD35.md](WAVESHARE_C5_LCD35.md) y [WAVESHARE_S3_AMOLED241.md](WAVESHARE_S3_AMOLED241.md).
+ADC: en ESP32 usa solo pines del ADC1 (el ADC2 no funciona con la WiFi encendida). En la Pico, GP26-GP28. Placas con pantalla: [WAVESHARE_C5_LCD35.md](WAVESHARE_C5_LCD35.md), [WAVESHARE_S3_AMOLED241.md](WAVESHARE_S3_AMOLED241.md) y [WAVESHARE_S3_LCD7B.md](WAVESHARE_S3_LCD7B.md).
+
+**Placa de relés por I2C (PCF8574)**: en cualquier placa, los pines 120-127 son P0-P7 de un PCF8574 en el I2C de `direct.i2cSda` / `i2cScl` (dirección `direct.pcfAddr`, 0x20). Las placas de relés baratas activan con 0: `direct.activeHigh: false`. Solo nivel, sin PWM.
 
 CAT de la emisora (`cat.rx` / `cat.tx`): ESP32 32 / 33, ESP32-S3 15 / 16, ESP32-C5 LCD 12 / 11 (la misma UART que la pasarela: una u otra), ESP32-S3 AMOLED 8 / 42, Pico a elegir. Conexiones y niveles en [CAT.md](CAT.md).
 

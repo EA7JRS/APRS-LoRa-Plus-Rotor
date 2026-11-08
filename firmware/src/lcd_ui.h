@@ -114,6 +114,7 @@ namespace Lcd {
                 // fila de modos (320-364); fila de TX / split (370-406); botones abajo (414-474)
                 return l;
             }
+            if (w >= 800) return big(w, h);
             // Apaisada 600 x 450: brújula a la izquierda, lecturas a la derecha, fila de 6 botones abajo
             l.land = true;
             l.S = &FontS2; l.M = &FontM2; l.L = &FontL2; l.k = 1.4;
@@ -139,6 +140,32 @@ namespace Lcd {
             l.tuneDown = { 8, ya, bw2, bh2 }; l.stepBtn = { 8 + bw2 + 6, ya, bw2, bh2 }; l.tuneUp = { 8 + 2 * (bw2 + 6), ya, bw2, bh2 };
             l.trackBtn = { 8, yb, bw2, bh2 }; l.vfoBtn = { 8 + bw2 + 6, yb, bw2, bh2 }; l.pttBtn = { 8 + 2 * (bw2 + 6), yb, bw2, bh2 };
             for (int i = 0; i < 6; i++) l.modeBtn[i] = { 304 + (i % 3) * (bw2 + 6), (i < 3 ? ya : yb), bw2, bh2 };
+            return l;
+        }
+
+        // Pantallas grandes apaisadas (1024 x 600 de la ESP32-S3-Touch-LCD-7B): la disposición de 600 x 450 a escala,
+        // con letras mayores; la brújula y los grosores con la escala vertical para que sigan redondos.
+        static Layout big(int w, int h) {
+            Layout l = make(600, 450);
+            const double sx = w / 600.0, sy = h / 450.0;
+            auto X = [&](int& v) { v = (int)lround(v * sx); };
+            auto Y = [&](int& v) { v = (int)lround(v * sy); };
+            auto R = [&](Rect& r) { const int x2 = (int)lround((r.x + r.w) * sx), y2 = (int)lround((r.y + r.h) * sy); X(r.x); Y(r.y); r.w = x2 - r.x; r.h = y2 - r.y; };
+            l.W = w; l.H = h;
+            l.S = &FontS3; l.M = &FontM3; l.L = &FontL3; l.k = 1.4 * sy;
+            Y(l.hdrH); X(l.titleX); Y(l.titleY); Y(l.subY); X(l.logoX); l.logoY = (l.hdrH - LCD_LOGO_H) / 2;
+            X(l.infoX); Y(l.infoY); Y(l.infoR); X(l.linkX); Y(l.link1Y); Y(l.link2Y);
+            X(l.cx); Y(l.cy); Y(l.r); Y(l.tickLabelR);
+            X(l.azLx); Y(l.azLy); X(l.azNx); Y(l.azNy); X(l.elLx); Y(l.elLy); X(l.elNx); Y(l.elNy);
+            X(l.az1Lx); Y(l.az1Ly); X(l.az1Nx); Y(l.az1Ny);
+            R(l.divider); l.divider.h = 1; R(l.status);
+            for (Rect& b : l.btn) R(b);
+            R(l.infoCard); R(l.aboutCard); X(l.infoValX); Y(l.lineH);
+            R(l.brMinus); R(l.brPlus); X(l.brTextX); Y(l.brTextY);
+            R(l.catBtn);
+            R(l.freqCard); R(l.smeter); R(l.trackCard); R(l.tuneDown); R(l.stepBtn); R(l.tuneUp);
+            for (Rect& b : l.modeBtn) R(b);
+            R(l.trackBtn); R(l.vfoBtn); R(l.pttBtn);
             return l;
         }
     };

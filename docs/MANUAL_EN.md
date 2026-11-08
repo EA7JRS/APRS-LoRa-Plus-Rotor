@@ -48,19 +48,19 @@ On the **Raspberry Pi** the rotor is run by Hamlib's `rotctld`, so **any rotor H
 
 ## 2. Boards
 
-| | ESP32 | ESP32-S3 | ESP32-C5 LCD 3.5" | ESP32-S3 AMOLED 2.41" | Pico 2 W | Pico 2 | Raspberry Pi |
-|---|---|---|---|---|---|---|---|
-| Direct drive | ✔ | ✔ | relays + 1 ADC (or ADS1115) | ✔ | ✔ | ✔ | — |
-| Serial gateway | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | any Hamlib model |
-| WiFi (rotctld, JSON, WebUI) | ✔ | ✔ | ✔ (2.4 and 5 GHz) | ✔ | ✔ | — | ✔ |
-| BLE for the app | ✔ | ✔ | ✔ | ✔ | pending | — | ✔ |
-| Bluetooth SPP (GS-232) for the tracker | ✔ | — | — | — | ✔ | — | ✔ |
-| LoRa APRS | external module | external module | — | — | SX1262 HAT | SX1262 HAT | KISS TNC |
-| Touch screen | — | — | ✔ portrait | ✔ landscape | — | — | — |
-| USB as a controller | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | USB gadget (Zero 2 W) |
-| Update from the WebUI | 8 MB boards | ✔ | ✔ | ✔ | ✔ | — | `git pull` + `install.sh` |
+| | ESP32 | ESP32-S3 | ESP32-C5 LCD 3.5" | ESP32-S3 AMOLED 2.41" | ESP32-S3 LCD 7" | Pico 2 W | Pico 2 | Raspberry Pi |
+|---|---|---|---|---| --- |---|---|---|
+| Direct drive | ✔ | ✔ | relays + 1 ADC (or ADS1115) | ✔ | PCF8574 relays (I2C) + 1 ADC (or ADS1115) | ✔ | ✔ | — |
+| Serial gateway | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | any Hamlib model |
+| WiFi (rotctld, JSON, WebUI) | ✔ | ✔ | ✔ (2.4 and 5 GHz) | ✔ | ✔ | ✔ | — | ✔ |
+| BLE for the app | ✔ | ✔ | ✔ | ✔ | ✔ | pending | — | ✔ |
+| Bluetooth SPP (GS-232) for the tracker | ✔ | — | — | — | — | ✔ | — | ✔ |
+| LoRa APRS | external module | external module | — | — | — | SX1262 HAT | SX1262 HAT | KISS TNC |
+| Touch screen | — | — | ✔ portrait | ✔ landscape | ✔ landscape 7" | — | — | — |
+| USB as a controller | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | USB gadget (Zero 2 W) |
+| Update from the WebUI | 8 MB boards | ✔ | ✔ | ✔ | ✔ | ✔ | — | `git pull` + `install.sh` |
 
-PlatformIO environments: `esp32dev`, `esp32s3`, `waveshare_c5_lcd35`, `waveshare_s3_amoled241`, `pico2w`, `pico2`.
+PlatformIO environments: `esp32dev`, `esp32s3`, `waveshare_c5_lcd35`, `waveshare_s3_amoled241`, `waveshare_s3_lcd7b`, `pico2w`, `pico2`.
 
 ## 3. Installing the firmware
 
@@ -74,7 +74,7 @@ PlatformIO environments: `esp32dev`, `esp32s3`, `waveshare_c5_lcd35`, `waveshare
 
 ```sh
 cd firmware
-pio run -e esp32s3 -t upload        # or esp32dev, waveshare_c5_lcd35, waveshare_s3_amoled241, pico2w, pico2
+pio run -e esp32s3 -t upload        # or esp32dev, waveshare_c5_lcd35, waveshare_s3_amoled241, waveshare_s3_lcd7b, pico2w, pico2
 ```
 
 ### Raspberry Pi
@@ -114,9 +114,10 @@ Every option is listed in [CONFIG.md](CONFIG.md). The configuration is stored on
 | ESP32-S3 DevKitC-1 | 4 | 5 | 6 | 7 | 1 | 2 | 8 / 9 | 18 / 17 |
 | ESP32-C5-Touch-LCD-3.5 | EXIO8 | EXIO9 | EXIO10 | EXIO11 | EXIO_ADC | ADS1115 | 27 / 26 | 12 / 11 |
 | ESP32-S3-Touch-AMOLED-2.41 | 38 | 39 | 40 | 41 | 1 | 7 | 47 / 48 | 44 / 43 |
+| ESP32-S3-Touch-LCD-7B | PCF8574 P0 (120) | P1 (121) | P2 (122) | P3 (123) | GPIO6 (Sensor) | ADS1115 | 8 / 9 | 44 / 43 |
 | Pico 2 W / Pico 2 | GP6 | GP7 | GP8 | GP9 | GP26 | GP27 | GP4 / GP5 | GP1 / GP0 |
 
-All of them can be changed in the configuration; `-1` means unused. On the ESP32, use only ADC1 pins, because ADC2 does not work while WiFi is on. The boards with a screen have their own sheets: [WAVESHARE_C5_LCD35.md](WAVESHARE_C5_LCD35.md) and [WAVESHARE_S3_AMOLED241.md](WAVESHARE_S3_AMOLED241.md) (in Spanish).
+All of them can be changed in the configuration; `-1` means unused. On the ESP32, use only ADC1 pins, because ADC2 does not work while WiFi is on. The boards with a screen have their own sheets: [WAVESHARE_C5_LCD35.md](WAVESHARE_C5_LCD35.md), [WAVESHARE_S3_AMOLED241.md](WAVESHARE_S3_AMOLED241.md) and [WAVESHARE_S3_LCD7B.md](WAVESHARE_S3_LCD7B.md) (in Spanish). On the 7" board the relays go through a PCF8574 board on I2C (pins 120-127, active on 0: `direct.activeHigh: false`).
 
 ### 5.2 Direct drive: Yaesu G-5500 through the 8-pin DIN
 
@@ -204,7 +205,7 @@ At `http://APRS-Rotor.local/` (boards) or `http://IP:8080/` (Raspberry Pi). User
 
 ## 8. Touch screen
 
-**Waveshare ESP32-C5-Touch-LCD-3.5** (portrait) and **ESP32-S3-Touch-AMOLED-2.41** (landscape) boards.
+**Waveshare ESP32-C5-Touch-LCD-3.5** (portrait), **ESP32-S3-Touch-AMOLED-2.41** and **ESP32-S3-Touch-LCD-7B** (landscape) boards.
 
 - **Compass**: red needle = position, blue = target, orange arc = overlap zone.
 - **Buttons**: **CCW · STOP · CW · DOWN · PARK · UP**. The movement buttons move while held.
@@ -361,6 +362,6 @@ More in [RASPBERRY_PI.md](RASPBERRY_PI.md) (in Spanish).
 | 4532 | radio rigctld (Hamlib NET rigctl, with CAT) |
 | BLE `4c6f5261-2b00-4ea7-b000-000000000001` | JSON protocol (app) |
 
-Documents (in Spanish): [CONFIG.md](CONFIG.md) (all options) · [CAT.md](CAT.md) (radios and SDR) · [HARDWARE.md](HARDWARE.md) (wiring) · [CONTROL_PROTOCOL.md](CONTROL_PROTOCOL.md) (JSON protocol) · [APRS_CONTROL.md](APRS_CONTROL.md) · [INTEGRATION.md](INTEGRATION.md) · [RASPBERRY_PI.md](RASPBERRY_PI.md) · [WAVESHARE_C5_LCD35.md](WAVESHARE_C5_LCD35.md) · [WAVESHARE_S3_AMOLED241.md](WAVESHARE_S3_AMOLED241.md).
+Documents (in Spanish): [CONFIG.md](CONFIG.md) (all options) · [CAT.md](CAT.md) (radios and SDR) · [HARDWARE.md](HARDWARE.md) (wiring) · [CONTROL_PROTOCOL.md](CONTROL_PROTOCOL.md) (JSON protocol) · [APRS_CONTROL.md](APRS_CONTROL.md) · [INTEGRATION.md](INTEGRATION.md) · [RASPBERRY_PI.md](RASPBERRY_PI.md) · [WAVESHARE_C5_LCD35.md](WAVESHARE_C5_LCD35.md) · [WAVESHARE_S3_AMOLED241.md](WAVESHARE_S3_AMOLED241.md) · [WAVESHARE_S3_LCD7B.md](WAVESHARE_S3_LCD7B.md).
 
 **About**: APRS LoRa+ Rotor — by Manuel EA7JRS · © 2026 Manuel - EA7JRS · GPL-3.0-or-later · https://github.com/EA7JRS/APRS-LoRa-Plus. Protocol formats taken from Hamlib; screen font: DejaVu Sans.

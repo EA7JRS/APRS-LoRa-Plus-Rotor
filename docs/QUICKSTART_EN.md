@@ -12,6 +12,7 @@ Hamlib-compatible antenna rotor controller. It is driven by the APRS LoRa+ track
 | ESP32-S3 DevKitC-1 (`esp32s3`) | Direct drive or gateway, BLE for the app |
 | Waveshare ESP32-C5-Touch-LCD-3.5 (`waveshare_c5_lcd35`) | Box with a 3.5" touch screen (2.4 and 5 GHz WiFi) |
 | Waveshare ESP32-S3-Touch-AMOLED-2.41 (`waveshare_s3_amoled241`) | Box with a landscape AMOLED screen |
+| Waveshare ESP32-S3-Touch-LCD-7B (`waveshare_s3_lcd7b`) | Box with a 7" screen (the APRS LoRa+ Display board); relays through a PCF8574 board on I2C |
 | Raspberry Pi Pico 2 W / Pico 2 (`pico2w`, `pico2`) | Direct drive or gateway; LoRa with the SX1262 HAT |
 | Raspberry Pi (Zero 2 W, 3, 4, 5) | Any Hamlib rotor through its controller (see the manual) |
 

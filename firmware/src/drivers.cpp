@@ -43,15 +43,7 @@ namespace Drv {
             startedAt = millis();
         }
         static void begin(bool needed) {
-            if (!needed || Cfg.i2cSda < 0 || Cfg.i2cScl < 0) return;
-        #if ROTOR_ESP32
-            Wire.begin(Cfg.i2cSda, Cfg.i2cScl);
-        #else
-            Wire.setSDA(Cfg.i2cSda);
-            Wire.setSCL(Cfg.i2cScl);
-            Wire.begin();
-        #endif
-            Wire.setClock(400000);
+            if (!needed || !Board::i2cBegin()) return;
             start(Cfg.azPins.adsChannel);
         }
         // Llamar a menudo: alterna los canales del acimut y de la elevacion

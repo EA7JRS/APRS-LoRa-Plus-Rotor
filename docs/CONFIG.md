@@ -21,7 +21,7 @@ Se edita entera desde la WebUI (*Configuración*) o la app (`cfgget` / `cfgset`)
 | `lcd.bright` | 80 | brillo de la pantalla táctil, 10-100 % (solo placas con pantalla; también desde la pantalla de información) |
 | `lcd.dimS` | 300 | segundos sin tocar la pantalla hasta bajar el brillo al 10 % (AMOLED: se apaga) (0 = nunca); el primer toque solo la enciende |
 
-**Pines del expansor**: `100`-`115` son EXIO0-EXIO15 (solo salidas de nivel, sin PWM: `outMode` 0) y `200` es EXIO_ADC (lectura en cuentas). ESP32-C5-Touch-LCD-3.5: expansor CH32V, en el conector EXIO8-EXIO15 y EXIO_ADC ([WAVESHARE_C5_LCD35.md](WAVESHARE_C5_LCD35.md)). ESP32-S3-Touch-AMOLED-2.41: TCA9554, en el conector EXIO5-EXIO7, sin ADC ([WAVESHARE_S3_AMOLED241.md](WAVESHARE_S3_AMOLED241.md)).
+**Pines del PCF8574 externo**: `120`-`127` (`direct.pcfAddr`). **Pines del expansor**: `100`-`115` son EXIO0-EXIO15 (solo salidas de nivel, sin PWM: `outMode` 0) y `200` es EXIO_ADC (lectura en cuentas). ESP32-C5-Touch-LCD-3.5: expansor CH32V, en el conector EXIO8-EXIO15 y EXIO_ADC ([WAVESHARE_C5_LCD35.md](WAVESHARE_C5_LCD35.md)). ESP32-S3-Touch-AMOLED-2.41: TCA9554, en el conector EXIO5-EXIO7, sin ADC ([WAVESHARE_S3_AMOLED241.md](WAVESHARE_S3_AMOLED241.md)).
 
 ## `direct` (control directo)
 
@@ -32,6 +32,7 @@ Se edita entera desde la WebUI (*Configuración*) o la app (`cfgget` / `cfgset`)
 | `brakePin` | -1 | relé del freno (Hy-Gain) |
 | `pwmFreq` | 1000 | Hz |
 | `i2cSda` / `i2cScl` / `adsAddr` / `adsGain` | placa / 0x48 / 1 | ADS1115 |
+| `pcfAddr` | 0x20 | PCF8574 de una placa de relés: pines 120-127 = P0-P7 (no 0x24 en las placas con expansor en esa dirección) |
 | `elEnabled` | true | hay rotor de elevación |
 | `parkAz` / `parkEl` | 0 / 0 | reposo |
 | `reportMech` | false | devolver el acimut mecánico (> 360 en el solape) en vez de 0-360 |

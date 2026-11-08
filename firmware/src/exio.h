@@ -15,6 +15,10 @@
 // EXIO_CHIP 2: TCA9554 en 0x20 (ESP32-S3-Touch-AMOLED-2.41): 0x00 entradas, 0x01 salidas, 0x03 configuración (1 = entrada).
 //   EXIO0 reset de la pantalla, EXIO1 reset del táctil, EXIO2 INT del RTC, EXIO3 / EXIO4 INT del IMU; EXIO5-EXIO7 en el conector.
 //   Sin ADC ni PWM.
+// EXIO_CHIP 3: CH32V003 de 8 pines en 0x24 (ESP32-S3-Touch-LCD-7B). Registros de 1 byte (ejemplo io_extension.cpp de
+//   Waveshare): 0x02 dirección (1 = salida), 0x03 salidas, 0x04 entradas, 0x05 PWM de la luz de fondo invertido
+//   (0 = máximo brillo; el ejemplo no pasa del 97 %), 0x06 ADC (tensión de la batería, divisor 3:1). EXIOn = bit n.
+//   EXIO1 reset del táctil, EXIO2 luz de fondo, EXIO3 reset del LCD, EXIO4 CS de la TF, EXIO5 USB / CAN, EXIO6 VDD del LCD.
 #include <Arduino.h>
 
 #ifndef ROTOR_HAS_EXIO
@@ -23,6 +27,7 @@
 
 #define PIN_EXIO_BASE   100
 #define PIN_EXIO_ADC    200
+#define PIN_PCF_BASE    120             // PCF8574 externo en el I2C (placas de relés): P0-P7 = pines 120-127
 
 namespace Exio {
     inline bool isExio(int pin) { return pin >= PIN_EXIO_BASE && pin < PIN_EXIO_BASE + 16; }

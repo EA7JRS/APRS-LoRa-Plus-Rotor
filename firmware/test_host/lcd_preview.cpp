@@ -2,7 +2,7 @@
  *
  * This file is part of APRS LoRa+ Rotor. GPL-3.0-or-later (ver LICENSE).
  *
- * Pantalla táctil en el PC: comprueba los toques en las dos disposiciones (vertical 320 x 480 y apaisada 600 x 450)
+ * Pantalla táctil en el PC: comprueba los toques en las dos disposiciones (vertical 320 x 480 y apaisadas 600 x 450 y 1024 x 600)
  * y dibuja las pantallas en ficheros PPM (lcd_out/) para verlas.
  */
 
@@ -190,13 +190,14 @@ static void run(int W, int H, const std::string& out) {
     for (int i = 0; i < 6; i++) CHECK(L.btn[i].x >= 0 && L.btn[i].x + L.btn[i].w <= W && L.btn[i].y + L.btn[i].h <= H);
     CHECK(L.cy + L.tickLabelR + L.S->height / 2 <= L.btn[0].y);
     if (L.cy + L.tickLabelR + L.S->height / 2 > L.btn[0].y) printf("%dx%d: brujula %d > botones %d\n", W, H, L.cy + L.tickLabelR + L.S->height / 2, L.btn[0].y);
-    CHECK(Lcd::Fb::textWidth(*L.L, "359.9°") < (W > H ? W - 312 : 160));
+    CHECK(Lcd::Fb::textWidth(*L.L, "359.9°") < (W > H ? W - L.azLx : 160));
 }
 
 int main(int argc, char** argv) {
     const std::string out = argc > 1 ? argv[1] : "lcd_out";
     run(320, 480, out);
     run(600, 450, out);
+    run(1024, 600, out);
     // Texto
     CHECK(Lcd::Fb::textWidth(FontS, "°") > 0);
     CHECK(Lcd::Ui::wrap(FontS, "uno dos tres cuatro", Lcd::Fb::textWidth(FontS, "uno dos")).size() == 3);

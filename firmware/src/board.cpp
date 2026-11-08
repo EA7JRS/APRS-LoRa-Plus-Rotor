@@ -5,6 +5,8 @@
 
 #include "board.h"
 #include "exio.h"
+#include "config.h"
+#include <Wire.h>
 #include <time.h>
 #include <stdarg.h>
 #include <math.h>
@@ -13,6 +15,38 @@
 #endif
 
 namespace Board {
+
+    // PCF8574 de una placa de relés en el I2C de la configuración (direct.i2cSda / i2cScl, direct.pcfAddr): pines 120-127.
+    // Escribir 1 deja el pin arriba con su resistencia débil y 0 lo lleva a masa: las placas de relés suelen activar con 0
+    // (direct.activeHigh: false).
+    static inline bool isPcf(int pin) { return pin >= PIN_PCF_BASE && pin < PIN_PCF_BASE + 8; }
+    static uint8_t pcfOut = 0xFF;
+    static bool    pcfStarted = false;
+    bool i2cBegin() {
+        static int state = 0;                   // 0 sin empezar, 1 en marcha, -1 sin pines
+        if (state) return state > 0;
+    #if ROTOR_HAS_EXIO
+        state = Exio::ok() ? 1 : -1;            // el expansor ya arrancó el I2C (los mismos pines)
+    #else
+        if (Cfg.i2cSda < 0 || Cfg.i2cScl < 0) { state = -1; logf("i2c: sin pines (direct.i2cSda / i2cScl)\n"); return false; }
+      #if ROTOR_ESP32
+        Wire.begin(Cfg.i2cSda, Cfg.i2cScl);
+      #else
+        Wire.setSDA(Cfg.i2cSda); Wire.setSCL(Cfg.i2cScl); Wire.begin();
+      #endif
+        Wire.setClock(400000);
+        state = 1;
+    #endif
+        return state > 0;
+    }
+
+    static void pcfWrite() {
+        pcfStarted = true;
+        if (!i2cBegin()) return;
+        Wire.beginTransmission((uint8_t)Cfg.pcfAddr);
+        Wire.write(pcfOut);
+        if (Wire.endTransmission() != 0) logf("pcf8574: no responde en 0x%02X\n", Cfg.pcfAddr);
+    }
 
     void begin() {
     #ifdef BOARD_POWER_HOLD
@@ -83,6 +117,7 @@ namespace Board {
 
     void pinOutput(int pin) {
         if (pin < 0) return;
+        if (isPcf(pin)) { pcfWrite(); return; }
         if (Exio::isExio(pin)) {
         #if ROTOR_HAS_EXIO
             Exio::output(pin - PIN_EXIO_BASE);
@@ -130,6 +165,12 @@ namespace Board {
 
     void digitalOut(int pin, bool level) {
         if (pin < 0) return;
+        if (isPcf(pin)) {
+            const uint8_t bit = (uint8_t)(1u << (pin - PIN_PCF_BASE));
+            const uint8_t o = level ? (uint8_t)(pcfOut | bit) : (uint8_t)(pcfOut & ~bit);
+            if (o != pcfOut || !pcfStarted) { pcfOut = o; pcfWrite(); }
+            return;
+        }
         if (pin >= PIN_EXIO_BASE) {
         #if ROTOR_HAS_EXIO
             if (Exio::isExio(pin)) Exio::write(pin - PIN_EXIO_BASE, level);

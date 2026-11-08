@@ -35,6 +35,9 @@ namespace Config {
     #ifdef DEF_EL_ENABLED
         c.elEnabled = DEF_EL_ENABLED;              // placas sin segundo ADC: la elevacion necesita un ADS1115
     #endif
+    #ifdef DEF_ACTIVE_HIGH
+        c.activeHigh = DEF_ACTIVE_HIGH;            // placas de relés por PCF8574: activan con 0
+    #endif
     }
 
     // ------------------------------------------------------------------ JSON ------------------------------------------------------------
@@ -90,7 +93,7 @@ namespace Config {
         d["driver"] = c.driver;
         JsonObject dr = d["direct"].to<JsonObject>();
         dr["outMode"] = c.outMode; dr["activeHigh"] = c.activeHigh; dr["brakePin"] = c.brakePin; dr["pwmFreq"] = c.pwmFreq;
-        dr["i2cSda"] = c.i2cSda; dr["i2cScl"] = c.i2cScl; dr["adsAddr"] = c.adsAddr; dr["adsGain"] = c.adsGain;
+        dr["i2cSda"] = c.i2cSda; dr["i2cScl"] = c.i2cScl; dr["adsAddr"] = c.adsAddr; dr["adsGain"] = c.adsGain; dr["pcfAddr"] = c.pcfAddr;
         dr["elEnabled"] = c.elEnabled; dr["parkAz"] = c.parkAz; dr["parkEl"] = c.parkEl; dr["reportMech"] = c.reportMech;
         putAxis(dr["az"].to<JsonObject>(), c.az, c.azPins);
         putAxis(dr["el"].to<JsonObject>(), c.el, c.elPins);
@@ -173,7 +176,7 @@ namespace Config {
         get(d, "driver", n.driver);
         JsonVariantConst dr = d["direct"];
         get(dr, "outMode", n.outMode); get(dr, "activeHigh", n.activeHigh); get(dr, "brakePin", n.brakePin); get(dr, "pwmFreq", n.pwmFreq);
-        get(dr, "i2cSda", n.i2cSda); get(dr, "i2cScl", n.i2cScl); get(dr, "adsAddr", n.adsAddr); get(dr, "adsGain", n.adsGain);
+        get(dr, "i2cSda", n.i2cSda); get(dr, "i2cScl", n.i2cScl); get(dr, "adsAddr", n.adsAddr); get(dr, "adsGain", n.adsGain); get(dr, "pcfAddr", n.pcfAddr);
         get(dr, "elEnabled", n.elEnabled); getD(dr, "parkAz", n.parkAz); getD(dr, "parkEl", n.parkEl); get(dr, "reportMech", n.reportMech);
         getAxis(dr["az"], n.az, n.azPins);
         getAxis(dr["el"], n.el, n.elPins);

@@ -61,7 +61,7 @@ Orden desconocida: `{"e":"err","c":"…","m":"unknown"}`. Línea que no es JSON:
 
 Con CAT configurado: `"cat":true`, `caps.cat` y `"rigctld":4532` (0 = apagado).
 
-`board` es el entorno de PlatformIO (`esp32dev`, `esp32s3`, `waveshare_c5_lcd35`, `waveshare_s3_amoled241`, `pico2w`, `pico2`) o `raspberrypi`. En la Raspberry `drv` es `hamlib <modelo>` y se añade `hamlib` (estado del rotctld).
+`board` es el entorno de PlatformIO (`esp32dev`, `esp32s3`, `waveshare_c5_lcd35`, `waveshare_s3_amoled241`, `waveshare_s3_lcd7b`, `pico2w`, `pico2`) o `raspberrypi`. En la Raspberry `drv` es `hamlib <modelo>` y se añade `hamlib` (estado del rotctld).
 
 ### `pos`
 
