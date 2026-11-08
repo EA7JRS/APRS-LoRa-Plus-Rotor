@@ -27,6 +27,7 @@ jobs:
                     - { env: esp32s3, chip: esp32s3 }
                     - { env: ttgo-lora32-v21, chip: esp32 }
                     - { env: heltec_v3, chip: esp32s3 }
+                    - { env: waveshare_c5_lcd35, chip: esp32c5 }
                     - { env: pico2w, chip: rp2350 }
                     - { env: pico2, chip: rp2350 }
         env:

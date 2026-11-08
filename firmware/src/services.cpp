@@ -96,6 +96,7 @@ void RotorApiHost::info(JsonObject o) {
     caps["lora"] = Cfg.loraChip != 0;
     caps["cal"] = Cfg.driver == 0;
     caps["move"] = !(Cfg.driver == 1 && Cfg.serProto == RC::SP_ROT2PROG);
+    caps["lcd"] = ROTOR_HAS_LCD != 0;
     o["ip"] = Net::ip();
     o["rotctld"] = Cfg.rotctld ? Cfg.rotctldPort : 0;
     o["heap"] = Board::freeHeap();

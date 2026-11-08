@@ -5,7 +5,7 @@
 # Ficheros del instalador web para APRS LoRa+ Rotor. El instalador es el del tracker (GitHub Pages de EA7JRS/APRS-LoRa-Plus):
 # su workflow de release descarga web-site-rotor.zip de la release del rotor con la misma version y lo pone en rotor/.
 #
-#   make_web_assets.py board --board ENV --chip esp32|esp32s3|rp2350 --build-dir .pio/build/ENV [--boot-app0 PATH] --out DIR
+#   make_web_assets.py board --board ENV --chip esp32|esp32s3|esp32c5|rp2350 --build-dir .pio/build/ENV [--boot-app0 PATH] --out DIR
 #   make_web_assets.py site --root DIR
 #
 # Estructura (dentro de rotor/ en el sitio del instalador):
@@ -23,8 +23,8 @@ import shutil
 import struct
 import sys
 
-CHIP_FAMILY = {"esp32": "ESP32", "esp32s3": "ESP32-S3"}
-BOOTLOADER_OFFSET = {"esp32": 0x1000, "esp32s3": 0x0}
+CHIP_FAMILY = {"esp32": "ESP32", "esp32s3": "ESP32-S3", "esp32c5": "ESP32-C5"}
+BOOTLOADER_OFFSET = {"esp32": 0x1000, "esp32s3": 0x0, "esp32c5": 0x2000}   # ESP Web Tools >= 10.2 para el C5
 
 
 def read_version(src="firmware/src/config.h"):
@@ -113,7 +113,7 @@ def main():
     sub = p.add_subparsers(dest="cmd", required=True)
     b = sub.add_parser("board")
     b.add_argument("--board", required=True)
-    b.add_argument("--chip", required=True, choices=["esp32", "esp32s3", "rp2350"])
+    b.add_argument("--chip", required=True, choices=["esp32", "esp32s3", "esp32c5", "rp2350"])
     b.add_argument("--build-dir", required=True)
     b.add_argument("--boot-app0", default="")
     b.add_argument("--out", required=True)

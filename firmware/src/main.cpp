@@ -27,6 +27,7 @@
 #include "net.h"
 #include "bt.h"
 #include "lora_aprs.h"
+#include "lcd_hw.h"
 
 static ProtoPort usb;
 static uint32_t  ledT = 0;
@@ -49,6 +50,7 @@ void setup() {
     Net::begin();
     Bt::begin();
     LoraAprs::begin();
+    LcdHw::begin();
 }
 
 void loop() {
@@ -57,6 +59,7 @@ void loop() {
     Net::loop();
     Bt::loop();
     LoraAprs::loop();
+    LcdHw::loop();
     serviceReboot();
     // LED: fijo moviendose, parpadeo rapido con fallo, destello lento en reposo
     if (Cfg.led >= 0) {

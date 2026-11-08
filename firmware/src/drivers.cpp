@@ -9,6 +9,7 @@
 #include "board.h"
 #include "rc_control.h"
 #include "rc_serialproto.h"
+#include "exio.h"
 
 namespace Drv {
 
@@ -98,10 +99,10 @@ namespace Drv {
             Board::pwmAttach(p.pinA, Cfg.pwmFreq);
             Board::pwmAttach(p.pinB, Cfg.pwmFreq);
         } else {
-            for (int pin : { p.pinA, p.pinB }) if (pin >= 0) { pinMode(pin, OUTPUT); outPin(pin, false); }
+            for (int pin : { p.pinA, p.pinB }) if (pin >= 0) { outPin(pin, false); Board::pinOutput(pin); outPin(pin, false); }
             if (p.pinPwm >= 0) Board::pwmAttach(p.pinPwm, Cfg.pwmFreq);
         }
-        if (p.sensor == 0 && p.adcPin >= 0) pinMode(p.adcPin, INPUT);
+        if (p.sensor == 0 && p.adcPin >= 0 && p.adcPin < PIN_EXIO_BASE) pinMode(p.adcPin, INPUT);
     }
 
     // =========================================================================================================================
@@ -230,8 +231,13 @@ namespace Drv {
 
     static void openSerial() {
     #if ROTOR_ESP32
-        Serial2.begin(Cfg.serBaud, SERIAL_8N1, Cfg.serRx, Cfg.serTx);
-        serial.port = &Serial2;
+        #if defined(SOC_UART_HP_NUM) && SOC_UART_HP_NUM < 3
+            Serial1.begin(Cfg.serBaud, SERIAL_8N1, Cfg.serRx, Cfg.serTx);    // ESP32-C5 / C6: solo dos UART
+            serial.port = &Serial1;
+        #else
+            Serial2.begin(Cfg.serBaud, SERIAL_8N1, Cfg.serRx, Cfg.serTx);
+            serial.port = &Serial2;
+        #endif
     #else
         // UART0 (Serial1) o UART1 (Serial2) segun los pines elegidos
         if (Serial1.setRX(Cfg.serRx) && Serial1.setTX(Cfg.serTx)) { Serial1.begin(Cfg.serBaud); serial.port = &Serial1; }
@@ -258,7 +264,7 @@ namespace Drv {
         direct.reportMech = Cfg.reportMech;
         setupAxisPins(Cfg.azPins);
         if (Cfg.elEnabled) setupAxisPins(Cfg.elPins);
-        if (Cfg.brakePin >= 0) { pinMode(Cfg.brakePin, OUTPUT); outPin(Cfg.brakePin, false); }
+        if (Cfg.brakePin >= 0) { outPin(Cfg.brakePin, false); Board::pinOutput(Cfg.brakePin); outPin(Cfg.brakePin, false); }
         usingAds = Cfg.azPins.sensor == 1 || (Cfg.elEnabled && Cfg.elPins.sensor == 1);
         Ads::begin(usingAds);
     }
@@ -301,11 +307,7 @@ namespace Drv {
         if (Cfg.driver == 1) { o["link"] = serial.linkOk(); return; }
         if (!isnan(rawAz)) o["az"] = rawAz;
         if (!isnan(rawEl)) o["el"] = rawEl;
-    #if ROTOR_ESP32
-        o["unit"] = (Cfg.azPins.sensor == 1) ? "ads" : "mV";
-    #else
-        o["unit"] = (Cfg.azPins.sensor == 1) ? "ads" : "adc";
-    #endif
+        o["unit"] = (Cfg.azPins.sensor == 1) ? "ads" : (Board::adcIsCounts(Cfg.azPins.adcPin) ? "adc" : "mV");
     }
 
     void posExtra(JsonObject o) {

@@ -4,3 +4,5 @@ firmware/test_host/test_core
 __pycache__/
 *.pyc
 .venv/
+firmware/test_host/lcd_preview
+firmware/test_host/lcd_out/

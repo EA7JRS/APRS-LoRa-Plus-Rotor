@@ -32,6 +32,12 @@
 #ifndef ROTOR_HAS_SPP
     #define ROTOR_HAS_SPP 0
 #endif
+#ifndef ROTOR_HAS_LCD
+    #define ROTOR_HAS_LCD 0             // pantalla tactil (Waveshare ESP32-C5-Touch-LCD-3.5)
+#endif
+#ifndef ROTOR_HAS_EXIO
+    #define ROTOR_HAS_EXIO 0            // expansor de E/S en I2C (pines 100-115 y 200, ver exio.h)
+#endif
 
 // Pines por defecto (los pone cada entorno de platformio.ini)
 #ifndef DEF_AZ_CW
@@ -99,7 +105,9 @@ namespace Board {
     void        begin();
     const char* chip();                         // "ESP32", "ESP32-S3", "RP2350"...
     void        reboot();
-    double      readAdc(int pin);               // ESP32: milivoltios calibrados; RP2350: cuentas de 12 bits. NAN si el pin no vale
+    double      readAdc(int pin);               // ESP32: milivoltios calibrados; RP2350 y EXIO_ADC (pin 200): cuentas. NAN si el pin no vale
+    void        pinOutput(int pin);             // pinMode(OUTPUT) o, con expansor, EXIOn (pines 100-115) como salida
+    bool        adcIsCounts(int pin);           // la lectura va en cuentas del ADC (no en milivoltios)
     void        pwmAttach(int pin, int freq);
     void        pwmWrite(int pin, double duty); // 0-1
     void        digitalOut(int pin, bool level);

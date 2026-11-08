@@ -95,6 +95,10 @@ struct RotorConfig {
     std::string comment = "APRS LoRa+ Rotor";
 
     int         led = DEF_LED;
+
+    // Pantalla tactil (placas con LCD)
+    int         lcdBright = 80;             // brillo 10-100 %
+    int         lcdDimS = 300;              // segundos sin tocar hasta bajar el brillo al 10 % (0 = nunca)
 };
 
 extern RotorConfig Cfg;

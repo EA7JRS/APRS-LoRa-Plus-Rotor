@@ -19,7 +19,9 @@ namespace Config {
         // docs/HARDWARE.md (10 k / 18 k, factor 0,643) llegan 1,286-2,893 V a la placa. Se afina luego con "Punto A / B".
         c.az.minDeg = 0;  c.az.maxDeg = 450;
         c.el.minDeg = 0;  c.el.maxDeg = 180;
-    #if ROTOR_ESP32
+    #if defined(DEF_RAW_A) && defined(DEF_RAW_B)
+        c.az.rawA = DEF_RAW_A; c.az.rawB = DEF_RAW_B;   // la placa da cuentas (p. ej. EXIO_ADC del expansor)
+    #elif ROTOR_ESP32
         c.az.rawA = 1286; c.az.rawB = 2893;        // milivoltios
     #else
         c.az.rawA = 1596; c.az.rawB = 3590;        // cuentas de 12 bits con referencia de 3,3 V
@@ -30,6 +32,9 @@ namespace Config {
         c.azPins.pinA = DEF_AZ_CW;   c.azPins.pinB = DEF_AZ_CCW;  c.azPins.adcPin = DEF_AZ_ADC; c.azPins.adsChannel = 0;
         c.elPins.pinA = DEF_EL_UP;   c.elPins.pinB = DEF_EL_DOWN; c.elPins.adcPin = DEF_EL_ADC; c.elPins.adsChannel = 1;
         c.aprs.callsign = "N0CALL-12";
+    #ifdef DEF_EL_ENABLED
+        c.elEnabled = DEF_EL_ENABLED;              // placas sin segundo ADC: la elevacion necesita un ADS1115
+    #endif
     }
 
     // ------------------------------------------------------------------ JSON ------------------------------------------------------------
@@ -102,6 +107,10 @@ namespace Config {
         a["totp"] = secrets ? c.aprs.totpSecret : (c.aprs.totpSecret.empty() ? std::string() : std::string(MASK));
         a["reply"] = c.aprs.reply; a["beaconMin"] = c.beaconMin; a["lat"] = c.lat; a["lon"] = c.lon; a["comment"] = c.comment;
         d["led"] = c.led;
+    #if ROTOR_HAS_LCD
+        JsonObject lc = d["lcd"].to<JsonObject>();
+        lc["bright"] = c.lcdBright; lc["dimS"] = c.lcdDimS;
+    #endif
         std::string out;
         serializeJson(d, out);
         return out;
@@ -127,6 +136,7 @@ namespace Config {
         if (c.loraChip < 0 || c.loraChip > 4) { err = "lora.chip"; return false; }
         if (c.loraSf < 6 || c.loraSf > 12 || c.loraCr < 5 || c.loraCr > 8) { err = "lora sf / cr"; return false; }
         if (c.aprs.callsign.empty() || c.aprs.callsign.size() > 9) { err = "aprs.call"; return false; }
+        if (c.lcdBright < 10 || c.lcdBright > 100 || c.lcdDimS < 0) { err = "lcd.bright 10-100 / lcd.dimS >= 0"; return false; }
         if (!c.aprs.totpSecret.empty()) {
             uint8_t k[64];
             if (RC::Crypto::base32(c.aprs.totpSecret.c_str(), k, sizeof(k)) < 10) { err = "aprs.totp (base32, >= 16 chars)"; return false; }
@@ -168,6 +178,7 @@ namespace Config {
         getSecret(a, "totp", n.aprs.totpSecret); get(a, "reply", n.aprs.reply); get(a, "beaconMin", n.beaconMin);
         getD(a, "lat", n.lat); getD(a, "lon", n.lon); getS(a, "comment", n.comment);
         get(d, "led", n.led);
+        get(d["lcd"], "bright", n.lcdBright); get(d["lcd"], "dimS", n.lcdDimS);
         n.aprs.callsign = RC::Aprs::upper(n.aprs.callsign);
         if (!validate(n, err)) return false;
         c = n;

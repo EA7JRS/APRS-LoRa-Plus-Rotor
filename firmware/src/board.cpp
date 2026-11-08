@@ -4,6 +4,7 @@
  */
 
 #include "board.h"
+#include "exio.h"
 #include <time.h>
 #include <stdarg.h>
 #include <math.h>
@@ -16,6 +17,9 @@ namespace Board {
     void begin() {
     #if ROTOR_RP2
         analogReadResolution(12);
+    #endif
+    #if ROTOR_HAS_EXIO
+        Exio::begin();                  // antes que nada: las salidas del rotor pueden estar en el expansor
     #endif
     }
 
@@ -42,6 +46,16 @@ namespace Board {
 
     double readAdc(int pin) {
         if (pin < 0) return NAN;
+        if (Exio::isAdc(pin) || Exio::isExio(pin)) {
+        #if ROTOR_HAS_EXIO
+            if (!Exio::isAdc(pin)) return NAN;
+            const int a = Exio::adc(), b = Exio::adc();
+            if (a < 0 || b < 0) return NAN;
+            return (a + b) / 2.0;
+        #else
+            return NAN;
+        #endif
+        }
         uint32_t acc = 0;
         const int n = 8;
         for (int i = 0; i < n; i++) {
@@ -54,8 +68,30 @@ namespace Board {
         return (double)acc / n;
     }
 
+    bool adcIsCounts(int pin) {
+    #if ROTOR_ESP32
+        return Exio::isAdc(pin);
+    #else
+        (void)pin;
+        return true;
+    #endif
+    }
+
+    void pinOutput(int pin) {
+        if (pin < 0) return;
+        if (Exio::isExio(pin)) {
+        #if ROTOR_HAS_EXIO
+            Exio::output(pin - PIN_EXIO_BASE);
+        #endif
+            return;
+        }
+        if (pin >= PIN_EXIO_BASE) return;
+        pinMode(pin, OUTPUT);
+    }
+
     void pwmAttach(int pin, int freq) {
         if (pin < 0) return;
+        if (pin >= PIN_EXIO_BASE) { logf("pin %d: sin PWM (expansor); usa reles\n", pin); return; }
     #if ROTOR_ESP32
         #if ESP_ARDUINO_VERSION_MAJOR >= 3
             ledcAttach(pin, freq, 10);
@@ -73,7 +109,7 @@ namespace Board {
     }
 
     void pwmWrite(int pin, double duty) {
-        if (pin < 0) return;
+        if (pin < 0 || pin >= PIN_EXIO_BASE) return;
         if (duty < 0) duty = 0;
         if (duty > 1) duty = 1;
         const uint32_t v = (uint32_t)lround(duty * 1023.0);
@@ -90,6 +126,12 @@ namespace Board {
 
     void digitalOut(int pin, bool level) {
         if (pin < 0) return;
+        if (pin >= PIN_EXIO_BASE) {
+        #if ROTOR_HAS_EXIO
+            if (Exio::isExio(pin)) Exio::write(pin - PIN_EXIO_BASE, level);
+        #endif
+            return;
+        }
         digitalWrite(pin, level ? HIGH : LOW);
     }
 
