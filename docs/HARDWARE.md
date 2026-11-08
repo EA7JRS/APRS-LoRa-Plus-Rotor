@@ -15,8 +15,6 @@ Todos se cambian en la configuración (WebUI o app). `-1` = sin usar.
 |---|---|---|---|---|---|---|---|---|---|
 | ESP32 DevKit (`esp32dev`) | 25 | 26 | 27 | 14 | 34 | 35 | 21 / 22 | 16 / 17 | — |
 | ESP32-S3 DevKitC-1 (`esp32s3`) | 4 | 5 | 6 | 7 | 1 | 2 | 8 / 9 | 18 / 17 | — |
-| TTGO LoRa32 V2.1 (`ttgo-lora32-v21`) | 32 | 33 | 25 | 13 | 36 | 39 | 21 / 22 | 14 / 15 | SX1278 integrado |
-| Heltec WiFi LoRa 32 V3 (`heltec_v3`) | 47 | 48 | 33 | 34 | 4 | 5 | 41 / 42 | 6 / 7 | SX1262 integrado |
 | Waveshare ESP32-C5-Touch-LCD-3.5 (`waveshare_c5_lcd35`) | EXIO8 (108) | EXIO9 (109) | EXIO10 (110) | EXIO11 (111) | EXIO_ADC (200) | ADS1115 canal 1 | 27 / 26 | GPIO12 / GPIO11 (U0RXD / U0TXD) | — |
 | Waveshare ESP32-S3-Touch-AMOLED-2.41 (`waveshare_s3_amoled241`) | 38 | 39 | 40 | 41 | 1 | 7 | 47 / 48 | 44 / 43 | — |
 | Pico 2 W (`pico2w`) / Pico 2 (`pico2`) | GP6 | GP7 | GP8 | GP9 | GP26 | GP27 | GP4 / GP5 | GP1 / GP0 | HAT SX1262 Waveshare (opcional) |

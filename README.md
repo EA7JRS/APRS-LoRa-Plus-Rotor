@@ -2,7 +2,7 @@
 
 Controlador de rotores de antena **compatible con Hamlib** para el ecosistema **APRS LoRa+**: lo manejan el [tracker APRS LoRa+](https://github.com/EA7JRS/APRS-LoRa-Plus), la app Android APRS LoRa+ y cualquier programa con Hamlib (GPredict, Look4Sat, PstRotator…).
 
-**Placas**: ESP32, ESP32-S3 (incluidas TTGO LoRa32 V2.1 y Heltec V3 con LoRa), **Waveshare ESP32-C5-Touch-LCD-3.5** y **ESP32-S3-Touch-AMOLED-2.41** (con pantalla táctil: mando del rotor en la propia caja), Raspberry Pi Pico 2 / Pico 2 W y Raspberry Pi (Zero 2 W, 3, 4, 5).
+**Placas**: ESP32, ESP32-S3, **Waveshare ESP32-C5-Touch-LCD-3.5** y **ESP32-S3-Touch-AMOLED-2.41** (con pantalla táctil: mando del rotor en la propia caja), Raspberry Pi Pico 2 / Pico 2 W y Raspberry Pi (Zero 2 W, 3, 4, 5).
 
 ```
                        ┌──────────────── APRS LoRa+ Rotor ────────────────┐
@@ -24,7 +24,7 @@ Controlador de rotores de antena **compatible con Hamlib** para el ecosistema **
 | rotctld por WiFi, JSON por TCP, WebUI | ✔ | ✔ | ✔ (WiFi 2,4 y 5 GHz) | ✔ | ✔ | — | ✔ |
 | BLE para la app | ✔ | ✔ | ✔ | ✔ | pendiente | — | ✔ |
 | SPP (GS-232) para el tracker | ✔ | — | — | — | ✔ | — | ✔ |
-| LoRa APRS | con módulo (LoRa32 V2.1 integrado) | con módulo (Heltec V3 integrado) | — | — | HAT SX1262 | HAT SX1262 | por TNC KISS |
+| LoRa APRS | con módulo SX127x / SX126x | con módulo SX127x / SX126x | — | — | HAT SX1262 | HAT SX1262 | por TNC KISS |
 | Pantalla táctil (mando local) | — | — | ✔ (vertical) | ✔ (apaisada) | — | — | — |
 | USB como controlador de Hamlib | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | USB gadget (Zero 2 W) |
 | Actualización por la WebUI | placas de 8 MB | ✔ | ✔ | ✔ | ✔ | — | `git pull` + `install.sh` |
@@ -43,7 +43,7 @@ PlatformIO (VS Code):
 
 ```sh
 cd firmware
-pio run -e esp32s3 -t upload          # esp32dev · esp32s3 · ttgo-lora32-v21 · heltec_v3 · waveshare_c5_lcd35 · waveshare_s3_amoled241 · pico2w · pico2
+pio run -e esp32s3 -t upload          # esp32dev · esp32s3 · waveshare_c5_lcd35 · waveshare_s3_amoled241 · pico2w · pico2
 ```
 
 En la Pico 2 se puede copiar `firmware.uf2` arrastrándolo con BOOTSEL pulsado. La CI de GitHub compila todas las placas en cada subida y deja los binarios como artefactos.
