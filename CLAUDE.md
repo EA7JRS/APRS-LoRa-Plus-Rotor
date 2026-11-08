@@ -43,14 +43,14 @@ Controlador de rotores compatible con Hamlib, manejado por el tracker APRS LoRa+
 - APRS: destino `APZLRR` (experimental), `docs/APRS_CONTROL.md`.
 - G-5500: DIN pin 6 = AZ 2-4,5 V (0-450°), pin 1 = EL 2-4,5 V (0-180°), 2 CW, 4 CCW, 3 UP, 5 DOWN, 8 masa (manual de Yaesu). Divisor 10 k / 18 k.
 
-## Estado (2026-11-07)
+## Estado (2026-11-08)
 - Núcleo probado en el PC; demonio de la Raspberry probado en el PC con un rotctld simulado y un TNC KISS simulado.
 - Firmware: compila en la CI; **sin probar en placas**. BLE en la Pico 2 W: pendiente (arduino-pico usa BTstack, otro API).
 - App Android: pestaña **Rotor** hecha (commit 8655fab de APRS-LoRa-Plus-Android, sin probar con una caja real).
 - Tracker: PR #3 (rama `rotor-follow`): `\dump_state` corregido, fuentes 4 (última estación oída) y 5 (baliza CW con locator) y estimación de estaciones en movimiento; app con lo mismo (a4fa810). Transporte LoRa APRS desde el tracker descartado (su radio escucha lo que sigue).
 
 ## Versión y publicación (Manuel, 2026-11-07)
-- **Mismo número de versión en todos los repositorios** (tracker, rotor, app, gateway): ahora **5.3.4**. `ROTOR_VERSION` en `firmware/src/config.h`, `__version__` en `raspberrypi/aprs_lora_plus_rotor/__init__.py`, `library.json`.
+- **Mismo número de versión en todos los repositorios** (tracker, rotor, app, gateway): ahora **5.3.5**. `ROTOR_VERSION` en `firmware/src/config.h`, `__version__` en `raspberrypi/aprs_lora_plus_rotor/__init__.py`, `library.json`.
 - WebUI: cabecera como la del tracker (barra roja, logo, «APRS LoRa+» y debajo «Rotor» + versión).
 - Instalador web: el del tracker (GitHub Pages de APRS-LoRa-Plus) con tres lanzadores: Tracker, Rotor, Gateway. Release del rotor (`.github/workflows/release.yml`, etiqueta `v` + versión) → `rotor-<placa>.zip` y `web-site-rotor.zip` (`tools/make_web_assets.py`: manifiestos de ESP Web Tools, UF2 de la Pico, `latest.json`, `ota/`); la release del tracker con la misma versión lo descarga (secreto `FLASHER_TOKEN` en APRS-LoRa-Plus porque este repositorio es privado) y lo pone en `rotor/`. Por USB la placa contesta a `APRS-INFO?` con `APRS-LoRa-Plus: device=rotor board=… version=… chip=… ota=…`.
 

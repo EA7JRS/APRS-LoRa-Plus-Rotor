@@ -39,7 +39,7 @@ static void run(int W, int H, const std::string& out) {
     const std::string p = out + "/" + pre;
 
     Lcd::UiState s;
-    s.ver = "5.3.4"; s.name = "APRS-Rotor"; s.call = "EA7JRS-12"; s.board = W > H ? "waveshare_s3_amoled241" : "waveshare_c5_lcd35";
+    s.ver = "5.3.5"; s.name = "APRS-Rotor"; s.call = "EA7JRS-12"; s.board = W > H ? "waveshare_s3_amoled241" : "waveshare_c5_lcd35";
     s.chip = W > H ? "ESP32-S3" : "ESP32-C5";
     s.drv = "direct (relays)"; s.ip = "192.168.1.57"; s.wifi = "Casa (-61 dBm)"; s.rotctld = 4533; s.apiPort = 4534;
     s.ble = true; s.bleConn = true; s.upS = 3 * 3600 + 25 * 60; s.maxAz = 450;

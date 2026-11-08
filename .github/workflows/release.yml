@@ -1,7 +1,7 @@
 # APRS LoRa+ Rotor - Copyright (C) 2026 Manuel - EA7JRS - GPL-3.0-or-later
 # Release: compila todas las placas, adjunta un .zip por placa y web-site-rotor.zip (ficheros del instalador web).
 # El instalador web es el del tracker (EA7JRS/APRS-LoRa-Plus, GitHub Pages): al publicar la release del tracker con la MISMA
-# version, su workflow descarga web-site-rotor.zip de aqui y lo pone en rotor/. Etiqueta = v + ROTOR_VERSION (p. ej. v5.3.4).
+# version, su workflow descarga web-site-rotor.zip de aqui y lo pone en rotor/. Etiqueta = v + ROTOR_VERSION (p. ej. v5.3.5).
 name: Release
 
 on:
@@ -10,7 +10,7 @@ on:
     workflow_dispatch:
         inputs:
             tag:
-                description: "Release ya creada a la que adjuntar los ficheros (p. ej. v5.3.4)"
+                description: "Release ya creada a la que adjuntar los ficheros (p. ej. v5.3.5)"
                 required: true
 
 permissions:
