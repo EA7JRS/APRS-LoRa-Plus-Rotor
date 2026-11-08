@@ -2,6 +2,8 @@
 
 Controlador de rotores de antena **compatible con Hamlib** para el ecosistema **APRS LoRa+**: lo manejan el [tracker APRS LoRa+](https://github.com/EA7JRS/APRS-LoRa-Plus), la app Android APRS LoRa+ y cualquier programa con Hamlib (GPredict, Look4Sat, PstRotator…).
 
+**Manual**: [español](docs/MANUAL_ES.md) · [English](docs/MANUAL_EN.md) · **Guía rápida / Quick start**: [ES](docs/QUICKSTART_ES.md) · [EN](docs/QUICKSTART_EN.md)
+
 **Placas**: ESP32, ESP32-S3, **Waveshare ESP32-C5-Touch-LCD-3.5** y **ESP32-S3-Touch-AMOLED-2.41** (con pantalla táctil: mando del rotor en la propia caja), Raspberry Pi Pico 2 / Pico 2 W y Raspberry Pi (Zero 2 W, 3, 4, 5).
 
 ```
@@ -60,6 +62,8 @@ Ver [docs/RASPBERRY_PI.md](docs/RASPBERRY_PI.md).
 
 ## Documentación
 
+- **Manual de usuario**: [español](docs/MANUAL_ES.md) · [English](docs/MANUAL_EN.md)
+- **Guía rápida**: [español](docs/QUICKSTART_ES.md) · [English](docs/QUICKSTART_EN.md)
 - [docs/HARDWARE.md](docs/HARDWARE.md): pines, Yaesu G-5500 por el DIN, transistores, divisores, pasarela serie
 - [docs/WAVESHARE_C5_LCD35.md](docs/WAVESHARE_C5_LCD35.md): placa con pantalla táctil (conector, relés, potenciómetro, pantalla)
 - [docs/WAVESHARE_S3_AMOLED241.md](docs/WAVESHARE_S3_AMOLED241.md): placa con pantalla AMOLED apaisada

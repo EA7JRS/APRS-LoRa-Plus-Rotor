@@ -37,6 +37,9 @@ Controlador de rotores compatible con Hamlib, manejado por el tracker APRS LoRa+
 - Por defecto: relés IO38-41, potenciómetros IO1 / IO7 (ADC1), pasarela RX 44 / TX 43.
 - `lcd_ui.h` con dos disposiciones (`Layout::make`: vertical 320×480 y apaisada 600×450, fuentes `FontS2/M2/L2` de 22/28/54 px). `lcd_preview` prueba las dos (72 comprobaciones).
 
+## Manuales (2026-11-08)
+- `docs/MANUAL_ES.md`, `docs/MANUAL_EN.md` (manual de usuario) y `docs/QUICKSTART_ES.md`, `docs/QUICKSTART_EN.md` (guía rápida). Al cambiar funciones, placas o versión, actualizar los cuatro.
+
 ## Protocolos
 - BLE: servicio `4c6f5261-2b00-4ea7-b000-000000000001`, órdenes `…0002`, eventos `…0003` (el tracker usa `…-a000-…`). JSON por líneas, PIN con `auth`, emparejamiento Just Works cifrado. Documento: `docs/CONTROL_PROTOCOL.md`.
 - rotctld: `\dump_state` con protocolo 1 (`clave=valor` y `done`), como Hamlib 4.x. El tracker lo corrige en su PR #3.

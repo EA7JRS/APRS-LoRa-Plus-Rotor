@@ -1,0 +1,335 @@
+# APRS LoRa+ Rotor — Manual de usuario
+
+*Versión 5.3.5 · © 2026 Manuel - EA7JRS · GPL-3.0-or-later · [English](MANUAL_EN.md) · [Guía rápida](QUICKSTART_ES.md)*
+
+## Índice
+
+1. [Qué es](#1-qué-es)
+2. [Placas](#2-placas)
+3. [Instalación del firmware](#3-instalación-del-firmware)
+4. [Primera puesta en marcha](#4-primera-puesta-en-marcha)
+5. [Conexión del rotor](#5-conexión-del-rotor)
+6. [Calibración y ajuste del control](#6-calibración-y-ajuste-del-control)
+7. [WebUI](#7-webui)
+8. [Pantalla táctil](#8-pantalla-táctil)
+9. [App Android](#9-app-android)
+10. [Tracker APRS LoRa+](#10-tracker-aprs-lora)
+11. [Programas con Hamlib y PC](#11-programas-con-hamlib-y-pc)
+12. [Control por mensajes APRS (LoRa)](#12-control-por-mensajes-aprs-lora)
+13. [Raspberry Pi](#13-raspberry-pi)
+14. [Seguridad](#14-seguridad)
+15. [Actualizaciones y LED](#15-actualizaciones-y-led)
+16. [Problemas frecuentes](#16-problemas-frecuentes)
+17. [Referencia](#17-referencia)
+
+---
+
+## 1. Qué es
+
+**APRS LoRa+ Rotor** es un controlador de rotores de antena compatible con **Hamlib**. Forma parte del ecosistema APRS LoRa+ junto con el tracker y la app Android, y se puede manejar desde:
+
+- el **tracker APRS LoRa+**: sigue satélites, estaciones APRS (también en movimiento) y balizas CW;
+- la **app Android APRS LoRa+**, por Bluetooth (BLE) o WiFi;
+- su **WebUI** en cualquier navegador;
+- su propia **pantalla táctil**, en las placas Waveshare;
+- **cualquier programa con Hamlib**: GPredict, Look4Sat, PstRotator, CSN S.A.T…;
+- un **PC por USB**, donde se presenta como un controlador GS-232B, EasyComm II o Rot2Prog;
+- **mensajes APRS por LoRa**, desde cualquier estación autorizada.
+
+Puede mover el rotor de dos maneras:
+
+- **Control directo**: la placa sustituye al ordenador del mando. Activa los relés o transistores de giro y lee la posición del potenciómetro del rotor.
+- **Pasarela serie**: la placa habla con un controlador comercial (Yaesu GS-232A/B, SPID Rot2Prog / MD-01 / MD-02, EasyComm II: K3NG, SatNOGS, ERC…).
+
+En la **Raspberry Pi** el rotor lo maneja el `rotctld` de Hamlib, así que sirve **cualquier rotor que Hamlib conozca**.
+
+## 2. Placas
+
+| | ESP32 | ESP32-S3 | ESP32-C5 LCD 3,5" | ESP32-S3 AMOLED 2,41" | Pico 2 W | Pico 2 | Raspberry Pi |
+|---|---|---|---|---|---|---|---|
+| Control directo | ✔ | ✔ | relés + 1 ADC (o ADS1115) | ✔ | ✔ | ✔ | — |
+| Pasarela serie | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | cualquier modelo de Hamlib |
+| WiFi (rotctld, JSON, WebUI) | ✔ | ✔ | ✔ (2,4 y 5 GHz) | ✔ | ✔ | — | ✔ |
+| BLE para la app | ✔ | ✔ | ✔ | ✔ | pendiente | — | ✔ |
+| Bluetooth SPP (GS-232) para el tracker | ✔ | — | — | — | ✔ | — | ✔ |
+| LoRa APRS | módulo externo | módulo externo | — | — | HAT SX1262 | HAT SX1262 | TNC KISS |
+| Pantalla táctil | — | — | ✔ vertical | ✔ apaisada | — | — | — |
+| USB como controlador | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | USB gadget (Zero 2 W) |
+| Actualización por la WebUI | placas de 8 MB | ✔ | ✔ | ✔ | ✔ | — | `git pull` + `install.sh` |
+
+Entornos de PlatformIO: `esp32dev`, `esp32s3`, `waveshare_c5_lcd35`, `waveshare_s3_amoled241`, `pico2w`, `pico2`.
+
+## 3. Instalación del firmware
+
+### Instalador web (recomendado)
+
+1. Abre **https://ea7jrs.github.io/APRS-LoRa-Plus/** en Chrome o Edge (necesitan Web Serial).
+2. Elige **Rotor** y tu placa, conéctala por USB y pulsa **Instalar**. El instalador reconoce la placa conectada y la versión que lleva.
+3. **Pico 2 / Pico 2 W**: descarga el fichero `.uf2`, conecta la placa con el botón **BOOTSEL** pulsado y copia el fichero a la unidad que aparece.
+
+### PlatformIO
+
+```sh
+cd firmware
+pio run -e esp32s3 -t upload        # o esp32dev, waveshare_c5_lcd35, waveshare_s3_amoled241, pico2w, pico2
+```
+
+### Raspberry Pi
+
+Ver el [apartado 13](#13-raspberry-pi).
+
+## 4. Primera puesta en marcha
+
+1. Al arrancar por primera vez, la placa abre la WiFi **APRS-Rotor** (contraseña `aprsrotor`).
+2. Conéctate a ella y abre **http://192.168.4.1/**. Usuario `admin`, contraseña = el PIN (`123456`).
+3. En **Configuración** pulsa *Leer*, cambia lo necesario y pulsa *Guardar y reiniciar*:
+
+| Clave | Qué poner |
+|---|---|
+| `name` | nombre de la caja: WiFi, Bluetooth y `nombre.local` |
+| `pin` | **cámbialo**: protege la app, la WebUI y el control |
+| `wifi.mode` | `1` para entrar en tu red (`wifi.ssid`, `wifi.pass`); `2` deja el punto de acceso; `0` apaga la WiFi |
+| `aprs.call` | indicativo del rotor con SSID (por ejemplo `EA7JRS-12`) |
+| `driver` | `0` control directo, `1` pasarela serie |
+| `bt.mode` | `1` BLE (app), `2` SPP (tracker con ESP32 original), `0` apagado |
+
+4. Tras reiniciar, la WebUI está en **http://APRS-Rotor.local/** (o en la IP que le dé tu router).
+
+Si la placa no entra en tu WiFi en 30 s, abre el punto de acceso de rescate **APRS-Rotor** para que puedas corregirlo.
+
+Todas las opciones están en [CONFIG.md](CONFIG.md). La configuración se guarda en la placa (`/rotor_conf.json`), y la app y la WebUI la leen y la escriben entera.
+
+## 5. Conexión del rotor
+
+> ⚠️ Las placas trabajan a **3,3 V**. Ninguna entrada puede recibir más: usa divisores de tensión, y transistores u optoacopladores para las salidas. Las líneas del mando y de los motores nunca van directas a un pin.
+
+### 5.1 Pines por defecto
+
+| Placa | AZ CW | AZ CCW | EL UP | EL DOWN | ADC AZ | ADC EL | I2C (ADS1115) | UART pasarela RX/TX |
+|---|---|---|---|---|---|---|---|---|
+| ESP32 DevKit | 25 | 26 | 27 | 14 | 34 | 35 | 21 / 22 | 16 / 17 |
+| ESP32-S3 DevKitC-1 | 4 | 5 | 6 | 7 | 1 | 2 | 8 / 9 | 18 / 17 |
+| ESP32-C5-Touch-LCD-3.5 | EXIO8 | EXIO9 | EXIO10 | EXIO11 | EXIO_ADC | ADS1115 | 27 / 26 | 12 / 11 |
+| ESP32-S3-Touch-AMOLED-2.41 | 38 | 39 | 40 | 41 | 1 | 7 | 47 / 48 | 44 / 43 |
+| Pico 2 W / Pico 2 | GP6 | GP7 | GP8 | GP9 | GP26 | GP27 | GP4 / GP5 | GP1 / GP0 |
+
+Todos se cambian en la configuración; `-1` significa sin usar. En el ESP32, usa solo pines del ADC1, porque el ADC2 no funciona con la WiFi encendida. Las placas con pantalla tienen su propia hoja: [WAVESHARE_C5_LCD35.md](WAVESHARE_C5_LCD35.md) y [WAVESHARE_S3_AMOLED241.md](WAVESHARE_S3_AMOLED241.md).
+
+### 5.2 Control directo: Yaesu G-5500 por el DIN de 8 pines
+
+Conector «EXTERNAL CONTROL» de la parte trasera del mando:
+
+| Pin DIN | Función | A la placa |
+|---|---|---|
+| 6 | 2-4,5 V = acimut 0-450° | divisor → ADC AZ |
+| 1 | 2-4,5 V = elevación 0-180° | divisor → ADC EL |
+| 2 | a masa = CW | transistor de AZ CW |
+| 4 | a masa = CCW | transistor de AZ CCW |
+| 3 | a masa = UP | transistor de EL UP |
+| 5 | a masa = DOWN | transistor de EL DOWN |
+| 8 | masa común | GND |
+
+- **Posición**: en cada salida, un divisor de 10 kΩ (arriba) y 18 kΩ (abajo), con 100 nF a masa en la entrada del ADC. Los valores por defecto ya cuentan con este divisor.
+- **Giro**: un NPN (BC547 / 2N2222, con 2,2 kΩ en la base y 10 kΩ de la base a masa) o un ULN2003 por línea. El colector va al pin del DIN y el emisor a masa. Con optoacopladores (PC817) las dos masas quedan aisladas.
+- El G-5500 necesita una pausa antes de invertir el giro (`reverseMs` 1200).
+
+### 5.3 Otros rotores con control directo
+
+- **Un solo eje** (G-450, G-650, G-1000DXC…): `direct.elEnabled: false`.
+- **Velocidad variable** (serie DXC, G-2800): pin en `pinPwm`, con un filtro RC hacia la entrada de velocidad del mando.
+- **Hy-Gain con freno** (Ham-IV, T2X): relé del freno en `brakePin` y `brakeMs` de 2000 a 3000.
+- **Motor de continua con puente H** (BTS7960, L298N, DRV8871): `outMode: 1`, con arranque suave (`rampMs`) y frenada progresiva (`slowZone`, `minSpeed`).
+- **ADS1115** (16 bits por I2C): `sensor: 1` y el canal en `adsCh`.
+- **Sin sensor** (`sensor: 2`): solo movimiento manual, que se para solo a los 90 s.
+
+### 5.4 Pasarela serie
+
+UART de la placa → controlador. Con RS-232, pon un MAX3232 a 3,3 V; con TTL de 5 V, un divisor en el RX.
+
+| Controlador | `serial.proto` | Velocidad |
+|---|---|---|
+| Yaesu GS-232A | 0 | 9600 |
+| Yaesu GS-232B, K3NG en modo Yaesu | 1 | 9600 |
+| EasyComm II (K3NG, SatNOGS, ERC) | 2 | 9600 / 19200 |
+| SPID Rot2Prog, MD-01, MD-02 | 3 | 600 / 460800 |
+
+`serial.hasEl: false` en rotores solo de acimut. `minAz`, `maxAz` y `maxEl` son los límites que se anuncian a Hamlib.
+
+Más detalles en [HARDWARE.md](HARDWARE.md).
+
+## 6. Calibración y ajuste del control
+
+### Calibración de dos puntos
+
+Desde la WebUI (*Calibración*) o la app (*Rotor* → calibración):
+
+1. Lleva el rotor con los botones a un extremo conocido (por ejemplo 0°), escribe los grados y pulsa **Punto A aquí**.
+2. Llévalo al otro extremo (por ejemplo 450° o 180°) y pulsa **Punto B aquí**.
+3. **Corregir desfase**: si solo está desviado unos grados, escribe dónde apunta realmente y púlsalo.
+
+La lectura en bruto (milivoltios o cuentas) se muestra junto a la posición.
+
+### Ajustes de cada eje (`direct.az`, `direct.el`)
+
+| Ajuste | Por defecto | Para qué |
+|---|---|---|
+| `min` / `max` | 0 / 450 (AZ), 0 / 180 (EL) | rango mecánico; con tope al sur, -180 / 180 |
+| `deadband` | 1,0° | para cuando el error es menor |
+| `restart` | 2,0° | vuelve a moverse si el error supera esto (evita oscilar) |
+| `slowZone`, `minSpeed`, `maxSpeed` | 10°, 0,35, 1 | frenada cerca del objetivo (PWM) |
+| `rampMs` | 600 | arranque suave |
+| `reverseMs` | 1200 | pausa antes de invertir |
+| `stallMs` / `stallDeg` | 5000 / 1,0 | atasco: si no avanza, para y da fallo |
+| `limitMargin` | 0,5° | para antes del tope |
+| `filter` | 0,35 | filtro de la lectura (1 = sin filtro) |
+
+**Solape (rotores de 450°)**: si se pide un rumbo de 0 a 360°, el control elige el giro más corto que no pase por los topes. Con `reportMech: true`, el rotor devuelve el acimut mecánico (más de 360 en la zona de solape).
+
+## 7. WebUI
+
+En `http://APRS-Rotor.local/` (placas) o en `http://IP:8080/` (Raspberry Pi). Usuario `admin`, contraseña = PIN (o `net.webPass`).
+
+| Sección | Qué hace |
+|---|---|
+| **Posición** | acimut y elevación actuales, objetivo, estado y lectura en bruto |
+| **Mando** | **Ir** a un acimut y una elevación; CCW / CW / UP / DOWN mientras se mantienen pulsados; **STOP**; **Park**; **Borrar fallo** |
+| **Calibración** | Punto A, Punto B y corregir el desfase (control directo) |
+| **Configuración** | el fichero entero: *Leer*, editar, *Guardar y reiniciar*; las contraseñas aparecen como `********` y no se tocan |
+| **Actualizar firmware** | subir un `firmware.bin` |
+| **Acerca de** | versión, placa y © 2026 Manuel - EA7JRS |
+
+## 8. Pantalla táctil
+
+Placas **Waveshare ESP32-C5-Touch-LCD-3.5** (vertical) y **ESP32-S3-Touch-AMOLED-2.41** (apaisada).
+
+- **Brújula**: aguja roja = posición, azul = objetivo, arco naranja = zona de solape.
+- **Botones**: **CCW · STOP · CW · DOWN · PARK · UP**. Los de movimiento mueven mientras se mantienen pulsados.
+- **Apuntar**: mantén la brújula pulsada medio segundo, arrastra hasta el rumbo (aguja verde) y suelta. Un toque corto no mueve nada.
+- **Fallo**: aparece en rojo; tócalo para borrarlo.
+- **ⓘ**: nombre, indicativo, placa, WiFi, IP, puertos, Bluetooth, tiempo encendida, **Acerca de** y brillo.
+- **Brillo y apagado**: `lcd.bright` y `lcd.dimS`. La LCD se atenúa; la AMOLED se apaga para que no queden marcas. El primer toque solo la enciende.
+
+## 9. App Android
+
+Pestaña **Rotor** de la app APRS LoRa+:
+
+1. **Conectar**: *Scan for rotor boxes* (BLE) o *Address* = `APRS-Rotor.local` / IP (WiFi, puerto 4534).
+2. **PIN**: el de la caja (`pin`). Sin PIN correcto solo se puede consultar.
+3. **Mando**: brújula, ir a, mover manteniendo pulsado, STOP, Park, *Clear fault*.
+4. **Follow**: la caja sigue
+   - la puntería del tracker (satélite, GO TO, objetivo fijo…);
+   - una estación APRS de la lista del tracker, una concreta o la última que pase el filtro, con estimación si se mueve;
+   - una baliza CW con locator (`VVV DE ED7YAA IM76HR`), del decodificador del tracker o del móvil.
+
+   Los ángulos se calculan desde el GNSS del tracker.
+5. **Calibración** (Point A / Point B / Offset), **configuración** completa (*Read*, *Save and restart*) y *Restart the rotor box*.
+
+No dejes que el tracker mueva el mismo rotor a la vez por WiFi o SPP: elige una sola vía.
+
+## 10. Tracker APRS LoRa+
+
+En la WebUI del tracker, **Antenna rotor**:
+
+| Enlace | Rotor | Tracker |
+|---|---|---|
+| WiFi (rotctld) | `net.rotctld` activado (puerto 4533) | *Transport* = TCP, *Host* = `APRS-Rotor.local` o IP, *Port* = 4533 |
+| Bluetooth SPP (tracker con ESP32 original) | `bt.mode: 2`, `bt.sppProto: 1` | *Transport* = Bluetooth SPP, *BT name* = nombre del rotor |
+| App como puente | `bt.mode: 1` | *Send the rot event*; la app reenvía con *Follow* |
+
+Qué sigue (*What the rotor follows*):
+
+- **Satélite** del modo SAT, desde unos segundos antes del AOS hasta el LOS.
+- **Estación con GO TO**, con su posición actualizada cada vez que se oye.
+- **Objetivo fijo** (repetidor, baliza…).
+- **Última estación APRS oída** (LoRa o FSK), con filtro de indicativos y antigüedad máxima.
+- **Última baliza CW con locator** (modo MORSE, escucha CW).
+- **GPredict a través del tracker**.
+
+**Estaciones en movimiento**: el rotor apunta a la posición **estimada ahora**, calculada con la velocidad y el rumbo de su última posición durante el tiempo transcurrido (300 s como máximo). El nombre lleva `~` mientras es estimada.
+
+## 11. Programas con Hamlib y PC
+
+- **Por WiFi**: en GPredict, Look4Sat, PstRotator…, Hamlib «NET rotctl» (modelo 2) con `IP:4533`. Admite hasta 4 clientes a la vez. Prueba: `rotctl -m 2 -r APRS-Rotor.local:4533 p`.
+- **Por USB**: la placa se presenta como un controlador según `usb.proto` (GS-232B por defecto): `rotctl -m 603 -r /dev/ttyUSB0`, `-m 202` (EasyComm II) o `-m 901` (Rot2Prog). Con `usb.proto: 5`, el USB saca el registro de depuración.
+
+## 12. Control por mensajes APRS (LoRa)
+
+En placas con módulo LoRa (ESP32 / ESP32-S3 con módulo externo, Pico con el HAT SX1262) o en la Raspberry Pi con un TNC KISS. Frecuencia por defecto: 433,775 MHz, SF12, BW 125 kHz, CR 4/5 (`lora.*`).
+
+Manda un mensaje APRS al indicativo del rotor (`aprs.call`):
+
+| Mensaje | Hace |
+|---|---|
+| `P 123 45` / `AZ 123 EL 45` | ir a acimut 123°, elevación 45° |
+| `P 123` | solo acimut |
+| `PARK` / `STOP` | reposo / parar |
+| `?` | posición actual |
+| `HELP` | lista de órdenes |
+
+- **Quién puede mandar**: los indicativos de `aprs.allow`. `EA7JRS` vale para cualquier SSID; con la lista vacía, solo el indicativo base del rotor.
+- **Código TOTP** (opcional, `aprs.totp`): secreto en base32 de cualquier app de autenticación. Se añade al final: `P 123 45 492039`. No se puede reutilizar y necesita la hora (NTP).
+- **Respuestas**: `ack` y `GO AZ 123 EL 45`, `… OK`, `… MOVING` o `ERR …`.
+- **Baliza de estado** cada `aprs.beaconMin` minutos.
+
+LoRa APRS es lento: no sirve para seguir satélites. Más detalles en [APRS_CONTROL.md](APRS_CONTROL.md).
+
+## 13. Raspberry Pi
+
+```sh
+git clone https://github.com/EA7JRS/APRS-LoRa-Plus-Rotor
+cd APRS-LoRa-Plus-Rotor/raspberrypi
+sudo ./install.sh              # Zero 2 W como GS-232B por USB para el PC: sudo ./install.sh --gadget
+```
+
+1. Busca tu controlador en `rotctl -l` (601 GS-232A, 603 GS-232B, 202 EasyComm II, 901 Rot2Prog, 903 MD-01/02, 1 Dummy para probar).
+2. En la WebUI (`http://IP:8080`) o en `/etc/aprs-lora-plus-rotor/config.json`:
+   ```json
+   "hamlib": { "model": 603, "device": "/dev/serial/by-id/...", "speed": 9600 }
+   ```
+3. Puertos: rotctld 4533, JSON 4534, WebUI 8080. Bluetooth: BLE para la app y SPP para el tracker. APRS por un TNC KISS (`aprs.kiss` = `tcp:IP:8001` del tracker o iGate en KISS, o `serial:/dev/ttyACM0:115200`).
+4. Registro: `journalctl -u aprs-lora-plus-rotor -f`.
+
+Más detalles en [RASPBERRY_PI.md](RASPBERRY_PI.md).
+
+## 14. Seguridad
+
+- **Cambia el PIN** (`pin`): protege la app, la WebUI y el protocolo JSON. Si la WebUI va a ser accesible fuera de tu red, pon también `net.webPass`.
+- **El rotor se protege solo**: para en los topes (`limitMargin`), da fallo si se atasca (`stallMs`) y lo apaga todo si el sensor deja de leer. Tras un fallo, una orden de posición nueva o *Borrar fallo* lo rearma.
+- **Al arrancar**, los pines quedan al aire un instante: pon resistencias de 10 kΩ de la base a masa (o usa un ULN2003) para que el rotor no se mueva.
+- **APRS**: lista de indicativos y, mejor, código TOTP. El contenido viaja sin cifrar, como piden las normas de radioaficionado.
+
+## 15. Actualizaciones y LED
+
+- **WebUI → Actualizar firmware** (o `http://APRS-Rotor.local/update`): sube el `firmware.bin` de la release. No está disponible en los ESP32 de 4 MB; usa el instalador web.
+- **Instalador web**: siempre vale y conserva la configuración, salvo que elijas borrar.
+- **Versión**: todos los proyectos APRS LoRa+ llevan el mismo número; actualiza a la vez el tracker, el rotor y la app.
+- **LED de estado** (placas que lo tienen): fijo = moviéndose; parpadeo rápido = fallo; destello lento = en reposo.
+
+## 16. Problemas frecuentes
+
+| Síntoma | Qué hacer |
+|---|---|
+| No veo la WiFi APRS-Rotor | Espera 30 s tras encender; si estaba en modo cliente y no entra en tu red, vuelve a abrirla |
+| `APRS-Rotor.local` no responde | Usa la IP (en tu router o en la pantalla ⓘ); Android antiguo no resuelve `.local` |
+| No se mueve y da fallo | *Borrar fallo*; revisa topes, atasco (`stallMs`) y la lectura en bruto |
+| Gira al revés | Intercambia `pinA` / `pinB` o recalibra los puntos A y B |
+| La lectura salta | 100 nF en la entrada del ADC, `filter` más bajo, ADS1115 |
+| Se pasa y vuelve | Sube `deadband` / `restart`; con PWM, amplía `slowZone` |
+| La app no manda órdenes | PIN distinto del de la caja; *Send PIN* |
+| GPredict no conecta | Puerto 4533, `net.rotctld: true`, misma red, cortafuegos |
+| El tracker no mueve el rotor | *Antenna rotor* activado, transporte y host correctos; prueba `rotctl -m 2 -r IP:4533 p` desde un PC |
+| APRS responde `ERR no time` | Sin hora para el TOTP: la placa necesita WiFi con NTP |
+| He olvidado el PIN | Instala de nuevo con el instalador web eligiendo **borrar** (vuelve a la configuración de fábrica) |
+
+## 17. Referencia
+
+| Puerto | Servicio |
+|---|---|
+| 80 (placas) / 8080 (Raspberry Pi) | WebUI y `/update` |
+| 4533 | rotctld (Hamlib NET rotctl) |
+| 4534 | protocolo JSON (app por WiFi) |
+| BLE `4c6f5261-2b00-4ea7-b000-000000000001` | protocolo JSON (app) |
+
+Documentos: [CONFIG.md](CONFIG.md) (todas las opciones) · [HARDWARE.md](HARDWARE.md) (conexiones) · [CONTROL_PROTOCOL.md](CONTROL_PROTOCOL.md) (protocolo JSON) · [APRS_CONTROL.md](APRS_CONTROL.md) · [INTEGRATION.md](INTEGRATION.md) · [RASPBERRY_PI.md](RASPBERRY_PI.md) · [WAVESHARE_C5_LCD35.md](WAVESHARE_C5_LCD35.md) · [WAVESHARE_S3_AMOLED241.md](WAVESHARE_S3_AMOLED241.md).
+
+**Acerca de**: APRS LoRa+ Rotor — by Manuel EA7JRS · © 2026 Manuel - EA7JRS · GPL-3.0-or-later · https://github.com/EA7JRS/APRS-LoRa-Plus. Formatos de protocolo tomados de Hamlib; letras de la pantalla: DejaVu Sans.
