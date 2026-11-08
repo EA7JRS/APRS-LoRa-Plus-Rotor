@@ -6,6 +6,7 @@
 #include "lcd_hw.h"
 #if ROTOR_HAS_LCD
 #include <SPI.h>
+#include <initializer_list>
 #include <Wire.h>
 #include <ArduinoJson.h>
 #include <esp_heap_caps.h>
@@ -19,6 +20,42 @@
 #include "lora_aprs.h"
 #include "rc_common.h"
 #include "rc_serialproto.h"
+
+// Pantallas: 1 = ST7796 por SPI, 320 x 480 vertical (ESP32-C5-Touch-LCD-3.5)
+//            2 = RM690B0 AMOLED por QSPI, 600 x 450 apaisada (ESP32-S3-Touch-AMOLED-2.41)
+#ifndef LCD_PANEL
+    #define LCD_PANEL 1
+#endif
+#if LCD_PANEL == 2
+    #include <driver/spi_master.h>
+    #include <esp_lcd_panel_io.h>
+    #define LCD_W 600
+    #define LCD_H 450
+    #ifndef LCD_QSPI_CS
+        #define LCD_QSPI_CS 9
+    #endif
+    #ifndef LCD_QSPI_CLK
+        #define LCD_QSPI_CLK 10
+    #endif
+    #ifndef LCD_QSPI_D0
+        #define LCD_QSPI_D0 11
+    #endif
+    #ifndef LCD_QSPI_D1
+        #define LCD_QSPI_D1 12
+    #endif
+    #ifndef LCD_QSPI_D2
+        #define LCD_QSPI_D2 13
+    #endif
+    #ifndef LCD_QSPI_D3
+        #define LCD_QSPI_D3 14
+    #endif
+    #define LCD_Y_OFFSET 16             // la memoria del panel empieza 16 filas más abajo (ejemplo de Waveshare)
+    #define LCD_DIM_PCT 0               // AMOLED: sin uso se apaga (evita marcas en la pantalla)
+#else
+    #define LCD_W 320
+    #define LCD_H 480
+    #define LCD_DIM_PCT 10
+#endif
 
 #ifndef LCD_MOSI
     #define LCD_MOSI 7
@@ -43,19 +80,91 @@
 #endif
 
 namespace LcdHw {
-    static const int W = Lcd::Ui::W, H = Lcd::Ui::H, BAND = 16, BANDS = H / BAND;
+    static const int W = LCD_W, H = LCD_H, BAND = 16, BANDS = (H + BAND - 1) / BAND;
     static const uint8_t TOUCH_ADDR = 0x38;
 
     static bool         ok = false;
     static uint16_t*    draw_ = nullptr;          // donde se dibuja
     static uint16_t*    shown_ = nullptr;         // lo que hay en la pantalla
     static Lcd::Fb      fb;
-    static Lcd::Ui      ui;
+    static Lcd::Ui      ui(LCD_W, LCD_H);
     static Lcd::UiState st;
     static int          nextBand = -1;            // -1: nada pendiente
     static uint32_t     lastDraw = 0, lastTouch = 0, lastActivity = 0, brightSaveAt = 0;
     static bool         touchOk = false, dimmed = false, swallow = false, firstFrame = true;
 
+#if LCD_PANEL == 2
+    // ------------------------------------------------------------------------------------------------ RM690B0 (QSPI)
+    // Órdenes: 0x02 + orden en un hilo; puntos: 0x32 + 0x2C en cuatro hilos (como esp_lcd_sh8601 de Waveshare)
+    static esp_lcd_panel_io_handle_t io = nullptr;
+    static uint16_t*      dmaBuf = nullptr;         // franja en memoria interna con DMA
+    static volatile bool  txDone = true;
+
+    static bool onDone(esp_lcd_panel_io_handle_t, esp_lcd_panel_io_event_data_t*, void*) { txDone = true; return false; }
+
+    static void cmd(uint8_t c, const uint8_t* d = nullptr, size_t n = 0) {
+        esp_lcd_panel_io_tx_param(io, (int)((0x02u << 24) | ((uint32_t)c << 8)), d, n);
+    }
+    static void cmdList(uint8_t c, std::initializer_list<uint8_t> d) { cmd(c, d.begin(), d.size()); }
+
+    static void setBright(int pct) { cmdList(0x51, { (uint8_t)(pct * 255 / 100) }); }
+
+    static void waitTx() { const uint32_t t0 = millis(); while (!txDone && millis() - t0 < 200) delay(0); }
+
+    static void pushRows(int y0, int rows) {
+        waitTx();
+        const int y = y0 + LCD_Y_OFFSET, y1 = y + rows - 1;
+        cmdList(0x2A, { 0, 0, (uint8_t)((W - 1) >> 8), (uint8_t)(W - 1) });
+        cmdList(0x2B, { (uint8_t)(y >> 8), (uint8_t)y, (uint8_t)(y1 >> 8), (uint8_t)y1 });
+        memcpy(dmaBuf, shown_ + y0 * W, (size_t)rows * W * 2);
+        txDone = false;
+        if (esp_lcd_panel_io_tx_color(io, (int)((0x32u << 24) | (0x2Cu << 8)), dmaBuf, (size_t)rows * W * 2) != ESP_OK) txDone = true;
+    }
+
+    static bool panelInit() {
+        dmaBuf = (uint16_t*)heap_caps_malloc((size_t)W * BAND * 2, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
+        if (!dmaBuf) { logf("lcd: sin memoria DMA\n"); return false; }
+        spi_bus_config_t bus = {};
+        bus.sclk_io_num = LCD_QSPI_CLK;
+        bus.data0_io_num = LCD_QSPI_D0;
+        bus.data1_io_num = LCD_QSPI_D1;
+        bus.data2_io_num = LCD_QSPI_D2;
+        bus.data3_io_num = LCD_QSPI_D3;
+        bus.max_transfer_sz = W * BAND * 2 + 64;
+        if (spi_bus_initialize(SPI2_HOST, &bus, SPI_DMA_CH_AUTO) != ESP_OK) { logf("lcd: bus QSPI\n"); return false; }
+        esp_lcd_panel_io_spi_config_t ioc = {};
+        ioc.cs_gpio_num = LCD_QSPI_CS;
+        ioc.dc_gpio_num = -1;
+        ioc.spi_mode = 0;
+        ioc.pclk_hz = 40 * 1000 * 1000;
+        ioc.trans_queue_depth = 4;
+        ioc.on_color_trans_done = onDone;
+        ioc.lcd_cmd_bits = 32;
+        ioc.lcd_param_bits = 8;
+        ioc.flags.quad_mode = 1;
+        if (esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)SPI2_HOST, &ioc, &io) != ESP_OK) { logf("lcd: QSPI\n"); return false; }
+        // Secuencia del ejemplo de Waveshare (09_LVGL_Test, girada 90°: MADCTL 0x30)
+        cmd(0x01); delay(80);
+        cmdList(0x36, { 0x00 });
+        cmdList(0x3A, { 0x55 });
+        cmdList(0xFE, { 0x20 });
+        cmdList(0x26, { 0x0A });
+        cmdList(0x24, { 0x80 });
+        cmdList(0xFE, { 0x00 });
+        cmdList(0x3A, { 0x55 });
+        cmdList(0xC2, { 0x00 }); delay(10);
+        cmd(0x35);
+        cmdList(0x51, { 0x00 }); delay(10);
+        cmd(0x11); delay(80);
+        cmdList(0x2A, { 0x00, 0x10, 0x00, 0xD1 });
+        cmdList(0x2B, { 0x00, 0x00, 0x00, 0x57 });
+        cmd(0x29); delay(10);
+        cmdList(0x36, { 0x30 });
+        return true;
+    }
+
+    static void busPins() {}
+#else
     // ------------------------------------------------------------------------------------------------ ST7796
     static void cmd(uint8_t c, const uint8_t* d = nullptr, size_t n = 0) {
         SPI.beginTransaction(SPISettings(LCD_SPI_HZ, MSBFIRST, SPI_MODE0));
@@ -73,6 +182,8 @@ namespace LcdHw {
         cmdList(0x2B, { (uint8_t)(y0 >> 8), (uint8_t)y0, (uint8_t)(y1 >> 8), (uint8_t)y1 });
     }
 
+    static void setBright(int pct) { Exio::backlight((uint8_t)pct); }
+
     static void pushRows(int y0, int rows) {
         window(0, y0, W - 1, y0 + rows - 1);
         SPI.beginTransaction(SPISettings(LCD_SPI_HZ, MSBFIRST, SPI_MODE0));
@@ -85,7 +196,7 @@ namespace LcdHw {
         SPI.endTransaction();
     }
 
-    static void panelInit() {
+    static bool panelInit() {
         // Secuencia del ejemplo de Waveshare (07_lvgl_demo / BSP): BGR + espejo X, RGB565, inversión
         cmd(0x01); delay(20);
         cmd(0x11); delay(100);
@@ -106,7 +217,17 @@ namespace LcdHw {
         cmd(0x21);
         cmd(0x29);
         delay(120);
+        return true;
     }
+
+    static void busPins() {
+        pinMode(LCD_SD_CS, OUTPUT); digitalWrite(LCD_SD_CS, HIGH);
+        pinMode(LCD_CS, OUTPUT);    digitalWrite(LCD_CS, HIGH);
+        pinMode(LCD_DC, OUTPUT);    digitalWrite(LCD_DC, HIGH);
+        SPI.begin(LCD_SCLK, LCD_MISO, LCD_MOSI, -1);
+    }
+
+#endif
 
     // ------------------------------------------------------------------------------------------------ FT6336
     static bool touchRead(int& x, int& y) {
@@ -117,9 +238,14 @@ namespace LcdHw {
         uint8_t d[5];
         for (int i = 0; i < 5; i++) d[i] = Wire.read();
         if ((d[0] & 0x0F) == 0) return false;
-        x = ((d[1] & 0x0F) << 8) | d[2];
-        y = ((d[3] & 0x0F) << 8) | d[4];
-        return x < W && y < H;
+        const int rx = ((d[1] & 0x0F) << 8) | d[2], ry = ((d[3] & 0x0F) << 8) | d[4];
+    #if LCD_PANEL == 2
+        x = (W - 1) - ry;           // el táctil va en vertical: espejo de Y y cambio de ejes (ejemplo de Waveshare)
+        y = rx;
+    #else
+        x = rx; y = ry;
+    #endif
+        return x >= 0 && y >= 0 && x < W && y < H;
     }
 
     // ------------------------------------------------------------------------------------------------ estado
@@ -158,7 +284,7 @@ namespace LcdHw {
         st.bright = Cfg.lcdBright;
     }
 
-    static void applyBright() { Exio::backlight(dimmed ? 10 : (uint8_t)Cfg.lcdBright); }
+    static void applyBright() { setBright(dimmed ? LCD_DIM_PCT : Cfg.lcdBright); }
 
     static void run(const Lcd::UiCmd& c) {
         RC::Rotor& r = Drv::rotor();
@@ -191,11 +317,8 @@ namespace LcdHw {
         if (!draw_ || !shown_) { logf("lcd: sin PSRAM para la imagen\n"); return; }
         Exio::backlight(0);
         Exio::resetLcdTouch();
-        pinMode(LCD_SD_CS, OUTPUT); digitalWrite(LCD_SD_CS, HIGH);
-        pinMode(LCD_CS, OUTPUT);    digitalWrite(LCD_CS, HIGH);
-        pinMode(LCD_DC, OUTPUT);    digitalWrite(LCD_DC, HIGH);
-        SPI.begin(LCD_SCLK, LCD_MISO, LCD_MOSI, -1);
-        panelInit();
+        busPins();
+        if (!panelInit()) return;
         Wire.beginTransmission(TOUCH_ADDR);
         touchOk = Wire.endTransmission() == 0;
         if (!touchOk) logf("lcd: no hay táctil FT6336\n");
@@ -203,7 +326,7 @@ namespace LcdHw {
         memset(shown_, 0, (size_t)W * H * 2);
         ok = true;
         lastActivity = millis();
-        logf("lcd: ST7796 320x480%s\n", touchOk ? " + FT6336" : "");
+        logf("lcd: %s %dx%d%s\n", LCD_PANEL == 2 ? "RM690B0" : "ST7796", W, H, touchOk ? " + FT6336" : "");
     }
 
     void loop() {
@@ -237,9 +360,10 @@ namespace LcdHw {
             int sent = 0;
             while (nextBand < BANDS && sent < 3) {
                 const size_t off = (size_t)nextBand * BAND * W;
-                if (memcmp(draw_ + off, shown_ + off, (size_t)BAND * W * 2) != 0) {
-                    memcpy(shown_ + off, draw_ + off, (size_t)BAND * W * 2);
-                    pushRows(nextBand * BAND, BAND);
+                const int rows = H - nextBand * BAND < BAND ? H - nextBand * BAND : BAND;
+                if (memcmp(draw_ + off, shown_ + off, (size_t)rows * W * 2) != 0) {
+                    memcpy(shown_ + off, draw_ + off, (size_t)rows * W * 2);
+                    pushRows(nextBand * BAND, rows);
                     sent++;
                 }
                 nextBand++;

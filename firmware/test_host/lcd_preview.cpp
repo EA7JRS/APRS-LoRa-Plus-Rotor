@@ -2,7 +2,8 @@
  *
  * This file is part of APRS LoRa+ Rotor. GPL-3.0-or-later (ver LICENSE).
  *
- * Pantalla táctil en el PC: comprueba los toques y dibuja las pantallas en ficheros PPM (lcd_out/) para verlas.
+ * Pantalla táctil en el PC: comprueba los toques en las dos disposiciones (vertical 320 x 480 y apaisada 600 x 450)
+ * y dibuja las pantallas en ficheros PPM (lcd_out/) para verlas.
  */
 
 #include <cstdio>
@@ -25,66 +26,68 @@ static void writePpm(const Lcd::Fb& fb, const std::string& path) {
     fclose(f);
 }
 
-int main(int argc, char** argv) {
-    const std::string out = argc > 1 ? argv[1] : "lcd_out";
-    std::vector<uint16_t> buf(Lcd::Ui::W * Lcd::Ui::H);
+static void center(const Lcd::Rect& r, int& x, int& y) { x = r.x + r.w / 2; y = r.y + r.h / 2; }
+
+static void run(int W, int H, const std::string& out) {
+    std::vector<uint16_t> buf(W * H);
     Lcd::Fb fb;
-    fb.attach(buf.data(), Lcd::Ui::W, Lcd::Ui::H);
-    Lcd::Ui ui;
+    fb.attach(buf.data(), W, H);
+    Lcd::Ui ui(W, H);
+    const Lcd::Layout& L = ui.L;
+    char pre[16];
+    snprintf(pre, sizeof pre, "%dx%d_", W, H);
+    const std::string p = out + "/" + pre;
 
     Lcd::UiState s;
-    s.ver = "5.3.4"; s.name = "APRS-Rotor"; s.call = "EA7JRS-12"; s.board = "waveshare_c5_lcd35"; s.chip = "ESP32-C5";
+    s.ver = "5.3.4"; s.name = "APRS-Rotor"; s.call = "EA7JRS-12"; s.board = W > H ? "waveshare_s3_amoled241" : "waveshare_c5_lcd35";
+    s.chip = W > H ? "ESP32-S3" : "ESP32-C5";
     s.drv = "direct (relays)"; s.ip = "192.168.1.57"; s.wifi = "Casa (-61 dBm)"; s.rotctld = 4533; s.apiPort = 4534;
     s.ble = true; s.bleConn = true; s.upS = 3 * 3600 + 25 * 60; s.maxAz = 450;
     s.az = 123.4; s.el = 32.5; s.taz = 210.0; s.tel = 45.0; s.maz = 123.4; s.moving = true;
 
-    // ---- toques: botones
-    Lcd::UiCmd c = ui.touch(true, 50, 390, 1000, s);         // CCW
+    int x, y;
+    // ---- botones: CCW mantenido, soltar = STOP
+    center(L.btn[0], x, y);
+    Lcd::UiCmd c = ui.touch(true, x, y, 1000, s);
     CHECK(c.cmd == Lcd::Cmd::MOVE && c.dir == 8);
     ui.setFrameTime(1100);
     ui.draw(fb, s);
-    writePpm(fb, out + "/main_ccw_pressed.ppm");
-    c = ui.touch(true, 52, 392, 1200, s);
+    writePpm(fb, p + "main_ccw_pressed.ppm");
+    c = ui.touch(true, x + 2, y + 2, 1200, s);
     CHECK(c.cmd == Lcd::Cmd::NONE);
     c = ui.touch(false, 0, 0, 1500, s);
     CHECK(c.cmd == Lcd::Cmd::STOP);
-    c = ui.touch(true, 270, 390, 2000, s);                   // CW
-    CHECK(c.cmd == Lcd::Cmd::MOVE && c.dir == 16);
-    c = ui.touch(false, 0, 0, 2100, s);
-    CHECK(c.cmd == Lcd::Cmd::STOP);
-    c = ui.touch(true, 160, 390, 3000, s);                   // STOP
-    CHECK(c.cmd == Lcd::Cmd::STOP);
-    c = ui.touch(false, 0, 0, 3050, s);
-    CHECK(c.cmd == Lcd::Cmd::NONE);
-    c = ui.touch(true, 160, 450, 3100, s);                   // PARK
-    CHECK(c.cmd == Lcd::Cmd::PARK);
-    ui.touch(false, 0, 0, 3150, s);
-    c = ui.touch(true, 270, 450, 3200, s);                   // UP
-    CHECK(c.cmd == Lcd::Cmd::MOVE && c.dir == 2);
-    ui.touch(false, 0, 0, 3300, s);
-    c = ui.touch(true, 50, 450, 3400, s);                    // DOWN
-    CHECK(c.cmd == Lcd::Cmd::MOVE && c.dir == 4);
-    ui.touch(false, 0, 0, 3500, s);
+    const int dirs[6] = { 8, 0, 16, 4, 0, 2 };
+    for (int i = 0; i < 6; i++) {
+        center(L.btn[i], x, y);
+        c = ui.touch(true, x, y, 2000 + i * 100, s);
+        if (dirs[i]) CHECK(c.cmd == Lcd::Cmd::MOVE && c.dir == dirs[i]);
+        else CHECK(c.cmd == (i == 1 ? Lcd::Cmd::STOP : Lcd::Cmd::PARK));
+        c = ui.touch(false, 0, 0, 2050 + i * 100, s);
+        CHECK(c.cmd == (dirs[i] ? Lcd::Cmd::STOP : Lcd::Cmd::NONE));
+    }
     s.hasEl = false;
-    c = ui.touch(true, 270, 450, 3600, s);                   // UP sin elevación: nada
+    center(L.btn[5], x, y);
+    c = ui.touch(true, x, y, 3600, s);                       // UP sin elevación: nada
     CHECK(c.cmd == Lcd::Cmd::NONE);
     c = ui.touch(false, 0, 0, 3700, s);
     CHECK(c.cmd == Lcd::Cmd::NONE);
     s.hasEl = true;
 
     // ---- brújula: toque corto no hace nada; mantenido y soltado = ir a
-    c = ui.touch(true, 160 + 80, 154, 4000, s);              // este
+    const int d = L.r * 8 / 10;
+    c = ui.touch(true, L.cx + d, L.cy, 4000, s);             // este
     ui.touch(false, 0, 0, 4100, s);
     CHECK(c.cmd == Lcd::Cmd::NONE);
-    ui.touch(true, 160 + 80, 154, 5000, s);
-    ui.touch(true, 160, 154 + 80, 5300, s);                  // arrastra al sur
+    ui.touch(true, L.cx + d, L.cy, 5000, s);
+    ui.touch(true, L.cx, L.cy + d, 5300, s);                 // arrastra al sur
     ui.setFrameTime(5600);
     CHECK(ui.aiming(5600));
     ui.draw(fb, s);
-    writePpm(fb, out + "/main_aiming.ppm");
+    writePpm(fb, p + "main_aiming.ppm");
     c = ui.touch(false, 0, 0, 5700, s);
     CHECK(c.cmd == Lcd::Cmd::GOTO && fabs(c.az - 180) < 0.01);
-    ui.touch(true, 160 - 70, 154 - 70, 6000, s);             // noroeste
+    ui.touch(true, L.cx - d * 7 / 10, L.cy - d * 7 / 10, 6000, s);   // noroeste
     c = ui.touch(false, 0, 0, 6600, s);
     CHECK(c.cmd == Lcd::Cmd::GOTO && fabs(c.az - 315) < 0.01);
 
@@ -92,40 +95,54 @@ int main(int argc, char** argv) {
     s.moving = false; s.taz = NAN; s.tel = NAN;
     ui.setFrameTime(7000);
     ui.draw(fb, s);
-    writePpm(fb, out + "/main_idle.ppm");
+    writePpm(fb, p + "main_idle.ppm");
     s.fault = 1; s.faultText = "STALL AZ";
     ui.draw(fb, s);
-    writePpm(fb, out + "/main_fault.ppm");
-    c = ui.touch(true, 160, 340, 7100, s);
+    writePpm(fb, p + "main_fault.ppm");
+    center(L.status, x, y);
+    c = ui.touch(true, x, y, 7100, s);
     CHECK(c.cmd == Lcd::Cmd::CLEAR_FAULT);
     ui.touch(false, 0, 0, 7200, s);
     s.fault = 0; s.faultText = "OK";
-    s.hasEl = false; s.el = NAN; s.az = 359.9; s.maz = 380; s.taz = 20;
+    s.hasEl = false; s.el = NAN; s.az = 359.9; s.maz = 380; s.taz = 20; s.moving = true;
     ui.draw(fb, s);
-    writePpm(fb, out + "/main_az_only.ppm");
+    writePpm(fb, p + "main_az_only.ppm");
     s.hasEl = true; s.el = 32.5; s.maz = 123.4;
 
     // ---- información
-    c = ui.touch(true, 292, 24, 8000, s);
+    ui.touch(true, L.infoX, L.infoY, 8000, s);
     ui.touch(false, 0, 0, 8100, s);
     CHECK(ui.page == Lcd::Ui::INFO);
     ui.draw(fb, s);
-    writePpm(fb, out + "/info.ppm");
-    c = ui.touch(true, 50, 440, 8200, s);
+    writePpm(fb, p + "info.ppm");
+    center(L.brMinus, x, y);
+    c = ui.touch(true, x, y, 8200, s);
     CHECK(c.cmd == Lcd::Cmd::BRIGHT && c.value == 70);
     ui.touch(false, 0, 0, 8300, s);
-    c = ui.touch(true, 260, 440, 8400, s);
+    center(L.brPlus, x, y);
+    c = ui.touch(true, x, y, 8400, s);
     CHECK(c.cmd == Lcd::Cmd::BRIGHT && c.value == 90);
     ui.touch(false, 0, 0, 8500, s);
-    ui.touch(true, 292, 24, 8600, s);
+    ui.touch(true, L.infoX, L.infoY, 8600, s);
     ui.touch(false, 0, 0, 8700, s);
     CHECK(ui.page == Lcd::Ui::MAIN);
 
-    // ---- texto: anchos y glifos que faltan
-    CHECK(Lcd::Fb::textWidth(FontS, "°") > 0);
-    CHECK(Lcd::Fb::textWidth(FontS, "Elevación") > Lcd::Fb::textWidth(FontS, "Elevacion") - 2);
-    CHECK(Lcd::Fb::textWidth(FontL, "359.9°") < 160);
+    // ---- todo dentro de la pantalla
+    for (int i = 0; i < 6; i++) CHECK(L.btn[i].x >= 0 && L.btn[i].x + L.btn[i].w <= W && L.btn[i].y + L.btn[i].h <= H);
+    CHECK(L.cy + L.tickLabelR + L.S->height / 2 <= L.btn[0].y);
+    if (L.cy + L.tickLabelR + L.S->height / 2 > L.btn[0].y) printf("%dx%d: brujula %d > botones %d\n", W, H, L.cy + L.tickLabelR + L.S->height / 2, L.btn[0].y);
+    CHECK(Lcd::Fb::textWidth(*L.L, "359.9°") < (W > H ? W - 312 : 160));
+}
 
+int main(int argc, char** argv) {
+    const std::string out = argc > 1 ? argv[1] : "lcd_out";
+    run(320, 480, out);
+    run(600, 450, out);
+    // Texto
+    CHECK(Lcd::Fb::textWidth(FontS, "°") > 0);
+    CHECK(Lcd::Ui::wrap(FontS, "uno dos tres cuatro", Lcd::Fb::textWidth(FontS, "uno dos")).size() == 3);
+    CHECK(Lcd::Ui::fit(FontS, "texto muy largo para el sitio", 60).find("…") != std::string::npos);
+    CHECK(Lcd::Ui::fit(FontS, "corto", 200) == "corto");
     printf("%d comprobaciones de la pantalla, %d fallos\n", checks, fails);
     return fails ? 1 : 0;
 }

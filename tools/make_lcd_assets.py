@@ -18,13 +18,17 @@ import subprocess
 from PIL import Image, ImageDraw, ImageFont
 
 ASCII = [chr(c) for c in range(32, 127)]
-EXTRA = list("°·©ñÑáéíóúÁÉÍÓÚü¿¡±→×●−")
+EXTRA = list("°·©ñÑáéíóúÁÉÍÓÚü¿¡±→×●−…")
 
 # nombre, fichero, tamaño en px, caracteres
 FONTS = [
     ("FontS", "DejaVuSans.ttf", 15, ASCII + EXTRA),
     ("FontM", "DejaVuSans-Bold.ttf", 20, ASCII + EXTRA),
     ("FontL", "DejaVuSans-Bold.ttf", 38, list(" 0123456789.-°AZEL")),
+    # Pantallas apaisadas y con más puntos por pulgada (AMOLED de 2,41", 600 x 450)
+    ("FontS2", "DejaVuSans.ttf", 22, ASCII + EXTRA),
+    ("FontM2", "DejaVuSans-Bold.ttf", 28, ASCII + EXTRA),
+    ("FontL2", "DejaVuSans-Bold.ttf", 54, list(" 0123456789.-°AZEL")),
 ]
 
 

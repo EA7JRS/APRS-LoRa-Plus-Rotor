@@ -15,6 +15,10 @@
 namespace Board {
 
     void begin() {
+    #ifdef BOARD_POWER_HOLD
+        pinMode(BOARD_POWER_HOLD, OUTPUT);     // con batería, la placa sigue encendida mientras este pin esté arriba
+        digitalWrite(BOARD_POWER_HOLD, HIGH);
+    #endif
     #if ROTOR_RP2
         analogReadResolution(12);
     #endif
