@@ -46,8 +46,9 @@ a{color:var(--acc)}#about p{margin:6px 0;font-size:13px}
 
 <div class="c" id="catc" style="display:none"><h3>CAT · emisora <span class="mut" id="crig"></span></h3>
 <div class="row"><span class="big" id="cf">---.---.---</span><span class="mut">MHz</span><span id="cm"></span><span id="cp"></span><span id="cl"></span></div>
-<div class="row mut"><span id="csm"></span><span id="ctx"></span><span id="ctr"></span></div>
+<div class="row mut"><span id="csm"></span><span id="ctx"></span><span id="ctn"></span><span id="ctr"></span></div>
 <div class="row"><input id="cfi" type="number" step="0.000001" placeholder="MHz"><button onclick="catF()">Sintonizar</button></div>
+<div class="row"><input id="ctone" type="number" step="0.1" min="0" max="254.1" placeholder="CTCSS Hz (0 = no)"><button onclick="cmd({c:'catset',tone:+$('ctone').value||0})">Tono</button></div>
 <div class="row"><button onclick="catT(-1)">−</button><select id="cst"><option value="10">10 Hz</option><option value="100">100 Hz</option><option value="1000" selected>1 kHz</option><option value="5000">5 kHz</option><option value="12500">12,5 kHz</option><option value="25000">25 kHz</option><option value="100000">100 kHz</option></select><button onclick="catT(1)">+</button></div>
 <div class="row" id="cmodes"></div>
 <div class="row"><button id="cvfo" onclick="cmd({c:'catset',vfo:'swap'})">A / B</button><button id="ctrk" onclick="catTrk()">Seguir satélite</button><button id="cptt" class="stop">PTT</button></div>
@@ -103,7 +104,7 @@ const p=$('cptt');p.addEventListener('pointerdown',()=>cmd({c:'catset',ptt:true}
 catPoll();setInterval(catPoll,1000)}
 async function catPoll(){try{const r=await api([{c:'cat'}]);cat=r[0];if(cat.e!='cat')return;$('crig').textContent=cat.rig||'';$('cf').textContent=cat.l&&cat.f?fq(cat.f):'---.---.---';
 $('cm').textContent=' '+(cat.m||'')+(cat.v?' · VFO '+cat.v:'');$('cp').innerHTML=cat.ptt?' <b class="bad">TX</b>':' RX';$('cl').innerHTML=cat.l?'':' <span class="bad">sin enlace</span>';
-$('csm').textContent=cat.sm>=0?('S'+(cat.sm<=9?cat.sm:'9+'+(cat.sm-9)*10)):'';$('ctx').textContent=cat.tf?(' · ↑ '+fq(cat.tf)):'';
+$('csm').textContent=cat.sm>=0?('S'+(cat.sm<=9?cat.sm:'9+'+(cat.sm-9)*10)):'';$('ctx').textContent=cat.tf?(' · ↑ '+fq(cat.tf)):'';$('ctn').textContent=cat.tn?(' · CTCSS '+cat.tn.toFixed(1)+' Hz'):'';
 const t=cat.tr||{};$('ctr').textContent=t.on&&t.en?(' · siguiendo '+(t.n||'')+' (Doppler '+(t.dop/1000).toFixed(1)+' kHz)'):'';$('ctrk').textContent=t.en?'Seguir: sí':'Seguir: no';
 $('cptt').disabled=!cat.pa;document.querySelectorAll('[data-cm]').forEach(b=>b.style.outline=b.dataset.cm==cat.m?'2px solid var(--acc)':'')}catch(e){}}
 function catF(){const v=parseFloat($('cfi').value);if(!(v>0))return;cmd({c:'catset',f:Math.round(v*1e6)})}

@@ -52,6 +52,7 @@ namespace RC {
 
     private:
         std::string line_;
+        int         lastTone_ = 0;         // último tono pedido con C (U TONE 1 lo vuelve a poner)
 
         static void rprt(std::string& out, int code) {
             char b[24]; snprintf(b, sizeof b, "RPRT %d\n", code == 0 ? 0 : -code); out += b;
@@ -88,6 +89,8 @@ namespace RC {
                     case 'x': cmd = "get_split_mode"; break;  case 'X': cmd = "set_split_mode"; break;
                     case 'l': cmd = "get_level"; break;       case 'L': cmd = "set_level"; break;
                     case '_': cmd = "get_info"; break;        case '1': cmd = "dump_caps"; break;
+                    case 'c': cmd = "get_ctcss_tone"; break;  case 'C': cmd = "set_ctcss_tone"; break;
+                    case 'u': cmd = "get_func"; break;        case 'U': cmd = "set_func"; break;
                     case 'q': case 'Q': cmd = "quit"; break;
                     default: rprt(out, E_NIMPL); return false;
                 }
@@ -148,6 +151,25 @@ namespace RC {
                 if (k >= 1 && t[0] == "?") { out += "STRENGTH RAWSTR\n"; return false; }
                 rprt(out, E_NIMPL); return false;
             }
+            // CTCSS de emisión: tono en décimas de Hz y la función TONE
+            if (cmd == "get_ctcss_tone") { snprintf(b, sizeof b, "%d\n", st.tone); out += b; return false; }
+            if (cmd == "set_ctcss_tone") {
+                double v;
+                if (k < 1 || !number(t[k - 1], v) || v < 0 || v > 2600) { rprt(out, E_INVAL); return false; }
+                if (v > 0) lastTone_ = (int)lround(v);
+                rprt(out, rig.setTone((int)lround(v)) ? E_OK : E_REJECTED); return false;
+            }
+            if (cmd == "get_func") {
+                if (k >= 1 && t[0] == "?") { out += "TONE\n"; return false; }
+                if (k >= 1 && t[k - 1] == "TONE") { out += st.tone > 0 ? "1\n" : "0\n"; return false; }
+                rprt(out, E_NIMPL); return false;
+            }
+            if (cmd == "set_func") {
+                double v;
+                if (k < 2 || t[k - 2] != "TONE" || !number(t[k - 1], v)) { rprt(out, k >= 2 && t[k - 2] != "TONE" ? E_NIMPL : E_INVAL); return false; }
+                if (v == 0) { rprt(out, rig.setTone(0) ? E_OK : E_REJECTED); return false; }
+                rprt(out, st.tone > 0 || rig.setTone(lastTone_ ? lastTone_ : 670) ? E_OK : E_REJECTED); return false;
+            }
             if (cmd == "get_info") { snprintf(b, sizeof b, "%s\n", rig.info()); out += b; return false; }
             if (cmd == "get_powerstat") { out += "1\n"; return false; }
             if (cmd == "chk_vfo") { out += "0\n"; return false; }
@@ -182,7 +204,7 @@ namespace RC {
                    "0\n0\n0\n"                                      // max_rit, max_xit, max_ifshift
                    "0\n"                                            // anuncios
                    "0\n0\n"                                         // previo, atenuador
-                   "0\n0\n"                                         // funciones get / set
+                   "0x10\n0x10\n"                                   // funciones get / set: TONE
                    "0x40000000\n"                                   // niveles get: STRENGTH
                    "0\n"                                            // niveles set
                    "0\n0\n";                                        // parámetros get / set

@@ -289,7 +289,7 @@ namespace LcdHw {
         if (e) {
             const RC::CatState& c = e->state();
             st.catLink = c.link; st.rig = e->info(); st.freq = c.freq; st.txFreq = e->receiver() ? 0 : c.txFreq;
-            st.mode = c.mode; st.txMode = c.txMode; st.vfo = c.vfo; st.ptt = c.ptt; st.smeter = c.smeter;
+            st.mode = c.mode; st.txMode = c.txMode; st.vfo = c.vfo; st.ptt = c.ptt; st.smeter = c.smeter; st.tone = c.tone;
             st.rxOnly = e->receiver(); st.allowPtt = Cfg.catPtt && !st.rxOnly;
             st.step = Cat::step();
             const RC::CatTracker& t = Cat::tracker();

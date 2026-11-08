@@ -133,7 +133,7 @@ static void run(int W, int H, const std::string& out) {
     CHECK(ui.page == Lcd::Ui::MAIN);
     s.catOn = true; s.catLink = true; s.rig = "IC-9700 · CI-V A2 · 19200"; s.freq = 145825000; s.mode = "FM"; s.vfo = 'A';
     s.smeter = 7; s.step = 5000; s.allowPtt = true; s.tracking = true; s.trackName = "ISS"; s.doppler = 2340;
-    s.txFreq = 145990000; s.txMode = "FM";
+    s.txFreq = 145990000; s.txMode = "FM"; s.tone = 670;
     ui.draw(fb, s);
     writePpm(fb, p + "main_with_cat.ppm");
     center(L.catBtn, x, y);

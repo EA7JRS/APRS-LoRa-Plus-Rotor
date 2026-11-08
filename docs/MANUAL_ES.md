@@ -15,12 +15,13 @@
 9. [App Android](#9-app-android)
 10. [Tracker APRS LoRa+](#10-tracker-aprs-lora)
 11. [Programas con Hamlib y PC](#11-programas-con-hamlib-y-pc)
-12. [Control por mensajes APRS (LoRa)](#12-control-por-mensajes-aprs-lora)
-13. [Raspberry Pi](#13-raspberry-pi)
-14. [Seguridad](#14-seguridad)
-15. [Actualizaciones y LED](#15-actualizaciones-y-led)
-16. [Problemas frecuentes](#16-problemas-frecuentes)
-17. [Referencia](#17-referencia)
+12. [Emisora y receptor SDR (CAT)](#12-emisora-y-receptor-sdr-cat)
+13. [Control por mensajes APRS (LoRa)](#13-control-por-mensajes-aprs-lora)
+14. [Raspberry Pi](#14-raspberry-pi)
+15. [Seguridad](#15-seguridad)
+16. [Actualizaciones y LED](#16-actualizaciones-y-led)
+17. [Problemas frecuentes](#17-problemas-frecuentes)
+18. [Referencia](#18-referencia)
 
 ---
 
@@ -76,7 +77,7 @@ pio run -e esp32s3 -t upload        # o esp32dev, waveshare_c5_lcd35, waveshare_
 
 ### Raspberry Pi
 
-Ver el [apartado 13](#13-raspberry-pi).
+Ver el [apartado 14](#14-raspberry-pi).
 
 ## 4. Primera puesta en marcha
 
@@ -194,6 +195,7 @@ En `http://APRS-Rotor.local/` (placas) o en `http://IP:8080/` (Raspberry Pi). Us
 | **Posición** | acimut y elevación actuales, objetivo, estado y lectura en bruto |
 | **Mando** | **Ir** a un acimut y una elevación; CCW / CW / UP / DOWN mientras se mantienen pulsados; **STOP**; **Park**; **Borrar fallo** |
 | **Calibración** | Punto A, Punto B y corregir el desfase (control directo) |
+| **CAT** | (con `cat.proto`) frecuencia, paso, modos, A/B, tono CTCSS, S-meter, PTT y seguimiento con Doppler |
 | **Configuración** | el fichero entero: *Leer*, editar, *Guardar y reiniciar*; las contraseñas aparecen como `********` y no se tocan |
 | **Actualizar firmware** | subir un `firmware.bin` |
 | **Acerca de** | versión, placa y © 2026 Manuel - EA7JRS |
@@ -206,6 +208,7 @@ Placas **Waveshare ESP32-C5-Touch-LCD-3.5** (vertical) y **ESP32-S3-Touch-AMOLED
 - **Botones**: **CCW · STOP · CW · DOWN · PARK · UP**. Los de movimiento mueven mientras se mantienen pulsados.
 - **Apuntar**: mantén la brújula pulsada medio segundo, arrastra hasta el rumbo (aguja verde) y suelta. Un toque corto no mueve nada.
 - **Fallo**: aparece en rojo; tócalo para borrarlo.
+- **CAT** (botón de la cabecera, con `cat.proto`): frecuencia, − / paso / +, LSB · USB · CW · FM · AM · DIG, *Seguir* (Doppler), A / B y PTT manteniendo pulsado. El tono CTCSS se ve junto al nombre de la emisora.
 - **ⓘ**: nombre, indicativo, placa, WiFi, IP, puertos, Bluetooth, tiempo encendida, **Acerca de** y brillo.
 - **Brillo y apagado**: `lcd.bright` y `lcd.dimS`. La LCD se atenúa; la AMOLED se apaga para que no queden marcas. El primer toque solo la enciende.
 
@@ -222,7 +225,8 @@ Pestaña **Rotor** de la app APRS LoRa+:
    - una baliza CW con locator (`VVV DE ED7YAA IM76HR`), del decodificador del tracker o del móvil.
 
    Los ángulos se calculan desde el GNSS del tracker.
-5. **Calibración** (Point A / Point B / Offset), **configuración** completa (*Read*, *Save and restart*) y *Restart the rotor box*.
+5. **Radio (CAT)**: frecuencia, paso, modos, A/B, *split*, tono CTCSS, S-meter, PTT y Doppler del satélite del tracker ([apartado 12](#12-emisora-y-receptor-sdr-cat)).
+6. **Calibración** (Point A / Point B / Offset), **configuración** completa (*Read*, *Save and restart*) y *Restart the rotor box*.
 
 No dejes que el tracker mueva el mismo rotor a la vez por WiFi o SPP: elige una sola vía.
 
@@ -252,7 +256,29 @@ Qué sigue (*What the rotor follows*):
 - **Por WiFi**: en GPredict, Look4Sat, PstRotator…, Hamlib «NET rotctl» (modelo 2) con `IP:4533`. Admite hasta 4 clientes a la vez. Prueba: `rotctl -m 2 -r APRS-Rotor.local:4533 p`.
 - **Por USB**: la placa se presenta como un controlador según `usb.proto` (GS-232B por defecto): `rotctl -m 603 -r /dev/ttyUSB0`, `-m 202` (EasyComm II) o `-m 901` (Rot2Prog). Con `usb.proto: 5`, el USB saca el registro de depuración.
 
-## 12. Control por mensajes APRS (LoRa)
+## 12. Emisora y receptor SDR (CAT)
+
+La caja maneja también una emisora o un receptor SDR: frecuencia, modo, VFO A/B, *split*, S-meter, tono CTCSS, PTT y Doppler de satélites. Detalles, conexiones y modelos en [CAT.md](CAT.md).
+
+| `cat.proto` | Equipos | Enlace |
+|---|---|---|
+| 1 Icom CI-V | IC-705, IC-7300, IC-7610, IC-9700, IC-910… (`cat.civ` = dirección: A2 IC-9700, 94 IC-7300, A4 IC-705) | UART |
+| 2 Yaesu | FT-991/A, FT-710, FTDX10, FTDX101, FT-891 | UART |
+| 3 Yaesu 5 bytes | FT-817/818, FT-857, FT-897 | UART |
+| 4 Kenwood / Elecraft | TS-2000, TS-480, TS-590, TS-890, K3, KX2, KX3, QMX | UART |
+| 5 SDRconnect | **SDRplay RSPdx-R2** y demás RSP (API WebSocket, puerto 5454) | WiFi |
+| 6 rigctl | SDR++ (4532), gqrx (7356), otro rigctld | WiFi |
+
+En la Raspberry Pi, `cat.type: "hamlib"` usa el `rigctld` real de Hamlib con cualquier emisora (`cat.model` = número de `rigctl -l`).
+
+1. **Conecta** la emisora a `cat.rx` / `cat.tx` (3,3 V; con RS-232 pon un MAX3232; CI-V con su interfaz TTL). Masa común.
+2. **Configura** `cat.proto`, `cat.baud` (el de la emisora), `cat.civ` (Icom) y `cat.model` (nombre que se ve). Para SDRconnect o rigctl: `cat.host` y `cat.port`.
+3. **Usa**: botón **CAT** de la pantalla táctil, tarjeta *CAT* de la WebUI, *Rotor > Radio (CAT)* en la app, o **rigctld** de la caja (puerto 4532) desde GPredict, WSJT-X…
+4. **Satélites**: con el tracker en modo SAT, la app manda a la caja el transmisor elegido y la velocidad radial; la caja corrige el Doppler de bajada (y de subida), y al cambiar de satélite pone el modo, el *split* y el tono CTCSS (el que se escriba o el de la descripción del transmisor). GPredict puede hacerlo directamente con el rigctld de la caja.
+
+**PTT**: apagado por defecto (`cat.ptt: false`). Activado, solo emite mientras se mantiene pulsado y se suelta solo a los `cat.pttMaxS` segundos. Los receptores (SDRconnect, SDR++) no tienen PTT.
+
+## 13. Control por mensajes APRS (LoRa)
 
 En placas con módulo LoRa (ESP32 / ESP32-S3 con módulo externo, Pico con el HAT SX1262) o en la Raspberry Pi con un TNC KISS. Frecuencia por defecto: 433,775 MHz, SF12, BW 125 kHz, CR 4/5 (`lora.*`).
 
@@ -273,7 +299,7 @@ Manda un mensaje APRS al indicativo del rotor (`aprs.call`):
 
 LoRa APRS es lento: no sirve para seguir satélites. Más detalles en [APRS_CONTROL.md](APRS_CONTROL.md).
 
-## 13. Raspberry Pi
+## 14. Raspberry Pi
 
 ```sh
 git clone https://github.com/EA7JRS/APRS-LoRa-Plus-Rotor
@@ -291,21 +317,22 @@ sudo ./install.sh              # Zero 2 W como GS-232B por USB para el PC: sudo 
 
 Más detalles en [RASPBERRY_PI.md](RASPBERRY_PI.md).
 
-## 14. Seguridad
+## 15. Seguridad
 
 - **Cambia el PIN** (`pin`): protege la app, la WebUI y el protocolo JSON. Si la WebUI va a ser accesible fuera de tu red, pon también `net.webPass`.
 - **El rotor se protege solo**: para en los topes (`limitMargin`), da fallo si se atasca (`stallMs`) y lo apaga todo si el sensor deja de leer. Tras un fallo, una orden de posición nueva o *Borrar fallo* lo rearma.
 - **Al arrancar**, los pines quedan al aire un instante: pon resistencias de 10 kΩ de la base a masa (o usa un ULN2003) para que el rotor no se mueva.
+- **PTT de la emisora**: apagado salvo `cat.ptt: true`; solo mientras se mantiene pulsado y con límite de tiempo (`cat.pttMaxS`).
 - **APRS**: lista de indicativos y, mejor, código TOTP. El contenido viaja sin cifrar, como piden las normas de radioaficionado.
 
-## 15. Actualizaciones y LED
+## 16. Actualizaciones y LED
 
 - **WebUI → Actualizar firmware** (o `http://APRS-Rotor.local/update`): sube el `firmware.bin` de la release. No está disponible en los ESP32 de 4 MB; usa el instalador web.
 - **Instalador web**: siempre vale y conserva la configuración, salvo que elijas borrar.
 - **Versión**: todos los proyectos APRS LoRa+ llevan el mismo número; actualiza a la vez el tracker, el rotor y la app.
 - **LED de estado** (placas que lo tienen): fijo = moviéndose; parpadeo rápido = fallo; destello lento = en reposo.
 
-## 16. Problemas frecuentes
+## 17. Problemas frecuentes
 
 | Síntoma | Qué hacer |
 |---|---|
@@ -317,19 +344,21 @@ Más detalles en [RASPBERRY_PI.md](RASPBERRY_PI.md).
 | Se pasa y vuelve | Sube `deadband` / `restart`; con PWM, amplía `slowZone` |
 | La app no manda órdenes | PIN distinto del de la caja; *Send PIN* |
 | GPredict no conecta | Puerto 4533, `net.rotctld: true`, misma red, cortafuegos |
+| La emisora no responde (CAT) | Baudios iguales en la caja y la emisora (CI-V: no «Auto»), dirección CI-V, RX/TX cruzados, masa común; con SDRconnect, su API activada y el puerto 5454 |
 | El tracker no mueve el rotor | *Antenna rotor* activado, transporte y host correctos; prueba `rotctl -m 2 -r IP:4533 p` desde un PC |
 | APRS responde `ERR no time` | Sin hora para el TOTP: la placa necesita WiFi con NTP |
 | He olvidado el PIN | Instala de nuevo con el instalador web eligiendo **borrar** (vuelve a la configuración de fábrica) |
 
-## 17. Referencia
+## 18. Referencia
 
 | Puerto | Servicio |
 |---|---|
 | 80 (placas) / 8080 (Raspberry Pi) | WebUI y `/update` |
 | 4533 | rotctld (Hamlib NET rotctl) |
 | 4534 | protocolo JSON (app por WiFi) |
+| 4532 | rigctld de la emisora (Hamlib NET rigctl, con CAT) |
 | BLE `4c6f5261-2b00-4ea7-b000-000000000001` | protocolo JSON (app) |
 
-Documentos: [CONFIG.md](CONFIG.md) (todas las opciones) · [HARDWARE.md](HARDWARE.md) (conexiones) · [CONTROL_PROTOCOL.md](CONTROL_PROTOCOL.md) (protocolo JSON) · [APRS_CONTROL.md](APRS_CONTROL.md) · [INTEGRATION.md](INTEGRATION.md) · [RASPBERRY_PI.md](RASPBERRY_PI.md) · [WAVESHARE_C5_LCD35.md](WAVESHARE_C5_LCD35.md) · [WAVESHARE_S3_AMOLED241.md](WAVESHARE_S3_AMOLED241.md).
+Documentos: [CONFIG.md](CONFIG.md) (todas las opciones) · [CAT.md](CAT.md) (emisoras y SDR) · [HARDWARE.md](HARDWARE.md) (conexiones) · [CONTROL_PROTOCOL.md](CONTROL_PROTOCOL.md) (protocolo JSON) · [APRS_CONTROL.md](APRS_CONTROL.md) · [INTEGRATION.md](INTEGRATION.md) · [RASPBERRY_PI.md](RASPBERRY_PI.md) · [WAVESHARE_C5_LCD35.md](WAVESHARE_C5_LCD35.md) · [WAVESHARE_S3_AMOLED241.md](WAVESHARE_S3_AMOLED241.md).
 
 **Acerca de**: APRS LoRa+ Rotor — by Manuel EA7JRS · © 2026 Manuel - EA7JRS · GPL-3.0-or-later · https://github.com/EA7JRS/APRS-LoRa-Plus. Formatos de protocolo tomados de Hamlib; letras de la pantalla: DejaVu Sans.

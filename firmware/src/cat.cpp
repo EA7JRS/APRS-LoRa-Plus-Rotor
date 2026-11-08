@@ -68,6 +68,11 @@ namespace Cat {
         const int defPort = Cfg.catProto == RC::CAT_SDRCONNECT ? 5454 : 4532;
         const int p = Cfg.catPort ? Cfg.catPort : defPort;
         if (Cfg.catProto == RC::CAT_SDRCONNECT) { auto* s = (RC::SdrConnectEngine*)eng; s->host = Cfg.catHost; s->port = p; }
+        if (Cfg.catProto == RC::CAT_KENWOOD) {                  // TN desde 00 en TS-480 / TS-590 / TS-890 / TS-990; desde 01 en el TS-2000
+            const std::string& m = Cfg.catModel;
+            if (m.find("480") != std::string::npos || m.find("590") != std::string::npos || m.find("890") != std::string::npos || m.find("990") != std::string::npos)
+                ((RC::KenwoodEngine*)eng)->toneBase = 0;
+        }
         if (Cfg.catProto == RC::CAT_RIGCTL) { auto* r = (RC::RigctlClientEngine*)eng; r->host = Cfg.catHost; r->port = p; }
         if (net) snprintf(b, sizeof b, "%s · %s %s:%d", Cfg.catModel.empty() ? "SDR" : Cfg.catModel.c_str(), RC::catProtoName(Cfg.catProto), Cfg.catHost.c_str(), p);
         else if (Cfg.catProto == RC::CAT_CIV) snprintf(b, sizeof b, "%s · CI-V %02X · %d", Cfg.catModel.empty() ? "Icom" : Cfg.catModel.c_str(), Cfg.catCiv, Cfg.catBaud);

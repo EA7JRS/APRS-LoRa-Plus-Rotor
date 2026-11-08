@@ -48,6 +48,7 @@ Para un nombre de puerto fijo usa `/dev/serial/by-id/...`.
 | `net.*` | 4533 / 4534 / 8080 | rotctld público, JSON, WebUI (`web`, `webUser`, `webPass`; vacía = PIN) |
 | `bt.ble` / `bt.spp` | sí / no | BLE para la app; SPP para el tracker (`sppProto` 1 = GS-232B) |
 | `serialPorts` | `[]` | `[{"device":"/dev/ttyGS0","baud":9600,"proto":1}]`: la Pi se hace pasar por un controlador (0 GS-232A, 1 GS-232B, 2 EasyComm II, 3 Rot2Prog, 4 rotctld) |
+| `cat.*` | apagado | emisora o receptor: `type` `hamlib` (rigctld real de Hamlib en 127.0.0.1:`internalPort` 4536; `model` de `rigctl -l`, `device`, `speed`, `civ`, `conf`), `rigctl` (`host`, `port`: SDR++, gqrx) o `sdrconnect` (`host`, `port` 5454: SDRplay RSPdx-R2); `ptt`, `pttMaxS`, `trackStep`, servidor rigctld público `server` / `serverPort` (4532). Ver [CAT.md](CAT.md) |
 | `aprs.*` | apagado | `kiss` = `tcp:IP:8001` (tracker / iGate APRS LoRa+ en KISS, Direwolf) o `serial:/dev/ttyACM0:115200`; `call`, `allow`, `totp`, `reply`, `beaconMin`, `lat`, `lon`, `comment` |
 
 Al guardar desde la WebUI o la app el demonio se reinicia (systemd lo levanta con la configuración nueva).

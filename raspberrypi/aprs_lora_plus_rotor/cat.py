@@ -80,6 +80,7 @@ class RigState:
         self.ptt = False
         self.split = False
         self.smeter = -1
+        self.tone = 0           # CTCSS de emisión, décimas de Hz (0 = no)
 
 
 class Rig:
@@ -97,6 +98,7 @@ class Rig:
     def set_tx_freq(self, hz: int) -> bool: return False
     def set_split(self, on: bool) -> bool: return False
     def toggle_vfo(self) -> bool: return False
+    def set_tone(self, dhz: int) -> bool: return False
 
     def set_vfo(self, v: str) -> bool:
         return True if v == self.st.vfo else self.toggle_vfo()
@@ -158,6 +160,15 @@ class RigctlClientRig(Rig):
     def _ptt(self, on: bool) -> bool:
         self.st.ptt = on
         self._send("T 1" if on else "T 0")
+        return True
+
+    def set_tone(self, dhz: int) -> bool:
+        if not 0 <= dhz <= 2600:
+            return False
+        if dhz:
+            self._send(f"C {int(dhz)}")
+        self._send("U TONE 1" if dhz else "U TONE 0")
+        self.st.tone = int(dhz)
         return True
 
     async def _cmd(self, r, w, line: str, n: int = 1) -> list[str]:
@@ -353,6 +364,9 @@ class SdrConnectRig(Rig):
         self.st.freq = hz
         return True
 
+    def set_tone(self, dhz: int) -> bool:
+        return True                     # receptor: nada que emitir
+
     def set_mode(self, mode: str) -> bool:
         m = norm_mode(mode)
         d = {"FM": "NFM", "PKTFM": "NFM", "WFM": "WFM", "AM": "AM", "USB": "USB", "PKTUSB": "USB",
@@ -492,11 +506,12 @@ DUMP_STATE = ("0\n2\n2\n"
               "0x1dff 1\n0x1dff 10\n0x1dff 100\n0x1dff 1000\n0 0\n"
               "0x82 500\n0x82 200\n0x82 2000\n0x0c 2400\n0x0c 1800\n0x0c 3000\n0xc00 3000\n"
               "0x1021 15000\n0x1021 6000\n0x1021 10000\n0x40 230000\n0 0\n"
-              "0\n0\n0\n0\n0\n0\n0\n0\n0x40000000\n0\n0\n0\n")
+              "0\n0\n0\n0\n0\n0\n0x10\n0x10\n0x40000000\n0\n0\n0\n")
 
 SHORT = {"f": "get_freq", "F": "set_freq", "m": "get_mode", "M": "set_mode", "v": "get_vfo", "V": "set_vfo",
          "t": "get_ptt", "T": "set_ptt", "s": "get_split_vfo", "S": "set_split_vfo", "i": "get_split_freq",
          "I": "set_split_freq", "x": "get_split_mode", "X": "set_split_mode", "l": "get_level", "L": "set_level",
+         "c": "get_ctcss_tone", "C": "set_ctcss_tone", "u": "get_func", "U": "set_func",
          "_": "get_info", "1": "dump_caps", "q": "quit", "Q": "quit"}
 
 
@@ -505,6 +520,7 @@ class RigctlSession:
 
     def __init__(self):
         self.buf = b""
+        self.last_tone = 0
 
     def feed(self, data: bytes, rig: Rig) -> tuple[bytes, bool]:
         self.buf += data
@@ -606,6 +622,34 @@ class RigctlSession:
             if t and t[0] == "?":
                 return "STRENGTH RAWSTR\n", False
             return self._rprt(4), False
+        if cmd == "get_ctcss_tone":
+            return f"{st.tone}\n", False
+        if cmd == "set_ctcss_tone":
+            try:
+                v = int(round(float(t[-1])))
+            except (ValueError, IndexError):
+                return self._rprt(1), False
+            if not 0 <= v <= 2600:
+                return self._rprt(1), False
+            if v:
+                self.last_tone = v
+            return self._rprt(0 if rig.set_tone(v) else 9), False
+        if cmd == "get_func":
+            if t and t[0] == "?":
+                return "TONE\n", False
+            if t and t[-1] == "TONE":
+                return ("1\n" if st.tone else "0\n"), False
+            return self._rprt(4), False
+        if cmd == "set_func":
+            if len(t) < 2 or t[-2] != "TONE":
+                return self._rprt(4 if len(t) >= 2 else 1), False
+            try:
+                on = float(t[-1]) != 0
+            except ValueError:
+                return self._rprt(1), False
+            if not on:
+                return self._rprt(0 if rig.set_tone(0) else 9), False
+            return self._rprt(0 if st.tone or rig.set_tone(self.last_tone or 670) else 9), False
         if cmd == "get_info":
             return f"{rig.info()}\n", False
         if cmd == "get_powerstat":
@@ -678,6 +722,8 @@ class Cat:
              "tr": {"en": t.enabled, "on": t.active, "n": t.name, "dop": t.doppler}}
         if s.tx_freq and not r.receiver:
             d["tf"] = s.tx_freq
+        if s.tone:
+            d["tn"] = s.tone / 10
         return d
 
     async def rigctld_client(self, reader, writer):

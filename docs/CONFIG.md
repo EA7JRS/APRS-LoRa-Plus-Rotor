@@ -66,6 +66,22 @@ Cada eje:
 
 `chip` (0 ninguno, 1 SX1262, 2 SX1268, 3 SX1276, 4 SX1278), `freq` (433,775), `bw` (125), `sf` (12), `cr` (5), `power` (17 dBm), `tcxo` (V; 0 sin TCXO), pines `sck`, `miso`, `mosi`, `cs`, `rst`, `irq` (DIO1 en SX126x, DIO0 en SX127x), `busy`.
 
+## `cat` (emisora o receptor SDR)
+
+| Clave | Por defecto | |
+|---|---|---|
+| `proto` | 0 | 0 apagado, 1 Icom CI-V, 2 Yaesu (texto), 3 Yaesu 5 bytes (FT-817/857/897), 4 Kenwood / Elecraft, 5 SDRconnect (SDRplay), 6 rigctl por red |
+| `baud` | 19200 | baudios de la emisora (1-4) |
+| `rx` / `tx` | según placa | pines de la UART (1-4); ver [CAT.md](CAT.md) |
+| `civ` | 162 (0xA2) | dirección CI-V de la emisora (Icom) |
+| `model` | vacío | nombre que se ve (`IC-9700`); en Kenwood, si contiene 480 / 590 / 890 / 990, el tono CTCSS se numera desde 00 |
+| `host` / `port` | — / 0 | SDRconnect (5454) o rigctld (4532) de la red (5-6); 0 = el puerto por defecto |
+| `pollMs` | 120 | pausa entre consultas |
+| `ptt` | false | permitir transmitir desde la pantalla, la WebUI, la app y rigctld |
+| `pttMaxS` | 180 | el PTT se suelta solo pasado este tiempo |
+| `trackStep` | 50 | Hz mínimos para resintonizar al seguir el Doppler |
+| `rigctld` / `rigctldPort` | true / 4532 | servidor rigctld de la emisora |
+
 ## `aprs`
 
 `call` (indicativo del rotor), `tocall` (`APZLRR`), `path`, `allow`, `totp`, `reply`, `beaconMin`, `lat`, `lon`, `comment`. Ver [APRS_CONTROL.md](APRS_CONTROL.md).

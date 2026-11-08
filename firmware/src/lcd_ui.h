@@ -45,6 +45,7 @@ namespace Lcd {
         bool        ptt = false, allowPtt = false;
         bool        rxOnly = false;                 // receptor (SDR): sin PTT ni A/B
         int         smeter = -1;                    // 0-15 (S0..S9 = 0..9, S9+10..+60 = 10..15); -1 sin dato
+        int         tone = 0;                       // CTCSS de emisión, décimas de Hz (0 = no)
         uint32_t    step = 1000;                    // paso de sintonía (Hz)
         bool        tracking = false;               // seguimiento de satélite / Doppler
         std::string trackName;                      // "ISS"
@@ -482,7 +483,15 @@ namespace Lcd {
             fb.fillRound(fc.x, fc.y, fc.w, fc.h, (int)(10 * L.k), CARD);
             if (s.ptt) fb.fillRect(fc.x + 6, fc.y + fc.h - (int)(4 * L.k), fc.w - 12, (int)(3 * L.k), RED);
             fb.fillCircle(fc.x + fc.w - (int)(14 * L.k), fc.y + (int)(14 * L.k), (int)(5 * L.k), s.catLink ? GREEN : RED);
-            fb.text(fc.x + 10, fc.y + 6, fit(S, s.rig.empty() ? "Emisora" : s.rig, fc.w - (int)(40 * L.k)).c_str(), S, MUT);
+            // Tono CTCSS a la derecha de la línea de la emisora (en vertical no cabe con la subida)
+            int rigW = fc.w - (int)(40 * L.k);
+            if (s.tone > 0) {
+                char tb[20]; snprintf(tb, sizeof tb, "CTCSS %d.%d", s.tone / 10, s.tone % 10);
+                const int tx = fc.x + fc.w - (int)(26 * L.k);
+                fb.text(tx, fc.y + 6, tb, S, YEL, RIGHT);
+                rigW -= Fb::textWidth(S, tb) + 8;
+            }
+            fb.text(fc.x + 10, fc.y + 6, fit(S, s.rig.empty() ? "Emisora" : s.rig, rigW).c_str(), S, MUT);
             std::string fq = s.catLink && s.freq ? fmtFreq(s.freq) : "---.---.---";
             const int mhzW = Fb::textWidth(S, "MHz") + 6, fw = Fb::textWidth(F, fq.c_str());
             const int fx = fc.x + (fc.w - fw - mhzW) / 2, fy = fc.y + S.height + 8;

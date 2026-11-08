@@ -264,6 +264,10 @@ class FakeRig(C.Rig):
         self.st.ptt = on
         return True
 
+    def set_tone(self, dhz):
+        self.st.tone = dhz
+        return True
+
 
 class TestCat(unittest.TestCase):
     def test_helpers(self):
@@ -291,6 +295,8 @@ class TestCat(unittest.TestCase):
                          b"-24\nRPRT 0\nVFOB\nRPRT 0\n435000000\n")
         ds = s.feed(b"\\dump_state\n", rig)[0].decode().splitlines()
         self.assertEqual(ds[:3], ["0", "2", "2"])
+        self.assertEqual(s.feed(b"C 670\nc\nU TONE 0\nu TONE\nU TONE 1\nc\nU NB 1\n", rig)[0],
+                         b"RPRT 0\n670\nRPRT 0\n0\nRPRT 0\n670\nRPRT -4\n")
         self.assertEqual(s.feed(b"\\chk_vfo\nq\n", rig), (b"0\nRPRT 0\n", True))
 
     def test_rigctl_client(self):
@@ -319,9 +325,10 @@ class TestCat(unittest.TestCase):
             self.assertEqual((rig.st.freq, rig.st.mode, rig.st.smeter), (145825000, "FM", 5))
             rig.set_freq(437800000)
             rig.set_mode("USB")
+            rig.set_tone(670)
             self.assertFalse(rig.set_ptt(True))                             # no permitido
             await asyncio.sleep(0.3)
-            self.assertEqual((fake.st.freq, fake.st.mode, fake.st.ptt), (437800000, "USB", False))
+            self.assertEqual((fake.st.freq, fake.st.mode, fake.st.ptt, fake.st.tone), (437800000, "USB", False, 670))
             # Seguimiento con Doppler sobre el cliente
             tr = C.CatTracker(min_step=50, min_s=0)
             tr.update("ISS", 437800000, 0, -6.0, now=100.0)
@@ -399,6 +406,8 @@ class TestCat(unittest.TestCase):
         self.assertEqual(s.handle('{"c":"catset","f":432100000,"m":"USB","vfo":"swap"}', h)[0], '{"e":"ok","c":"catset"}')
         self.assertEqual((h.cat.rig.st.freq, h.cat.rig.st.mode, h.cat.rig.st.vfo), (432100000, "USB", "B"))
         self.assertIn("ptt not allowed", s.handle('{"c":"catset","ptt":true}', h)[0])
+        s.handle('{"c":"catset","tone":74.4}', h)
+        self.assertEqual(json.loads(s.handle('{"c":"cat"}', h)[0])["tn"], 74.4)
         self.assertIn("rejected", s.handle('{"c":"catset","f":-5}', h)[0])
         s.handle('{"c":"cattrack","name":"SO-50","dl":436795000,"ul":145850000,"rr":3.2}', h)
         t = h.cat.tracker

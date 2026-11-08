@@ -211,6 +211,9 @@ class ApiSession:
             good &= f is not None and 0 < f < 1e11 and g.set_tx_freq(round(f))
         if isinstance(d.get("split"), bool):
             good &= g.set_split(d["split"])
+        if "tone" in d:
+            t = _num(d.get("tone"))
+            good &= t is not None and 0 <= t <= 260 and g.set_tone(round(t * 10))
         if isinstance(d.get("vfo"), str):
             good &= g.toggle_vfo() if d["vfo"] == "swap" else g.set_vfo("B" if d["vfo"] == "B" else "A")
         if isinstance(d.get("ptt"), bool):

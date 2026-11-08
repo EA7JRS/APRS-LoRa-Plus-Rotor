@@ -62,7 +62,17 @@ namespace RC {
         bool        ptt = false;
         bool        split = false;
         int         smeter = -1;            // 0-15: S0..S9 = 0..9, S9+10..+60 = 10..15; -1 sin dato
+        int         tone = 0;               // CTCSS de emisión en décimas de Hz (670 = 67,0 Hz); 0 = apagado
     };
+
+    // Tonos CTCSS en décimas de Hz: la lista de 50 de Yaesu (orden CN) y la de 42 de Kenwood (orden TN)
+    static const int CTCSS50[50] = {670, 693, 719, 744, 770, 797, 825, 854, 885, 915, 948, 974, 1000, 1035, 1072, 1109, 1148, 1188, 1230, 1273,
+        1318, 1365, 1413, 1462, 1514, 1567, 1598, 1622, 1655, 1679, 1713, 1738, 1773, 1799, 1835, 1862, 1899, 1928, 1966, 1995,
+        2035, 2065, 2107, 2181, 2257, 2291, 2336, 2418, 2503, 2541};
+    static const int CTCSS42[42] = {670, 693, 719, 744, 770, 797, 825, 854, 885, 915, 948, 974, 1000, 1035, 1072, 1109, 1148, 1188, 1230, 1273,
+        1318, 1365, 1413, 1462, 1514, 1567, 1622, 1679, 1738, 1799, 1862, 1928, 2035, 2065, 2107, 2181, 2257, 2291, 2336, 2418, 2503, 17500};
+    // Posición del tono en la tabla (admite ±0,2 Hz) o -1
+    inline int toneIndex(const int* t, int n, int dHz) { for (int i = 0; i < n; i++) if (dHz >= t[i] - 2 && dHz <= t[i] + 2) return i; return -1; }
 
     // dB sobre S9 como el nivel STRENGTH de Hamlib (S9 = 0, S0 = -54)
     inline int smeterDb(int s) { return s < 0 ? -54 : (s <= 9 ? (s - 9) * 6 : (s - 9) * 10); }
@@ -101,6 +111,8 @@ namespace RC {
         virtual bool setVfo(char v) { return v == state().vfo ? true : toggleVfo(); }
         virtual bool setTxFreq(uint64_t hz) = 0;          // otro VFO / banda (split, satélite); false si la emisora no puede
         virtual bool setSplit(bool on) = 0;
+        // CTCSS de emisión (subida de los satélites FM: SO-50, PO-101...): décimas de Hz, 0 = apagado. false si la emisora no puede
+        virtual bool setTone(int dHz) { (void)dHz; return false; }
         virtual const char* info() const = 0;
     };
 
@@ -200,6 +212,18 @@ namespace RC {
         bool setTxFreq(uint64_t hz) override { queue(frame(0x25, 0x01, bcd(hz, 5)), true); st_.txFreq = hz; return true; }
         bool setSplit(bool on) override { queue(frame(0x0F, on ? 0x01 : 0x00, ""), true); st_.split = on; return true; }
         bool toggleVfo() override { queue(frame(0x07, 0xB0, ""), true); st_.vfo = st_.vfo == 'A' ? 'B' : 'A'; return true; }
+        // 1B 00: tono de repetidor, 3 bytes BCD con la cifra más significativa primero (00 08 85 = 88,5 Hz); 16 42: tono de repetidor sí / no
+        bool setTone(int dHz) override {
+            if (dHz < 0 || dHz > 2600) return false;
+            if (dHz > 0) {
+                std::string d;
+                d += (char)0; d += (char)(((dHz / 1000) % 10) << 4 | ((dHz / 100) % 10)); d += (char)(((dHz / 10) % 10) << 4 | (dHz % 10));
+                queue(frame(0x1B, 0x00, d), true);
+            }
+            queue(frame(0x16, 0x42, std::string(1, dHz > 0 ? '\x01' : '\x00')), true);
+            st_.tone = dHz;
+            return true;
+        }
         bool setMode(const std::string& mode) override {
             const std::string m = normMode(mode);
             int code = -1, data = -1;
@@ -351,6 +375,14 @@ namespace RC {
         bool setTxFreq(uint64_t hz) override { queue(fmtF("FB", hz)); st_.txFreq = hz; return true; }
         bool setSplit(bool on) override { queue(on ? "FT3;" : "FT2;"); st_.split = on; return true; }     // FT3 = TX en VFO B
         bool toggleVfo() override { queue("SV;"); st_.vfo = st_.vfo == 'A' ? 'B' : 'A'; return true; }
+        // CN00nnn; = tono nnn de la tabla de 50; CT02; = CTCSS solo al emitir; CT00; = apagado
+        bool setTone(int dHz) override {
+            if (dHz == 0) { queue("CT00;"); st_.tone = 0; return true; }
+            const int i = toneIndex(CTCSS50, 50, dHz);
+            if (i < 0) return false;
+            char b[24]; snprintf(b, sizeof b, "CN00%03d;CT02;", i);
+            queue(b); st_.tone = CTCSS50[i]; return true;
+        }
         bool setMode(const std::string& mode) override {
             const std::string m = normMode(mode);
             const char* c = nullptr;
@@ -400,6 +432,15 @@ namespace RC {
             const int rxv = st_.vfo == 'B' ? 1 : 0, txv = on ? 1 - rxv : rxv;
             char b[16]; snprintf(b, sizeof b, "FR%d;FT%d;", rxv, txv);
             queue(b); st_.split = on; return true;
+        }
+        int toneBase = 1;           // TN: 01 = 67,0 Hz (TS-2000); 0 en los que cuentan desde 00 (TS-480, TS-590, TS-890)
+        // TNnn; = tono de la tabla de 42; TO1; = tono al emitir; TO0; = apagado
+        bool setTone(int dHz) override {
+            if (dHz == 0) { queue("TO0;"); st_.tone = 0; return true; }
+            const int i = toneIndex(CTCSS42, 41, dHz);
+            if (i < 0) return false;
+            char b[24]; snprintf(b, sizeof b, "TN%02d;TO1;", i + toneBase);
+            queue(b); st_.tone = CTCSS42[i]; return true;
         }
         bool toggleVfo() override {
             const int v = st_.vfo == 'B' ? 0 : 1;
@@ -482,6 +523,19 @@ namespace RC {
         bool setTxFreq(uint64_t) override { return false; }            // sin orden para el otro VFO
         bool setSplit(bool on) override { queue(std::string("\0\0\0\0", 4) + (on ? '\x02' : '\x82')); st_.split = on; return true; }
         bool toggleVfo() override { queue(std::string("\0\0\0\0\x81", 5)); st_.vfo = st_.vfo == 'A' ? 'B' : 'A'; return true; }
+        // 0B: tono (4 cifras BCD en décimas de Hz, emisión y recepción); 0A con 4A = CTCSS al emitir, 8A = apagado
+        bool setTone(int dHz) override {
+            if (dHz < 0 || dHz > 2600) return false;
+            if (dHz > 0) {
+                const char hi = (char)(((dHz / 1000) % 10) << 4 | ((dHz / 100) % 10)), lo = (char)(((dHz / 10) % 10) << 4 | (dHz % 10));
+                std::string d; d += hi; d += lo; d += hi; d += lo; d += '\x0B';
+                queue(d);
+            }
+            std::string m; m += dHz > 0 ? '\x4A' : '\x8A'; m += std::string("\0\0\0\x0A", 4);
+            queue(m);
+            st_.tone = dHz;
+            return true;
+        }
         bool setMode(const std::string& mode) override {
             const std::string m = normMode(mode);
             int c = -1;
@@ -597,6 +651,7 @@ namespace RC {
         bool setBandwidth(int hz) { if (!hs_) return false; setProp("filter_bandwidth", std::to_string(hz)); return true; }
         bool setTxFreq(uint64_t) override { return false; }
         bool setSplit(bool) override { return false; }
+        bool setTone(int) override { return true; }                   // receptor: no hay nada que emitir
         bool toggleVfo() override { return false; }
 
         // Trama de cliente (siempre con máscara)
@@ -709,6 +764,13 @@ namespace RC {
         bool setTxFreq(uint64_t hz) override { char b[40]; snprintf(b, sizeof b, "I %llu\n", (unsigned long long)hz); queue(b, true, 0, K_SET); st_.txFreq = hz; return true; }
         bool setSplit(bool on) override { queue(on ? "S 1 VFOB\n" : "S 0 VFOA\n", true, 0, K_SET); st_.split = on; return true; }
         bool toggleVfo() override { const char v = st_.vfo == 'A' ? 'B' : 'A'; queue(v == 'B' ? "V VFOB\n" : "V VFOA\n", true, 0, K_SET); st_.vfo = v; return true; }
+        bool setTone(int dHz) override {
+            if (dHz < 0 || dHz > 2600) return false;
+            if (dHz > 0) { char b[24]; snprintf(b, sizeof b, "C %d\n", dHz); queue(b, true, 0, K_SET); }
+            queue(dHz > 0 ? "U TONE 1\n" : "U TONE 0\n", true, 0, K_SET);
+            st_.tone = dHz;
+            return true;
+        }
 
     protected:
         enum { K_F = 1, K_M = 2, K_L = 3, K_T = 4, K_I = 5, K_SET = 6 };

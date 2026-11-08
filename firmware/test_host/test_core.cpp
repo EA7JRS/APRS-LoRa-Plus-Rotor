@@ -495,6 +495,57 @@ static void testCatYaesu5() {
     e.allowPtt = true; e.setPtt(false); out.clear(); e.tick(800, out); CHECK(hexs(out) == "00 00 00 00 88 ");
 }
 
+// CTCSS de la subida (satélites FM): las órdenes de cada marca
+static void testCatTone() {
+    CHECK(toneIndex(CTCSS50, 50, 670) == 0 && toneIndex(CTCSS50, 50, 744) == 3 && toneIndex(CTCSS50, 50, 1598) == 26 && toneIndex(CTCSS50, 50, 2541) == 49);
+    CHECK(toneIndex(CTCSS42, 41, 1622) == 26 && toneIndex(CTCSS42, 41, 1598) == -1 && toneIndex(CTCSS42, 41, 671) == 0);
+    {   // Icom: 1B 00 00 06 70 y 16 42 01
+        CivEngine e; e.addr = 0xA2; std::string out;
+        CHECK(e.setTone(670) && e.state().tone == 670);
+        e.tick(0, out); CHECK(hexs(out) == "FE FE A2 E0 1B 00 00 06 70 FD ");
+        feedS(e, std::string("\xFE\xFE\xE0\xA2\xFB\xFD", 6), 10);
+        out.clear(); e.tick(100, out); CHECK(hexs(out) == "FE FE A2 E0 16 42 01 FD ");
+        feedS(e, std::string("\xFE\xFE\xE0\xA2\xFB\xFD", 6), 110);
+        CHECK(e.setTone(0) && e.state().tone == 0);
+        out.clear(); e.tick(200, out); CHECK(hexs(out) == "FE FE A2 E0 16 42 00 FD ");
+        CHECK(!e.setTone(3000));
+    }
+    {   // Yaesu de texto: CN00nnn; CT02;
+        YaesuEngine e; std::string out;
+        CHECK(e.setTone(744)); e.tick(0, out); CHECK(out == "CN00003;CT02;");
+        CHECK(e.setTone(0)); out.clear(); e.tick(100, out); CHECK(out == "CT00;");
+        CHECK(!e.setTone(1500));
+    }
+    {   // Kenwood: TS-2000 desde 01, TS-590 desde 00
+        KenwoodEngine e; std::string out;
+        CHECK(e.setTone(670)); e.tick(0, out); CHECK(out == "TN01;TO1;");
+        e.toneBase = 0; CHECK(e.setTone(885)); out.clear(); e.tick(100, out); CHECK(out == "TN08;TO1;");
+        CHECK(e.setTone(0)); out.clear(); e.tick(200, out); CHECK(out == "TO0;");
+    }
+    {   // FT-817: 08 85 08 85 0B y 4A 00 00 00 0A
+        Yaesu5Engine e; std::string out;
+        CHECK(e.setTone(885)); e.tick(0, out); CHECK(hexs(out) == "08 85 08 85 0B ");
+        out.clear(); e.tick(100, out); CHECK(hexs(out) == "4A 00 00 00 0A ");
+        CHECK(e.setTone(0)); out.clear(); e.tick(200, out); CHECK(hexs(out) == "8A 00 00 00 0A ");
+    }
+    {   // rigctl: C 670 y U TONE 1
+        RigctlClientEngine e; std::string out;
+        e.onConnect(0);
+        CHECK(e.setTone(670)); e.tick(0, out); CHECK(out == "C 670\n");
+        feedS(e, "RPRT 0\n", 10);
+        out.clear(); e.tick(100, out); CHECK(out == "U TONE 1\n");
+    }
+    {   // rigctld de la caja: c / C / u / U
+        YaesuEngine e; RigctlSession s; std::string r;
+        s.feed("C 670\n", 6, e, r); CHECK(r == "RPRT 0\n" && e.state().tone == 670);
+        r.clear(); s.feed("c\n", 2, e, r); CHECK(r == "670\n");
+        r.clear(); s.feed("U TONE 0\n", 9, e, r); CHECK(r == "RPRT 0\n" && e.state().tone == 0);
+        r.clear(); s.feed("u TONE\n", 7, e, r); CHECK(r == "0\n");
+        r.clear(); s.feed("U TONE 1\n", 9, e, r); CHECK(r == "RPRT 0\n" && e.state().tone == 670);
+        r.clear(); s.feed("U NB 1\n", 7, e, r); CHECK(r == "RPRT -4\n");
+    }
+}
+
 static void testRigctld() {
     YaesuEngine e;
     std::string out;
@@ -667,6 +718,7 @@ int main() {
     testCatYaesu();
     testCatKenwood();
     testCatYaesu5();
+    testCatTone();
     testRigctld();
     testCatTracker();
     testCatApi();

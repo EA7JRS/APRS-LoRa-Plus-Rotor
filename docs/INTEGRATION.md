@@ -11,6 +11,7 @@ El rotor ofrece lo mismo en todas las placas (según el hardware que tengan):
 | | WiFi: JSON (4534) o rotctld (4533) | La app ya tiene cliente rotctld (`RotctlLink`): reenvía el evento `rot` del tracker |
 | **GPredict, Look4Sat, SatPC32 (con su puente), PstRotator, CSN S.A.T.…** | rotctld por WiFi | Hamlib «NET rotctl» (modelo 2), `IP:4533` |
 | **Cualquier programa con Hamlib en el PC** | USB | La placa se hace pasar por un GS-232B (`rotctl -m 603 -r /dev/ttyUSB0`), EasyComm II (202) o Rot2Prog (901) |
+| **GPredict (radio), WSJT-X, Look4Sat, cualquier programa con Hamlib** | rigctld de la emisora por WiFi (con CAT) | Hamlib «NET rigctl» (modelo 2), `IP:4532`; ver [CAT.md](CAT.md) |
 | **Navegador** | WiFi | `http://APRS-Rotor.local/` (placas) o `http://IP:8080/` (Raspberry) |
 
 En la Raspberry Pi el rotor real lo maneja el rotctld de Hamlib, así que vale **cualquier modelo de rotor de Hamlib** (`rotctl -l`).

@@ -42,3 +42,7 @@ Instalador web → **Rotor** → `waveshare_s3_amoled241`, o `pio run -e wavesha
 ## Estado
 
 Compila en la CI; la pantalla apaisada se ha probado en el PC (`firmware/test_host/lcd_preview`, ficheros `lcd_out/600x450_*`). **Sin probar en la placa**: comprobar el giro del táctil (se toma como en el ejemplo de Waveshare: espejo de Y y ejes cambiados), el desplazamiento de 16 filas de la memoria del panel y el brillo. Si tu placa es la primera versión (sin «V2»), los pines pueden ser otros.
+
+## CAT
+
+Emisora en IO8 (RX) / IO42 (TX) (`cat.rx` / `cat.tx`, UART1), a la vez que la pasarela (IO44 / IO43). Pantalla: botón **CAT** de la cabecera. Ver [CAT.md](CAT.md).

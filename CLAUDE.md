@@ -15,7 +15,7 @@ Controlador de rotores compatible con Hamlib, manejado por el tracker APRS LoRa+
 - Regla del ecosistema: todo lo del rotor debe poder controlarse desde la app Android.
 
 ## Estructura
-- `firmware/lib/RotorCore/src/`: núcleo C++ puro, sin Arduino (`rc_rotctld.h`, `rc_serialproto.h`, `rc_control.h`, `rc_aprs.h`, `rc_api.h`). Pruebas: `firmware/test_host` (`make run ARDUINOJSON=…/ArduinoJson/src`; 168 comprobaciones).
+- `firmware/lib/RotorCore/src/`: núcleo C++ puro, sin Arduino (`rc_rotctld.h`, `rc_serialproto.h`, `rc_control.h`, `rc_aprs.h`, `rc_api.h`). Pruebas: `firmware/test_host` (`make run ARDUINOJSON=…/ArduinoJson/src`; 332 comprobaciones).
 - `firmware/src/`: `board` (capa ESP32 / RP2350), `config` (LittleFS `/rotor_conf.json`), `drivers` (directo + pasarela), `services` (puerto serie con protocolo, anfitrión JSON), `net` (WiFi, rotctld 4533, JSON 4534, WebUI 80, OTA `/update`, mDNS), `bt_ble` (NimBLE), `bt_spp`, `lora_aprs` (RadioLib, emisión sin bloquear), `web_page.h` (la WebUI; la Raspberry la usa también).
 - Entornos: `esp32dev`, `esp32s3`, `waveshare_c5_lcd35`, `waveshare_s3_amoled241`, `pico2w`, `pico2`. Versiones como el tracker: espressif32 8.0.0, NimBLE 2.5.2, RadioLib 7.8.1, ArduinoJson 7.4.3; RP2350 con maxgerhardt/platform-raspberrypi (arduino-pico). `-Werror` solo en `src` (`build_src_flags`).
 - ESP32 de 4 MB: partición `huge_app.csv` (BLE + SPP + WiFi no caben con OTA): sin OTA por la WebUI.
@@ -35,7 +35,13 @@ Controlador de rotores compatible con Hamlib, manejado por el tracker APRS LoRa+
 - AMOLED RM690B0 por QSPI (`LCD_PANEL 2`: CS 9, CLK 10, D0-D3 11-14; `esp_lcd_panel_io` con `quad_mode`, órdenes `0x02<<24 | cmd<<8`, puntos `0x32<<24 | 0x2C<<8`), girada 90° (MADCTL 0x30), 600×450 con 16 filas de desplazamiento; ventanas en múltiplos de 2. Brillo con 0x51; sin uso se apaga (`LCD_DIM_PCT` 0). Franjas copiadas a un búfer DMA interno.
 - Táctil FT6336 en I2C 47/48: X = 599 − Yraw, Y = Xraw. TCA9554 0x20 (`EXIO_CHIP 2`): EXIO0 reset de la pantalla, EXIO1 reset del táctil, EXIO5-7 en el conector. IO16 arriba (`BOARD_POWER_HOLD`) para seguir encendida con batería.
 - Por defecto: relés IO38-41, potenciómetros IO1 / IO7 (ADC1), pasarela RX 44 / TX 43.
-- `lcd_ui.h` con dos disposiciones (`Layout::make`: vertical 320×480 y apaisada 600×450, fuentes `FontS2/M2/L2` de 22/28/54 px). `lcd_preview` prueba las dos (72 comprobaciones).
+- `lcd_ui.h` con dos disposiciones (`Layout::make`: vertical 320×480 y apaisada 600×450, fuentes `FontS2/M2/L2` de 22/28/54 px). `lcd_preview` prueba las dos (110 comprobaciones).
+
+## CAT (2026-11-08; Manuel: «todas» las placas + RSPdx-R2)
+- `rc_cat.h`: motores Icom CI-V (1), Yaesu texto (2), Yaesu 5 bytes FT-817/857/897 (3), Kenwood/Elecraft (4), SDRconnect de SDRplay por WebSocket 5454 (5, receptor; RSPdx-R2 no tiene CAT propio), cliente rigctl (6, SDR++/gqrx); `CatTracker` (Doppler con `dl`/`ul`/`rr`, paso `trackStep`, 15 s sin datos = para); CTCSS (`setTone`, décimas de Hz: CI-V 1B 00 + 16 42, Yaesu CN00nnn;CT02;, Kenwood TNnn;TO1; con `toneBase` 1 TS-2000 / 0 si `cat.model` tiene 480/590/890/990, FT-817 0B + 0A 4A, rigctl C + U TONE). `rc_rigctld.h`: servidor rigctld (protocolo 0, como gqrx) en 4532. API: `cat`, `catset` (f, m, txf, split, vfo, tone, ptt), `cattrack`, evento `cat` (`tn` = tono). `cat.cpp` (UART: ESP32/S3 Serial1, C5 Serial0 compartida con la pasarela, Pico la UART libre; red con conexión de 400 ms solo con el rotor parado). Pantalla: página CAT (botón de la cabecera). WebUI: tarjeta CAT. PTT: `cat.ptt` (apagado por defecto), solo manteniendo pulsado, límite `pttMaxS`.
+- Raspberry: `cat.py` (`type` hamlib = rigctld real en 127.0.0.1:4536 + cliente; rigctl; sdrconnect), servidor rigctld 4532 con el mismo control del PTT.
+- App: sección *Radio (CAT)* en la pestaña Rotor; con el tracker en SAT manda `cattrack` y, al cambiar de satélite, modo, split y tono (`satTone` de la descripción del transmisor).
+- Documento: `docs/CAT.md`. Sin probar con emisoras reales.
 
 ## Manuales (2026-11-08)
 - `docs/MANUAL_ES.md`, `docs/MANUAL_EN.md` (manual de usuario) y `docs/QUICKSTART_ES.md`, `docs/QUICKSTART_EN.md` (guía rápida). Al cambiar funciones, placas o versión, actualizar los cuatro.

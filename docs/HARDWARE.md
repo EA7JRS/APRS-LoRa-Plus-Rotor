@@ -21,6 +21,8 @@ Todos se cambian en la configuración (WebUI o app). `-1` = sin usar.
 
 ADC: en ESP32 usa solo pines del ADC1 (el ADC2 no funciona con la WiFi encendida). En la Pico, GP26-GP28. Placas con pantalla: [WAVESHARE_C5_LCD35.md](WAVESHARE_C5_LCD35.md) y [WAVESHARE_S3_AMOLED241.md](WAVESHARE_S3_AMOLED241.md).
 
+CAT de la emisora (`cat.rx` / `cat.tx`): ESP32 32 / 33, ESP32-S3 15 / 16, ESP32-C5 LCD 12 / 11 (la misma UART que la pasarela: una u otra), ESP32-S3 AMOLED 8 / 42, Pico a elegir. Conexiones y niveles en [CAT.md](CAT.md).
+
 LoRa en la Pico (HAT «Pico-LoRa-SX1262» de Waveshare): SCK GP10, MOSI GP11, MISO GP12, CS GP3, RESET GP15, BUSY GP2, DIO1 GP20. Elige el chip en `lora.chip` (1 SX1262, 2 SX1268, 3 SX1276, 4 SX1278).
 
 ## Yaesu G-5500 / G-5500DC (control directo por el DIN)

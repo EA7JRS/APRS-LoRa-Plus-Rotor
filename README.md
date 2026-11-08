@@ -13,6 +13,7 @@ Controlador de rotores de antena **compatible con Hamlib** para el ecosistema **
  App Android ─────────►│ BLE / TCP 4534: protocolo JSON (PIN)              │    · control directo (relés / puente H + potenciómetro)
  GPredict, Look4Sat ──►│ rotctld (Hamlib NET rotctl, modelo 2)             │    · pasarela serie (GS-232, Rot2Prog, EasyComm)
  PC con Hamlib (USB) ─►│ se hace pasar por GS-232A/B, EasyComm II, Rot2Prog│    · Raspberry: rotctld de Hamlib (cualquier modelo)
+ GPredict, WSJT-X ───►│ rigctld 4532 (CAT)  ──────────────────────────────│──► emisora / SDR (CI-V, Yaesu, Kenwood, SDRconnect)
  Navegador ───────────►│ WebUI (brújula, mando, calibración, config, OTA)  │
                        └───────────────────────────────────────────────────┘
 ```
@@ -29,6 +30,7 @@ Controlador de rotores de antena **compatible con Hamlib** para el ecosistema **
 | LoRa APRS | con módulo SX127x / SX126x | con módulo SX127x / SX126x | — | — | HAT SX1262 | HAT SX1262 | por TNC KISS |
 | Pantalla táctil (mando local) | — | — | ✔ (vertical) | ✔ (apaisada) | — | — | — |
 | USB como controlador de Hamlib | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | USB gadget (Zero 2 W) |
+| CAT de emisora / SDR (CI-V, Yaesu, Kenwood, SDRconnect, rigctl) + rigctld 4532 | ✔ | ✔ | ✔ (UART compartida con la pasarela) | ✔ | ✔ | UART | ✔ (rigctld de Hamlib: todas las emisoras) |
 | Actualización por la WebUI | placas de 8 MB | ✔ | ✔ | ✔ | ✔ | — | `git pull` + `install.sh` |
 
 ## Versión
@@ -67,6 +69,7 @@ Ver [docs/RASPBERRY_PI.md](docs/RASPBERRY_PI.md).
 - [docs/HARDWARE.md](docs/HARDWARE.md): pines, Yaesu G-5500 por el DIN, transistores, divisores, pasarela serie
 - [docs/WAVESHARE_C5_LCD35.md](docs/WAVESHARE_C5_LCD35.md): placa con pantalla táctil (conector, relés, potenciómetro, pantalla)
 - [docs/WAVESHARE_S3_AMOLED241.md](docs/WAVESHARE_S3_AMOLED241.md): placa con pantalla AMOLED apaisada
+- [docs/CAT.md](docs/CAT.md): emisoras (Icom, Yaesu, Kenwood / Elecraft) y receptores SDR (SDRplay RSPdx-R2 con SDRconnect, SDR++, gqrx): conexión, Doppler, CTCSS, PTT, rigctld
 - [docs/CONFIG.md](docs/CONFIG.md): todas las opciones de las placas
 - [docs/CONTROL_PROTOCOL.md](docs/CONTROL_PROTOCOL.md): protocolo JSON (BLE, TCP, WebUI) para la app
 - [docs/APRS_CONTROL.md](docs/APRS_CONTROL.md): mover el rotor con mensajes APRS por LoRa, con código TOTP

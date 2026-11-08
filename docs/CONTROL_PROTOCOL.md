@@ -40,6 +40,9 @@ El PIN viaja en claro dentro del enlace: el BLE va cifrado; por TCP/HTTP úsalo 
 | `raw` | — | evento `raw` |
 | `cfgget` | — | eventos `cfg` con la configuración entera en trozos |
 | `cfgset` | `i`, `n`, `d` | `ok` por trozo; con el último, `{"e":"ok","c":"cfgset","i":…,"done":true}` y el equipo se reinicia para aplicarla |
+| `cat` | — | evento `cat` (sin PIN) o `err` `no cat` |
+| `catset` | `f` (Hz), `m` (modo de Hamlib: LSB, USB, CW, CWR, AM, FM, WFM, PKTUSB…), `txf` (Hz de subida), `split` (bool), `vfo` (`A`, `B`, `swap`), `tone` (CTCSS en Hz, 0 = apagado), `ptt` (bool); los que se quieran | `ok` / `err` (`no cat`, `rejected`, `ptt not allowed`) |
+| `cattrack` | `on` (bool: seguir o no) y/o `name`, `dl`, `ul` (Hz nominales de bajada y subida, 0 = no), `rr` (velocidad radial, km/s, + = se aleja) | `ok`. La caja corrige el Doppler y sintoniza; sin datos en 15 s deja de seguir |
 | `reboot` | — | `ok` y reinicio |
 
 Orden desconocida: `{"e":"err","c":"…","m":"unknown"}`. Línea que no es JSON: `{"e":"err","m":"bad json"}`.
@@ -56,6 +59,8 @@ Orden desconocida: `{"e":"err","c":"…","m":"unknown"}`. Línea que no es JSON:
  "ip":"192.168.1.50","rotctld":4533,"heap":187000,"up":3600,"utc":1762500000}
 ```
 
+Con CAT configurado: `"cat":true`, `caps.cat` y `"rigctld":4532` (0 = apagado).
+
 `board` es el entorno de PlatformIO (`esp32dev`, `esp32s3`, `waveshare_c5_lcd35`, `waveshare_s3_amoled241`, `pico2w`, `pico2`) o `raspberrypi`. En la Raspberry `drv` es `hamlib <modelo>` y se añade `hamlib` (estado del rotctld).
 
 ### `pos`
@@ -68,6 +73,15 @@ Orden desconocida: `{"e":"err","c":"…","m":"unknown"}`. Línea que no es JSON:
 - `st`: banderas de estado de Hamlib (`rot_status_t`): 1 BUSY, 2 MOVING, 4 MOVING_AZ, 8 MOVING_LEFT, 16 MOVING_RIGHT, 32 MOVING_EL, 64 MOVING_UP, 128 MOVING_DOWN, 256 LIMIT_UP, 512 LIMIT_DOWN, 1024 LIMIT_LEFT, 2048 LIMIT_RIGHT, 4096 OVERLAP_UP, 16384 OVERLAP_LEFT, 65536 OVERLAP_RIGHT.
 - `f`: `OK`, `STALL AZ`, `STALL EL`, `SENSOR`, `NO LINK` (pasarela serie o rotctld sin respuesta).
 - `maz`: acimut mecánico (control directo; > 360 = en el solape). `taz` / `tel`: objetivo. `aprs`: última orden APRS.
+
+### `cat`
+
+```json
+{"e":"cat","rig":"IC-9700 · CI-V A2 · 19200","l":true,"f":436795000,"m":"FM","tf":145850000,"sp":true,"v":"A",
+ "ptt":false,"sm":7,"tn":67.0,"pa":false,"tr":{"en":true,"on":true,"n":"SO-50","dop":-4210}}
+```
+
+`l` enlace con la emisora, `f` / `tf` Hz (bajada / subida), `sp` split, `v` VFO, `sm` S-meter 0-15 (S0-S9, S9+10…+60; -1 sin dato), `tn` tono CTCSS (si está puesto), `pa` PTT permitido, `tr` seguimiento (`en` activado, `on` con datos recientes, `n` nombre, `dop` Hz de Doppler de bajada). Con `sub`, la caja lo manda cada segundo.
 
 ### `raw`
 

@@ -48,3 +48,7 @@ Instalador web (ESP Web Tools 10.4, Chrome o Edge) → **Rotor** → `waveshare_
 ## Estado
 
 Compila en la CI; la pantalla se ha probado en el PC (`firmware/test_host/lcd_preview`, dibuja las pantallas en `lcd_out/`). **Sin probar en la placa**: comprobar la orientación del táctil, el brillo y el formato de 16 bits del expansor (los ejemplos de Waveshare traen dos variantes: CH32V006 con 16 pines y CH32V003 con 8).
+
+## CAT
+
+La emisora va por U0RXD / U0TXD (GPIO12 / GPIO11, `cat.rx` / `cat.tx`): es la única UART libre del C5, la misma que la pasarela serie, así que es CAT **o** pasarela; el CAT por red (SDRconnect, rigctl) no usa pines. Pantalla: botón **CAT** de la cabecera. Ver [CAT.md](CAT.md).

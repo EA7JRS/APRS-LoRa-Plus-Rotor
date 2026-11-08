@@ -145,6 +145,7 @@ namespace RC {
                 if (in["m"].is<const char*>()) good &= g->setMode(in["m"].as<const char*>());
                 if (in["txf"].is<double>()) { const double f = in["txf"].as<double>(); good &= f > 0 && f < 1e11 && g->setTxFreq((uint64_t)llround(f)); }
                 if (in["split"].is<bool>()) good &= g->setSplit(in["split"].as<bool>());
+                if (in["tone"].is<double>()) { const double t = in["tone"].as<double>(); good &= t >= 0 && t <= 260 && g->setTone((int)lround(t * 10)); }
                 if (in["vfo"].is<const char*>()) {
                     const std::string v = in["vfo"].as<const char*>();
                     good &= v == "swap" ? g->toggleVfo() : g->setVfo(v == "B" ? 'B' : 'A');
@@ -186,7 +187,7 @@ namespace RC {
             return dump(d);
         }
 
-        // Estado de la emisora: {"e":"cat","l":enlace,"f":Hz,"m":modo,"tf":Hz,"sp":split,"v":"A","ptt":..,"sm":0-15,"pa":ptt permitido,
+        // Estado de la emisora: {"e":"cat","l":enlace,"f":Hz,"m":modo,"tf":Hz,"sp":split,"v":"A","ptt":..,"sm":0-15,"tn":CTCSS Hz,"pa":ptt permitido,
         //   "tr":{"en":seguir,"on":con datos,"n":nombre,"dop":Hz}}
         static std::string catEvent(ApiHost& h) {
             Rig* g = h.rig();
@@ -203,6 +204,7 @@ namespace RC {
             d["v"] = std::string(1, s.vfo);
             d["ptt"] = s.ptt;
             d["sm"] = s.smeter;
+            if (s.tone > 0) d["tn"] = s.tone / 10.0;
             d["pa"] = h.catPttAllowed();
             if (CatTracker* t = h.catTracker()) {
                 JsonObject tr = d["tr"].to<JsonObject>();
