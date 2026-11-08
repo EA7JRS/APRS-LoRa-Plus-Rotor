@@ -18,10 +18,15 @@ def dumps(d: dict) -> str:
     return json.dumps(d, separators=(",", ":"), ensure_ascii=False)
 
 
+def _num(v):
+    return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+
+
 class ApiHost:
     """Lo implementa el demonio (main.Daemon)."""
 
     rotor = None
+    cat = None          # cat.Cat o None
 
     def info(self) -> dict: return {}
     def pos_extra(self) -> dict: return {}
@@ -54,6 +59,7 @@ class ApiSession:
         self._cfg_next = 0
         self._last_evt = 0.0
         self._was_moving = False
+        self._last_cat = 0.0
 
     def handle(self, line: str, h: ApiHost) -> list[str]:
         out: list[str] = []
@@ -82,6 +88,7 @@ class ApiSession:
                  "lim": {"minAz": r.min_az, "maxAz": r.max_az, "minEl": r.min_el, "maxEl": r.max_el},
                  "hasEl": r.has_el, "pin": need_pin}
             i.update(h.info())
+            i["cat"] = bool(h.cat and h.cat.rig)
             out.append(dumps(i))
             return out
         if c == "get":
@@ -94,6 +101,12 @@ class ApiSession:
             ms = int(d.get("ms", 1000))
             self.sub_ms = 0 if ms == 0 else max(ms, 200)
             ok(c)
+            return out
+        if c == "cat":
+            if h.cat and h.cat.rig:
+                out.append(dumps(h.cat.event()))
+            else:
+                err(c, "no cat")
             return out
         if need_pin and not self.authed:
             err(c, "auth required")
@@ -159,6 +172,20 @@ class ApiSession:
                 err(c, e)
             else:
                 out.append(dumps({"e": "ok", "c": c, "i": i, "done": True}))
+        elif c == "catset":
+            self._catset(d, h, ok, err)
+        elif c == "cattrack":
+            if not (h.cat and h.cat.rig):
+                err(c, "no cat")
+                return out
+            t = h.cat.tracker
+            if isinstance(d.get("on"), bool):
+                t.enabled = d["on"]
+                t.reset()
+            if _num(d.get("dl")) or _num(d.get("ul")):
+                t.update(str(d.get("name", "")), round(_num(d.get("dl")) or 0), round(_num(d.get("ul")) or 0),
+                         _num(d.get("rr")) or 0.0)
+            ok(c)
         elif c == "reboot":
             ok(c)
             h.reboot()
@@ -166,14 +193,45 @@ class ApiSession:
             err(c, "unknown")
         return out
 
+    @staticmethod
+    def _catset(d: dict, h: ApiHost, ok, err):
+        c = "catset"
+        if not (h.cat and h.cat.rig):
+            err(c, "no cat")
+            return
+        g = h.cat.rig
+        good = True
+        f = _num(d.get("f"))
+        if "f" in d:
+            good &= f is not None and 0 < f < 1e11 and g.set_freq(round(f))
+        if isinstance(d.get("m"), str):
+            good &= g.set_mode(d["m"])
+        f = _num(d.get("txf"))
+        if "txf" in d:
+            good &= f is not None and 0 < f < 1e11 and g.set_tx_freq(round(f))
+        if isinstance(d.get("split"), bool):
+            good &= g.set_split(d["split"])
+        if isinstance(d.get("vfo"), str):
+            good &= g.toggle_vfo() if d["vfo"] == "swap" else g.set_vfo("B" if d["vfo"] == "B" else "A")
+        if isinstance(d.get("ptt"), bool):
+            if d["ptt"] and not h.cat.ptt_allowed():
+                err(c, "ptt not allowed")
+                return
+            good &= g.set_ptt(d["ptt"])
+        ok(c) if good else err(c, "rejected")
+
     def tick(self, h: ApiHost) -> list[str]:
         if not self.sub_ms:
             return []
         now = time.monotonic()
+        out = []
+        if h.cat and h.cat.rig and now - self._last_cat >= max(1.0, self.sub_ms / 1000):   # estado de la emisora cada segundo
+            self._last_cat = now
+            out.append(dumps(h.cat.event()))
         moving = bool(h.rotor.status() & (ST_MOVING | ST_BUSY))
         every = self.sub_ms if moving else max(self.sub_ms, 5000)
         if moving != self._was_moving or (now - self._last_evt) * 1000 >= every:
             self._was_moving = moving
             self._last_evt = now
-            return [pos_event(h)]
-        return []
+            out.append(pos_event(h))
+        return out

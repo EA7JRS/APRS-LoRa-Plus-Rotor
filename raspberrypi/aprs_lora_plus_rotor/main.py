@@ -36,6 +36,7 @@ from . import __version__
 from .api import ApiHost, ApiSession, pos_event  # noqa: F401
 from .aprs import AprsConfig, AprsControl, LORA_HEADER, status_line
 from .bluez import Bluetooth
+from .cat import Cat
 from .config import DEFAULT_PATH, Config
 from .hamlib import HamlibRotor, RotctldProcess
 from .kiss import KissDecoder, ax25_to_tnc2, kiss_encode, tnc2_to_ax25
@@ -59,6 +60,7 @@ class Daemon(ApiHost):
         self.started = time.monotonic()
         self.stop_event = asyncio.Event()
         self.bt: Bluetooth | None = None
+        self.cat = Cat(d["cat"]) if d["cat"]["type"] != "none" else None
 
     # ---- ApiHost --------------------------------------------------------------------------------------------------------
     def info(self) -> dict:
@@ -66,10 +68,12 @@ class Daemon(ApiHost):
         return {"dev": "APRS LoRa+ Rotor", "ver": __version__, "board": "raspberrypi", "chip": _pi_model(),
                 "name": d["name"], "drv": f"hamlib {d['hamlib']['model']}", "call": d["aprs"]["call"],
                 "caps": {"wifi": True, "ble": bool(d["bt"]["ble"]), "spp": bool(d["bt"]["spp"]),
-                         "lora": bool(d["aprs"]["enabled"]), "cal": False, "move": True},
+                         "lora": bool(d["aprs"]["enabled"]), "cal": False, "move": True, "cat": bool(self.cat)},
                 "ip": _ip(), "rotctld": d["net"]["rotctldPort"] if d["net"]["rotctld"] else 0,
                 "up": int(time.monotonic() - self.started), "utc": int(time.time()),
-                "hamlib": self.proc.last_error or "ok"}
+                "hamlib": self.proc.last_error or "ok",
+                "rigctld": d["cat"]["serverPort"] if self.cat and d["cat"]["server"] else 0,
+                **({"rig": self.cat.proc.last_error or "ok"} if self.cat and self.cat.proc else {})}
 
     def pos_extra(self) -> dict:
         r = self.rotor
@@ -246,6 +250,11 @@ class Daemon(ApiHost):
             servers.append(await asyncio.start_server(self.rotctld_client, "0.0.0.0", int(net["rotctldPort"])))
             log.info("rotctld publico en el puerto %s", net["rotctldPort"])
         servers.append(await asyncio.start_server(self.api_client, "0.0.0.0", int(net["apiPort"])))
+        if self.cat:
+            asyncio.create_task(self.cat.run())
+            if d["cat"]["server"]:
+                servers.append(await asyncio.start_server(self.cat.rigctld_client, "0.0.0.0", int(d["cat"]["serverPort"])))
+                log.info("rigctld de la emisora en el puerto %s", d["cat"]["serverPort"])
         if net["web"]:
             web = WebServer(self, int(net["webPort"]), net["webUser"], lambda: net["webPass"] or d["pin"])
             await web.start()
@@ -266,6 +275,8 @@ class Daemon(ApiHost):
         for s in servers:
             s.close()
         await self.proc.stop()
+        if self.cat and self.cat.proc:
+            await self.cat.proc.stop()
 
 
 def _ip() -> str:

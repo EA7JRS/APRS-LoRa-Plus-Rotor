@@ -12,6 +12,7 @@ import unittest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from aprs_lora_plus_rotor import api, aprs, config, kiss, protocols as P  # noqa: E402
+from aprs_lora_plus_rotor import cat as C  # noqa: E402
 from aprs_lora_plus_rotor.hamlib import HamlibRotor  # noqa: E402
 from aprs_lora_plus_rotor.web import load_page  # noqa: E402
 
@@ -229,6 +230,195 @@ class TestHamlibClient(unittest.TestCase):
             task.cancel()
             srv.close()
         asyncio.run(run())
+
+
+class FakeRig(C.Rig):
+    name = "Prueba"
+
+    def __init__(self):
+        super().__init__()
+        self.st.link = True
+        self.st.freq, self.st.mode, self.st.smeter = 145825000, "FM", 5
+
+    def set_freq(self, hz):
+        self.st.freq = hz
+        return True
+
+    def set_mode(self, m):
+        self.st.mode = C.norm_mode(m)
+        return True
+
+    def set_tx_freq(self, hz):
+        self.st.tx_freq = hz
+        return True
+
+    def set_split(self, on):
+        self.st.split = on
+        return True
+
+    def toggle_vfo(self):
+        self.st.vfo = "B" if self.st.vfo == "A" else "A"
+        return True
+
+    def _ptt(self, on):
+        self.st.ptt = on
+        return True
+
+
+class TestCat(unittest.TestCase):
+    def test_helpers(self):
+        self.assertEqual(C.norm_mode("DATA-U"), "PKTUSB")
+        self.assertEqual(C.norm_mode("nfm"), "FM")
+        self.assertEqual(C.smeter_db(9), 0)
+        self.assertEqual(C.smeter_db(0), -54)
+        self.assertEqual(C.smeter_db(15), 60)
+        self.assertEqual(C.smeter_from_db(-54), 0)
+        self.assertEqual(C.smeter_from_db(20), 11)
+        # 437 MHz alejándose a 5 km/s: baja ~7,3 kHz; la subida se corrige al revés
+        self.assertEqual(C.doppler_rx(437_000_000, 5.0), 437_000_000 - 7288)
+        self.assertEqual(C.doppler_tx(145_900_000, 5.0), 145_900_000 + 2433)
+
+    def test_rigctld_server(self):
+        rig, s = FakeRig(), C.RigctlSession()
+        out, close = s.feed(b"f\nF 144300000\nf\nm\nM USB 0\nm\n", rig)
+        self.assertEqual(out.decode(), "145825000\nRPRT 0\n144300000\nFM\n15000\nRPRT 0\nUSB\n2400\n")
+        self.assertFalse(close)
+        self.assertEqual(s.feed(b"T 1\n", rig)[0], b"RPRT -9\n")          # PTT no permitido
+        self.assertFalse(rig.st.ptt)
+        rig.allow_ptt = True
+        self.assertEqual(s.feed(b"\\set_ptt 1\nt\n", rig)[0], b"RPRT 0\n1\n")
+        self.assertEqual(s.feed(b"l STRENGTH\nV VFOB\nv\nI 435000000\ni\n", rig)[0],
+                         b"-24\nRPRT 0\nVFOB\nRPRT 0\n435000000\n")
+        ds = s.feed(b"\\dump_state\n", rig)[0].decode().splitlines()
+        self.assertEqual(ds[:3], ["0", "2", "2"])
+        self.assertEqual(s.feed(b"\\chk_vfo\nq\n", rig), (b"0\nRPRT 0\n", True))
+
+    def test_rigctl_client(self):
+        """Cliente contra un rigctld simulado (nuestro servidor con FakeRig)."""
+        async def run():
+            fake = FakeRig()
+
+            async def handler(reader, writer):
+                sess = C.RigctlSession()
+                while data := await reader.read(256):
+                    out, close = sess.feed(data, fake)
+                    writer.write(out)
+                    await writer.drain()
+                    if close:
+                        break
+                writer.close()
+            srv = await asyncio.start_server(handler, "127.0.0.1", 0)
+            port = srv.sockets[0].getsockname()[1]
+            rig = C.RigctlClientRig("127.0.0.1", port, "SDR++", 100)
+            task = asyncio.create_task(rig.run())
+            for _ in range(40):
+                await asyncio.sleep(0.05)
+                if rig.st.link:
+                    break
+            self.assertTrue(rig.st.link)
+            self.assertEqual((rig.st.freq, rig.st.mode, rig.st.smeter), (145825000, "FM", 5))
+            rig.set_freq(437800000)
+            rig.set_mode("USB")
+            self.assertFalse(rig.set_ptt(True))                             # no permitido
+            await asyncio.sleep(0.3)
+            self.assertEqual((fake.st.freq, fake.st.mode, fake.st.ptt), (437800000, "USB", False))
+            # Seguimiento con Doppler sobre el cliente
+            tr = C.CatTracker(min_step=50, min_s=0)
+            tr.update("ISS", 437800000, 0, -6.0, now=100.0)
+            tr.step(rig, now=100.1)
+            await asyncio.sleep(0.3)
+            self.assertEqual(fake.st.freq, C.doppler_rx(437800000, -6.0))
+            self.assertEqual(tr.doppler, C.doppler_rx(437800000, -6.0) - 437800000)
+            tr.step(rig, now=200.0)                                          # sin datos: se apaga
+            self.assertFalse(tr.active)
+            task.cancel()
+            srv.close()
+        asyncio.run(run())
+
+    def test_sdrconnect(self):
+        """SdrConnectRig contra un servidor WebSocket simulado con la API de SDRconnect."""
+        async def run():
+            props = {"device_vfo_frequency": "7074000", "device_center_frequency": "7000000",
+                     "device_sample_rate": "2000000", "demodulator": "USB", "signal_power": "-80.5"}
+            got = []
+
+            async def handler(reader, writer):
+                await reader.readuntil(b"\r\n\r\n")
+                writer.write(b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
+                             b"Sec-WebSocket-Accept: x\r\n\r\n")
+                try:
+                    while True:
+                        op, p = await C.ws_read(reader)
+                        d = json.loads(p)
+                        got.append(d)
+                        if d["event_type"] == "set_property":
+                            props[d["property"]] = d["value"]
+                        elif d["event_type"] == "get_property":
+                            r = json.dumps({"event_type": "get_property_response", "property": d["property"],
+                                            "value": props.get(d["property"], "")}).encode()
+                            writer.write(bytes([0x81, len(r)]) + r if len(r) < 126 else
+                                         bytes([0x81, 126]) + len(r).to_bytes(2, "big") + r)
+                            await writer.drain()
+                except (asyncio.IncompleteReadError, ConnectionError):
+                    pass
+            srv = await asyncio.start_server(handler, "127.0.0.1", 0)
+            port = srv.sockets[0].getsockname()[1]
+            rig = C.SdrConnectRig("127.0.0.1", port, "RSPdx-R2")
+            rig.allow_ptt = True
+            task = asyncio.create_task(rig.run())
+            for _ in range(40):
+                await asyncio.sleep(0.05)
+                if rig.st.freq and rig.sample_rate:
+                    break
+            self.assertEqual((rig.st.freq, rig.st.mode, rig.center, rig.sample_rate), (7074000, "USB", 7000000, 2e6))
+            self.assertEqual(rig.st.smeter, C.smeter_from_db(-80.5 + 73))
+            self.assertFalse(rig.set_ptt(True))                              # receptor
+            rig.set_freq(7200000)                                            # dentro de la banda: solo el VFO
+            rig.set_mode("FM")
+            await asyncio.sleep(0.2)
+            self.assertEqual((props["device_vfo_frequency"], props["device_center_frequency"], props["demodulator"]),
+                             ("7200000", "7000000", "NFM"))
+            rig.set_freq(14074000)                                           # fuera: también el centro
+            await asyncio.sleep(0.2)
+            self.assertEqual((props["device_vfo_frequency"], props["device_center_frequency"]), ("14074000", "14074000"))
+            self.assertTrue(all(d["device"] == "primary" for d in got))
+            task.cancel()
+            srv.close()
+        asyncio.run(run())
+
+    def test_api_and_config(self):
+        h, s = Host(), api.ApiSession()
+        self.assertIn("no cat", s.handle('{"c":"cat"}', h)[0])
+        h.cat = C.Cat({"type": "none"})
+        h.cat.rig = FakeRig()
+        self.assertIn('"cat":true', s.handle('{"c":"info"}', h)[0])
+        e = json.loads(s.handle('{"c":"cat"}', h)[0])
+        self.assertEqual((e["f"], e["m"], e["pa"], e["tr"]["en"]), (145825000, "FM", False, True))
+        self.assertIn("auth required", s.handle('{"c":"catset","f":1}', h)[0])
+        s.handle('{"c":"auth","pin":"123456"}', h)
+        self.assertEqual(s.handle('{"c":"catset","f":432100000,"m":"USB","vfo":"swap"}', h)[0], '{"e":"ok","c":"catset"}')
+        self.assertEqual((h.cat.rig.st.freq, h.cat.rig.st.mode, h.cat.rig.st.vfo), (432100000, "USB", "B"))
+        self.assertIn("ptt not allowed", s.handle('{"c":"catset","ptt":true}', h)[0])
+        self.assertIn("rejected", s.handle('{"c":"catset","f":-5}', h)[0])
+        s.handle('{"c":"cattrack","name":"SO-50","dl":436795000,"ul":145850000,"rr":3.2}', h)
+        t = h.cat.tracker
+        self.assertEqual((t.name, t.dl, t.ul, t.rr, t.active), ("SO-50", 436795000, 145850000, 3.2, True))
+        s.handle('{"c":"cattrack","on":false}', h)
+        self.assertFalse(t.enabled)
+        s.sub_ms = 1000
+        self.assertTrue(any('"e":"cat"' in l for l in s.tick(h)))
+        # Configuración
+        cfg = h.cfg
+        self.assertEqual(cfg.apply_json('{"cat":{"type":"radio"}}'), "cat.type none | hamlib | rigctl | sdrconnect")
+        self.assertEqual(cfg.apply_json('{"cat":{"type":"sdrconnect","host":""}}'), "cat.host")
+        self.assertEqual(cfg.apply_json('{"cat":{"type":"rigctl","serverPort":4533}}'), "cat.serverPort")
+        self.assertEqual(cfg.apply_json('{"cat":{"type":"hamlib","model":3081,"civ":"0xA2"}}'), "")
+        argv = C.RigctldProcess(cfg.data["cat"]).argv()
+        self.assertEqual(argv[1:], ["-m", "3081", "-T", "127.0.0.1", "-t", "4536", "-r", "/dev/ttyUSB1", "-s", "19200",
+                                    "-c", "0xA2"])
+        k = C.Cat(cfg.data["cat"])
+        self.assertFalse(k.ptt_allowed())
+        self.assertIn("Hamlib 3081", k.rig.info())
 
 
 class TestWeb(unittest.TestCase):

@@ -48,10 +48,10 @@ namespace Cat {
         port = &u;
     #else
         // Pico: la UART que admita esos pines y que no use la pasarela del rotor (RX de la UART0: GP1, GP13, GP17, GP29)
-        auto uart0 = [](int rx) { return rx == 1 || rx == 13 || rx == 17 || rx == 29; };
-        const bool gw0 = Cfg.driver == 1 && uart0(Cfg.serRx), gw1 = Cfg.driver == 1 && !gw0;
-        if (uart0(Cfg.catRx) && !gw0 && Serial1.setRX(Cfg.catRx) && Serial1.setTX(Cfg.catTx)) { Serial1.begin(Cfg.catBaud); port = &Serial1; }
-        else if (!uart0(Cfg.catRx) && !gw1 && Serial2.setRX(Cfg.catRx) && Serial2.setTX(Cfg.catTx)) { Serial2.begin(Cfg.catBaud); port = &Serial2; }
+        auto onUart0 = [](int rx) { return rx == 1 || rx == 13 || rx == 17 || rx == 29; };
+        const bool gw0 = Cfg.driver == 1 && onUart0(Cfg.serRx), gw1 = Cfg.driver == 1 && !gw0;
+        if (onUart0(Cfg.catRx) && !gw0 && Serial1.setRX(Cfg.catRx) && Serial1.setTX(Cfg.catTx)) { Serial1.begin(Cfg.catBaud); port = &Serial1; }
+        else if (!onUart0(Cfg.catRx) && !gw1 && Serial2.setRX(Cfg.catRx) && Serial2.setTX(Cfg.catTx)) { Serial2.begin(Cfg.catBaud); port = &Serial2; }
         else logf("cat: pines RX %d / TX %d sin UART libre\n", Cfg.catRx, Cfg.catTx);
     #endif
     }

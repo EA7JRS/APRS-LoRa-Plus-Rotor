@@ -32,6 +32,11 @@ DEFAULTS: dict = {
     # APRS por un TNC KISS: "tcp:IP:8001" (tracker / iGate APRS LoRa+, Direwolf) o "serial:/dev/ttyACM0:115200"
     "aprs": {"enabled": False, "kiss": "tcp:127.0.0.1:8001", "call": "N0CALL-12", "tocall": "APZLRR", "path": "",
              "allow": "", "totp": "", "reply": True, "beaconMin": 0, "lat": 0.0, "lon": 0.0, "comment": "APRS LoRa+ Rotor"},
+    # CAT de la emisora o del receptor: "none", "hamlib" (rigctld de Hamlib en 127.0.0.1:internalPort; model = rigctl -l,
+    # p. ej. 3081 IC-9700, 1035 FT-991, 2014 TS-2000), "rigctl" (rigctld de la red: SDR++, gqrx) o "sdrconnect" (SDRplay)
+    "cat": {"type": "none", "name": "", "model": 1, "device": "/dev/ttyUSB1", "speed": 19200, "civ": "", "conf": "",
+            "internalPort": 4536, "rigctld": "", "host": "127.0.0.1", "port": 0, "pollMs": 300, "ptt": False,
+            "pttMaxS": 180, "trackStep": 50, "server": True, "serverPort": 4532},
 }
 
 SECRETS = [("pin",), ("net", "webPass"), ("aprs", "totp")]
@@ -64,6 +69,24 @@ def validate(c: dict) -> str:
         for sp in c["serialPorts"]:
             if not sp.get("device") or int(sp.get("proto", 1)) not in range(5):
                 return "serialPorts"
+        k = c["cat"]
+        if k["type"] not in ("none", "hamlib", "rigctl", "sdrconnect"):
+            return "cat.type none | hamlib | rigctl | sdrconnect"
+        int(k["model"]); int(k["speed"])
+        for p in ("internalPort", "serverPort"):
+            if not 1 <= int(k[p]) <= 65535:
+                return "cat." + p
+        if not 0 <= int(k["port"]) <= 65535:
+            return "cat.port"
+        if k["type"] in ("rigctl", "sdrconnect") and not k["host"]:
+            return "cat.host"
+        if not 1 <= int(k["pttMaxS"]) <= 3600:
+            return "cat.pttMaxS 1-3600"
+        ports = [int(c["net"]["rotctldPort"]), int(c["net"]["apiPort"]), int(c["net"]["webPort"]), int(c["hamlib"]["port"])]
+        if k["type"] != "none" and k["server"] and int(k["serverPort"]) in ports:
+            return "cat.serverPort"
+        if k["type"] == "hamlib" and int(k["internalPort"]) in ports + [int(k["serverPort"])]:
+            return "cat.internalPort"
         a = c["aprs"]
         if not 1 <= len(a["call"]) <= 9:
             return "aprs.call"
