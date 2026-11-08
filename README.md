@@ -2,7 +2,7 @@
 
 Controlador de rotores de antena **compatible con Hamlib** para el ecosistema **APRS LoRa+**: lo manejan el [tracker APRS LoRa+](https://github.com/EA7JRS/APRS-LoRa-Plus), la app Android APRS LoRa+ y cualquier programa con Hamlib (GPredict, Look4Sat, PstRotator…).
 
-**Placas**: ESP32, ESP32-S3 (incluidas TTGO LoRa32 V2.1 y Heltec V3 con LoRa), **Waveshare ESP32-C5-Touch-LCD-3.5** (con pantalla táctil: mando del rotor en la propia caja), Raspberry Pi Pico 2 / Pico 2 W y Raspberry Pi (Zero 2 W, 3, 4, 5).
+**Placas**: ESP32, ESP32-S3 (incluidas TTGO LoRa32 V2.1 y Heltec V3 con LoRa), **Waveshare ESP32-C5-Touch-LCD-3.5** y **ESP32-S3-Touch-AMOLED-2.41** (con pantalla táctil: mando del rotor en la propia caja), Raspberry Pi Pico 2 / Pico 2 W y Raspberry Pi (Zero 2 W, 3, 4, 5).
 
 ```
                        ┌──────────────── APRS LoRa+ Rotor ────────────────┐
@@ -17,17 +17,17 @@ Controlador de rotores de antena **compatible con Hamlib** para el ecosistema **
 
 ## Qué hace cada placa
 
-| | ESP32 | ESP32-S3 | ESP32-C5 LCD 3,5" | Pico 2 W | Pico 2 | Raspberry Pi |
-|---|---|---|---|---|---|---|
-| Control directo (relés / puente H, ADC / ADS1115) | ✔ | ✔ | relés (EXIO8-15) + EXIO_ADC / ADS1115 | ✔ | ✔ | — |
-| Pasarela serie a un controlador | ✔ | ✔ | ✔ (U0TXD / U0RXD) | ✔ | ✔ | ✔ (rotctld de Hamlib: todos los modelos) |
-| rotctld por WiFi, JSON por TCP, WebUI | ✔ | ✔ | ✔ (WiFi 2,4 y 5 GHz) | ✔ | — | ✔ |
-| BLE para la app | ✔ | ✔ | ✔ | pendiente | — | ✔ |
-| SPP (GS-232) para el tracker | ✔ | — | — | ✔ | — | ✔ |
-| LoRa APRS | con módulo (LoRa32 V2.1 integrado) | con módulo (Heltec V3 integrado) | — | HAT SX1262 | HAT SX1262 | por TNC KISS |
-| Pantalla táctil (mando local) | — | — | ✔ | — | — | — |
-| USB como controlador de Hamlib | ✔ | ✔ | ✔ | ✔ | ✔ | USB gadget (Zero 2 W) |
-| Actualización por la WebUI | placas de 8 MB | ✔ | ✔ | ✔ | — | `git pull` + `install.sh` |
+| | ESP32 | ESP32-S3 | ESP32-C5 LCD 3,5" | ESP32-S3 AMOLED 2,41" | Pico 2 W | Pico 2 | Raspberry Pi |
+|---|---|---|---|---|---|---|---|
+| Control directo (relés / puente H, ADC / ADS1115) | ✔ | ✔ | relés (EXIO8-15) + EXIO_ADC / ADS1115 | ✔ | ✔ | ✔ | — |
+| Pasarela serie a un controlador | ✔ | ✔ | ✔ (U0TXD / U0RXD) | ✔ (TXD / RXD) | ✔ | ✔ | ✔ (rotctld de Hamlib: todos los modelos) |
+| rotctld por WiFi, JSON por TCP, WebUI | ✔ | ✔ | ✔ (WiFi 2,4 y 5 GHz) | ✔ | ✔ | — | ✔ |
+| BLE para la app | ✔ | ✔ | ✔ | ✔ | pendiente | — | ✔ |
+| SPP (GS-232) para el tracker | ✔ | — | — | — | ✔ | — | ✔ |
+| LoRa APRS | con módulo (LoRa32 V2.1 integrado) | con módulo (Heltec V3 integrado) | — | — | HAT SX1262 | HAT SX1262 | por TNC KISS |
+| Pantalla táctil (mando local) | — | — | ✔ (vertical) | ✔ (apaisada) | — | — | — |
+| USB como controlador de Hamlib | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | USB gadget (Zero 2 W) |
+| Actualización por la WebUI | placas de 8 MB | ✔ | ✔ | ✔ | ✔ | — | `git pull` + `install.sh` |
 
 ## Versión
 
@@ -43,7 +43,7 @@ PlatformIO (VS Code):
 
 ```sh
 cd firmware
-pio run -e esp32s3 -t upload          # esp32dev · esp32s3 · ttgo-lora32-v21 · heltec_v3 · waveshare_c5_lcd35 · pico2w · pico2
+pio run -e esp32s3 -t upload          # esp32dev · esp32s3 · ttgo-lora32-v21 · heltec_v3 · waveshare_c5_lcd35 · waveshare_s3_amoled241 · pico2w · pico2
 ```
 
 En la Pico 2 se puede copiar `firmware.uf2` arrastrándolo con BOOTSEL pulsado. La CI de GitHub compila todas las placas en cada subida y deja los binarios como artefactos.
@@ -62,6 +62,7 @@ Ver [docs/RASPBERRY_PI.md](docs/RASPBERRY_PI.md).
 
 - [docs/HARDWARE.md](docs/HARDWARE.md): pines, Yaesu G-5500 por el DIN, transistores, divisores, pasarela serie
 - [docs/WAVESHARE_C5_LCD35.md](docs/WAVESHARE_C5_LCD35.md): placa con pantalla táctil (conector, relés, potenciómetro, pantalla)
+- [docs/WAVESHARE_S3_AMOLED241.md](docs/WAVESHARE_S3_AMOLED241.md): placa con pantalla AMOLED apaisada
 - [docs/CONFIG.md](docs/CONFIG.md): todas las opciones de las placas
 - [docs/CONTROL_PROTOCOL.md](docs/CONTROL_PROTOCOL.md): protocolo JSON (BLE, TCP, WebUI) para la app
 - [docs/APRS_CONTROL.md](docs/APRS_CONTROL.md): mover el rotor con mensajes APRS por LoRa, con código TOTP

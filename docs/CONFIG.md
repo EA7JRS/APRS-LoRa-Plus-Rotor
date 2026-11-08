@@ -19,9 +19,9 @@ Se edita entera desde la WebUI (*Configuración*) o la app (`cfgget` / `cfgset`)
 | `driver` | 0 | 0 control directo, 1 pasarela serie |
 | `led` | según placa | LED de estado: fijo moviéndose, parpadeo rápido con fallo |
 | `lcd.bright` | 80 | brillo de la pantalla táctil, 10-100 % (solo placas con pantalla; también desde la pantalla de información) |
-| `lcd.dimS` | 300 | segundos sin tocar la pantalla hasta bajar el brillo al 10 % (0 = nunca); el primer toque solo la enciende |
+| `lcd.dimS` | 300 | segundos sin tocar la pantalla hasta bajar el brillo al 10 % (AMOLED: se apaga) (0 = nunca); el primer toque solo la enciende |
 
-**Pines del expansor** (Waveshare ESP32-C5-Touch-LCD-3.5): `100`-`115` son EXIO0-EXIO15 del expansor CH32V (en el conector, EXIO8-EXIO15; solo salidas de nivel, sin PWM: `outMode` 0) y `200` es EXIO_ADC (lectura en cuentas). Ver [WAVESHARE_C5_LCD35.md](WAVESHARE_C5_LCD35.md).
+**Pines del expansor**: `100`-`115` son EXIO0-EXIO15 (solo salidas de nivel, sin PWM: `outMode` 0) y `200` es EXIO_ADC (lectura en cuentas). ESP32-C5-Touch-LCD-3.5: expansor CH32V, en el conector EXIO8-EXIO15 y EXIO_ADC ([WAVESHARE_C5_LCD35.md](WAVESHARE_C5_LCD35.md)). ESP32-S3-Touch-AMOLED-2.41: TCA9554, en el conector EXIO5-EXIO7, sin ADC ([WAVESHARE_S3_AMOLED241.md](WAVESHARE_S3_AMOLED241.md)).
 
 ## `direct` (control directo)
 

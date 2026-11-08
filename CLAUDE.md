@@ -8,7 +8,7 @@ Repositorio: `EA7JRS/APRS-LoRa-Plus-Rotor` (privado, creado por Manuel el 2026-1
 Controlador de rotores compatible con Hamlib, manejado por el tracker APRS LoRa+, la app Android y cualquier programa con Hamlib.
 
 ## Decisiones (Manuel, 2026-11-07)
-- Placas: **ESP32 y ESP32-S3**, **Raspberry Pi Pico 2 / Pico 2 W** (RP2350, pedido después), **Raspberry Pi** (Zero 2 W, 3, 4, 5) y **Waveshare ESP32-C5-Touch-LCD-3.5** (pedida 2026-11-08; Manuel eligió «rotor con pantalla»).
+- Placas: **ESP32 y ESP32-S3**, **Raspberry Pi Pico 2 / Pico 2 W** (RP2350, pedido después), **Raspberry Pi** (Zero 2 W, 3, 4, 5) **Waveshare ESP32-C5-Touch-LCD-3.5** (pedida 2026-11-08; Manuel eligió «rotor con pantalla») y **Waveshare ESP32-S3-Touch-AMOLED-2.41** (V2, pedida 2026-11-08, mismo uso).
 - ESP32 / Pico: **control directo** (relés / puente H + potenciómetro por ADC o ADS1115) **y pasarela serie** a un controlador comercial (GS-232A/B, Rot2Prog, EasyComm II).
 - Raspberry Pi: **rotctld real de Hamlib + demonio Python** (cualquier modelo de Hamlib).
 - Enlaces: **rotctld TCP por WiFi**, **BLE propio** (protocolo JSON, para la app), **Bluetooth SPP GS-232** (tracker con ESP32 original) y **rotor por LoRa/APRS** (mensajes `P az el` con lista de indicativos y TOTP opcional).
@@ -17,7 +17,7 @@ Controlador de rotores compatible con Hamlib, manejado por el tracker APRS LoRa+
 ## Estructura
 - `firmware/lib/RotorCore/src/`: núcleo C++ puro, sin Arduino (`rc_rotctld.h`, `rc_serialproto.h`, `rc_control.h`, `rc_aprs.h`, `rc_api.h`). Pruebas: `firmware/test_host` (`make run ARDUINOJSON=…/ArduinoJson/src`; 168 comprobaciones).
 - `firmware/src/`: `board` (capa ESP32 / RP2350), `config` (LittleFS `/rotor_conf.json`), `drivers` (directo + pasarela), `services` (puerto serie con protocolo, anfitrión JSON), `net` (WiFi, rotctld 4533, JSON 4534, WebUI 80, OTA `/update`, mDNS), `bt_ble` (NimBLE), `bt_spp`, `lora_aprs` (RadioLib, emisión sin bloquear), `web_page.h` (la WebUI; la Raspberry la usa también).
-- Entornos: `esp32dev`, `esp32s3`, `ttgo-lora32-v21`, `heltec_v3`, `waveshare_c5_lcd35`, `pico2w`, `pico2`. Versiones como el tracker: espressif32 8.0.0, NimBLE 2.5.2, RadioLib 7.8.1, ArduinoJson 7.4.3; RP2350 con maxgerhardt/platform-raspberrypi (arduino-pico). `-Werror` solo en `src` (`build_src_flags`).
+- Entornos: `esp32dev`, `esp32s3`, `ttgo-lora32-v21`, `heltec_v3`, `waveshare_c5_lcd35`, `waveshare_s3_amoled241`, `pico2w`, `pico2`. Versiones como el tracker: espressif32 8.0.0, NimBLE 2.5.2, RadioLib 7.8.1, ArduinoJson 7.4.3; RP2350 con maxgerhardt/platform-raspberrypi (arduino-pico). `-Werror` solo en `src` (`build_src_flags`).
 - ESP32 de 4 MB: partición `huge_app.csv` (BLE + SPP + WiFi no caben con OTA): sin OTA por la WebUI.
 - `raspberrypi/aprs_lora_plus_rotor/`: demonio asyncio (stdlib + `python3-dbus-next` para BLE/SPP): `hamlib.py` (arranca y vigila `rotctld` en 127.0.0.1:4535 y es su cliente), `protocols.py`, `api.py`, `aprs.py`, `kiss.py`, `bluez.py`, `web.py`, `serialport.py` (termios), `main.py`. Pruebas: `python3 -m unittest discover -s tests` (incluye un rotctld simulado).
 - CI: `.github/workflows/build.yml` (pruebas del núcleo, pruebas Python y las 6 placas; binarios como artefactos).
@@ -29,6 +29,13 @@ Controlador de rotores compatible con Hamlib, manejado por el tracker APRS LoRa+
 - Fuentes (DejaVu, `NOTICE_FONTS.md`) y logo generados por `tools/make_lcd_assets.py` (necesita rsvg-convert). Prueba en PC: `test_host/lcd_preview` (24 comprobaciones; PPM en `lcd_out/`).
 - Instalador web: ESP32-C5 necesita ESP Web Tools ≥ 10.2 (el tracker pasa a 10.4.0 en el PR #3); cargador en 0x2000.
 - Sin probar en la placa (orientación del táctil, formato de 16 bits del expansor: Waveshare tiene ejemplos con CH32V006 de 16 pines y CH32V003 de 8).
+
+## Waveshare ESP32-S3-Touch-AMOLED-2.41 V2 (`waveshare_s3_amoled241`, 2026-11-08)
+- espressif32 8.0.0, `esp32-s3-devkitc-1` con PSRAM octal y 16 MB. Fuente de los pines: repositorio `waveshareteam/ESP32-S3-Touch-AMOLED-2.41-V2` (esquema V2.0, `09_LVGL_Test`).
+- AMOLED RM690B0 por QSPI (`LCD_PANEL 2`: CS 9, CLK 10, D0-D3 11-14; `esp_lcd_panel_io` con `quad_mode`, órdenes `0x02<<24 | cmd<<8`, puntos `0x32<<24 | 0x2C<<8`), girada 90° (MADCTL 0x30), 600×450 con 16 filas de desplazamiento; ventanas en múltiplos de 2. Brillo con 0x51; sin uso se apaga (`LCD_DIM_PCT` 0). Franjas copiadas a un búfer DMA interno.
+- Táctil FT6336 en I2C 47/48: X = 599 − Yraw, Y = Xraw. TCA9554 0x20 (`EXIO_CHIP 2`): EXIO0 reset de la pantalla, EXIO1 reset del táctil, EXIO5-7 en el conector. IO16 arriba (`BOARD_POWER_HOLD`) para seguir encendida con batería.
+- Por defecto: relés IO38-41, potenciómetros IO1 / IO7 (ADC1), pasarela RX 44 / TX 43.
+- `lcd_ui.h` con dos disposiciones (`Layout::make`: vertical 320×480 y apaisada 600×450, fuentes `FontS2/M2/L2` de 22/28/54 px). `lcd_preview` prueba las dos (72 comprobaciones).
 
 ## Protocolos
 - BLE: servicio `4c6f5261-2b00-4ea7-b000-000000000001`, órdenes `…0002`, eventos `…0003` (el tracker usa `…-a000-…`). JSON por líneas, PIN con `auth`, emparejamiento Just Works cifrado. Documento: `docs/CONTROL_PROTOCOL.md`.

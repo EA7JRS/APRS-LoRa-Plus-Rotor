@@ -18,9 +18,10 @@ Todos se cambian en la configuración (WebUI o app). `-1` = sin usar.
 | TTGO LoRa32 V2.1 (`ttgo-lora32-v21`) | 32 | 33 | 25 | 13 | 36 | 39 | 21 / 22 | 14 / 15 | SX1278 integrado |
 | Heltec WiFi LoRa 32 V3 (`heltec_v3`) | 47 | 48 | 33 | 34 | 4 | 5 | 41 / 42 | 6 / 7 | SX1262 integrado |
 | Waveshare ESP32-C5-Touch-LCD-3.5 (`waveshare_c5_lcd35`) | EXIO8 (108) | EXIO9 (109) | EXIO10 (110) | EXIO11 (111) | EXIO_ADC (200) | ADS1115 canal 1 | 27 / 26 | GPIO12 / GPIO11 (U0RXD / U0TXD) | — |
+| Waveshare ESP32-S3-Touch-AMOLED-2.41 (`waveshare_s3_amoled241`) | 38 | 39 | 40 | 41 | 1 | 7 | 47 / 48 | 44 / 43 | — |
 | Pico 2 W (`pico2w`) / Pico 2 (`pico2`) | GP6 | GP7 | GP8 | GP9 | GP26 | GP27 | GP4 / GP5 | GP1 / GP0 | HAT SX1262 Waveshare (opcional) |
 
-ADC: en ESP32 usa solo pines del ADC1 (el ADC2 no funciona con la WiFi encendida). En la Pico, GP26-GP28. Waveshare C5 con pantalla: ver [WAVESHARE_C5_LCD35.md](WAVESHARE_C5_LCD35.md).
+ADC: en ESP32 usa solo pines del ADC1 (el ADC2 no funciona con la WiFi encendida). En la Pico, GP26-GP28. Placas con pantalla: [WAVESHARE_C5_LCD35.md](WAVESHARE_C5_LCD35.md) y [WAVESHARE_S3_AMOLED241.md](WAVESHARE_S3_AMOLED241.md).
 
 LoRa en la Pico (HAT «Pico-LoRa-SX1262» de Waveshare): SCK GP10, MOSI GP11, MISO GP12, CS GP3, RESET GP15, BUSY GP2, DIO1 GP20. Elige el chip en `lora.chip` (1 SX1262, 2 SX1268, 3 SX1276, 4 SX1278).
 
