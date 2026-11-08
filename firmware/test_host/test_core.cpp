@@ -5,6 +5,7 @@
  * Pruebas del nucleo en el PC (sin placa):  make -C esp32/test_host
  */
 #include <stdio.h>
+#include <string.h>
 #include <string>
 #include <vector>
 #include "rc_rotctld.h"
@@ -12,6 +13,8 @@
 #include "rc_control.h"
 #include "rc_aprs.h"
 #include "rc_api.h"
+#include "rc_cat.h"
+#include "rc_rigctld.h"
 
 using namespace RC;
 
@@ -382,6 +385,274 @@ static void testApi() {
     o.clear(); s.handle("{\"c\":\"raw\"}", h, o); CHECK(o[0] == "{\"e\":\"raw\",\"az\":1234}");
 }
 
+
+// ------------------------------------------------------------------------------------------------- CAT
+static std::string hexs(const std::string& s) { std::string o; char b[4]; for (unsigned char c : s) { snprintf(b, sizeof b, "%02X ", c); o += b; } return o; }
+static void feedS(CatEngine& e, const std::string& s, uint32_t t) { e.feed((const uint8_t*)s.data(), s.size(), t); }
+
+static void testCatCiv() {
+    CivEngine e; e.addr = 0xA2;
+    std::string out;
+    e.tick(0, out);
+    CHECK(hexs(out) == "FE FE A2 E0 03 FD ");                       // consulta de frecuencia
+    feedS(e, out, 5);                                                // eco del bus: se ignora
+    CHECK(!e.state().link);
+    feedS(e, std::string("\xFE\xFE\xE0\xA2\x03\x00\x50\x82\x45\x01\xFD", 11), 20);
+    CHECK(e.state().link && e.state().freq == 145825000ULL);
+    out.clear(); e.tick(200, out); CHECK(hexs(out) == "FE FE A2 E0 04 FD ");
+    feedS(e, std::string("\xFE\xFE\xE0\xA2\x04\x05\x01\xFD", 8), 210);
+    CHECK(e.state().mode == "FM");
+    out.clear(); e.tick(400, out); CHECK(hexs(out) == "FE FE A2 E0 1C 00 FD ");
+    feedS(e, std::string("\xFE\xFE\xE0\xA2\x1C\x00\x01\xFD", 8), 410); CHECK(e.state().ptt);
+    out.clear(); e.tick(600, out); CHECK(hexs(out) == "FE FE A2 E0 15 02 FD ");
+    feedS(e, std::string("\xFE\xFE\xE0\xA2\x15\x02\x01\x20\xFD", 9), 610); CHECK(e.state().smeter == 9);
+    out.clear(); e.tick(800, out); CHECK(hexs(out) == "FE FE A2 E0 1A 06 FD ");
+    feedS(e, std::string("\xFE\xFE\xE0\xA2\x1A\x06\x01\x01\xFD", 9), 810); CHECK(e.state().mode == "PKTFM");
+    out.clear(); e.tick(1000, out); CHECK(hexs(out) == "FE FE A2 E0 25 01 FD ");
+    feedS(e, std::string("\xFE\xFE\xE0\xA2\xFA\xFD", 6), 1010);  // NG: sin orden 0x25, no se vuelve a pedir
+    out.clear(); e.tick(1200, out); CHECK(hexs(out) == "FE FE A2 E0 03 FD ");
+    feedS(e, std::string("\xFE\xFE\xE0\xA2\x03\x00\x00\x07\x14\x00\xFD", 11), 1210);
+    CHECK(e.state().freq == 14070000ULL);
+    // Órdenes
+    CHECK(e.setFreq(145800000ULL));
+    out.clear(); e.tick(1400, out); CHECK(hexs(out) == "FE FE A2 E0 05 00 00 80 45 01 FD ");
+    feedS(e, std::string("\xFE\xFE\xE0\xA2\xFB\xFD", 6), 1405);
+    CHECK(e.setMode("DIG"));
+    out.clear(); e.tick(1500, out); CHECK(hexs(out) == "FE FE A2 E0 06 01 FD ");
+    feedS(e, std::string("\xFE\xFE\xE0\xA2\xFB\xFD", 6), 1505);
+    out.clear(); e.tick(1600, out); CHECK(hexs(out) == "FE FE A2 E0 1A 06 01 01 FD ");
+    feedS(e, std::string("\xFE\xFE\xE0\xA2\xFB\xFD", 6), 1605);
+    CHECK(!e.setPtt(true));                                          // PTT no permitido
+    e.allowPtt = true; CHECK(e.setPtt(true));
+    out.clear(); e.tick(1700, out); CHECK(hexs(out) == "FE FE A2 E0 1C 00 01 FD ");
+    feedS(e, std::string("\xFE\xFE\xE0\xA2\xFB\xFD", 6), 1705);
+    CHECK(e.setTxFreq(435100000ULL));
+    out.clear(); e.tick(1800, out); CHECK(hexs(out) == "FE FE A2 E0 25 01 00 00 10 35 04 FD ");
+    // Transceive: la emisora manda la frecuencia sola (a 00)
+    feedS(e, std::string("\xFE\xFE\x00\xA2\x00\x00\x25\x83\x45\x01\xFD", 11), 1810);
+    CHECK(e.state().freq == 145832500ULL);
+    // Sin respuesta: se pierde el enlace
+    CivEngine m; out.clear();
+    for (uint32_t t = 0; t < 4000; t += 50) m.tick(t, out);
+    CHECK(!m.state().link);
+    NEAR(CivEngine::unbcd((const uint8_t*)"\x00\x00\x00\x00\x10", 5), 1000000000.0, 0.5);
+}
+
+static void testCatYaesu() {
+    YaesuEngine e;
+    std::string out;
+    e.tick(0, out); CHECK(out == "FA;");
+    feedS(e, "FA145825000;", 10); CHECK(e.state().link && e.state().freq == 145825000ULL);
+    out.clear(); e.tick(200, out); CHECK(out == "MD0;");
+    feedS(e, "MD04;", 210); CHECK(e.state().mode == "FM");
+    out.clear(); e.tick(400, out); CHECK(out == "TX;");
+    feedS(e, "TX0;", 410); CHECK(!e.state().ptt);
+    out.clear(); e.tick(600, out); CHECK(out == "SM0;");
+    feedS(e, "SM0120;", 610); CHECK(e.state().smeter == 9);
+    out.clear(); e.tick(800, out); CHECK(out == "FB;");
+    feedS(e, "FB435100000;", 810); CHECK(e.state().txFreq == 435100000ULL);
+    CHECK(e.setFreq(7074000)); out.clear(); e.tick(1000, out); CHECK(out == "FA007074000;");
+    CHECK(e.setMode("PKTUSB")); out.clear(); e.tick(1100, out); CHECK(out == "MD0C;");
+    CHECK(!e.setMode("XYZ"));
+    feedS(e, "?;", 1110);
+    e.allowPtt = true; e.setPtt(true); out.clear(); e.tick(1200, out); CHECK(out == "TX1;");
+    feedS(e, "MD0C;", 1300); CHECK(e.state().mode == "PKTUSB");
+}
+
+static void testCatKenwood() {
+    KenwoodEngine e;
+    std::string out;
+    e.tick(0, out); CHECK(out == "IF;");
+    // IF: frecuencia, 5 huecos, RIT, RIT, XIT, banco, memoria, TX, modo, VFO, barrido, split, tono, nº tono, desplazamiento
+    feedS(e, "IF00014074000     +00000000012001000000;", 10);
+    CHECK(e.state().link && e.state().freq == 14074000ULL && e.state().ptt && e.state().mode == "USB" && e.state().vfo == 'A' && e.state().split);
+    out.clear(); e.tick(200, out); CHECK(out == "SM0;");
+    feedS(e, "SM00015;", 210); CHECK(e.state().smeter == 9);
+    out.clear(); e.tick(400, out); CHECK(out == "FB;");
+    feedS(e, "FB00014076000;", 410); CHECK(e.state().txFreq == 14076000ULL && e.state().freq == 14074000ULL);
+    out.clear(); e.tick(600, out); CHECK(out == "DA;");
+    feedS(e, "DA1;", 610); CHECK(e.state().mode == "PKTUSB");
+    CHECK(e.setFreq(145800000)); out.clear(); e.tick(800, out); CHECK(out == "FA00145800000;");
+    CHECK(e.setMode("CW")); out.clear(); e.tick(900, out); CHECK(out == "MD3;");
+    out.clear(); e.tick(950, out); CHECK(out == "DA0;");
+    CHECK(e.toggleVfo()); out.clear(); e.tick(1000, out); CHECK(out == "FR1;FT1;" && e.state().vfo == 'B');
+    feedS(e, "SM0030;", 1010); CHECK(e.state().smeter == 15);
+}
+
+static void testCatYaesu5() {
+    Yaesu5Engine e;
+    std::string out;
+    e.tick(0, out); CHECK(hexs(out) == "00 00 00 00 03 ");
+    feedS(e, std::string("\x14\x52\x50\x00\x01", 5), 20);
+    CHECK(e.state().link && e.state().freq == 145250000ULL && e.state().mode == "USB");
+    out.clear(); e.tick(200, out); CHECK(hexs(out) == "00 00 00 00 E7 ");
+    feedS(e, std::string("\x09", 1), 210); CHECK(e.state().smeter == 9);
+    out.clear(); e.tick(400, out); CHECK(hexs(out) == "00 00 00 00 F7 ");
+    feedS(e, std::string("\x7F", 1), 410); CHECK(e.state().ptt);
+    CHECK(e.setFreq(145825000)); out.clear(); e.tick(600, out); CHECK(hexs(out) == "14 58 25 00 01 ");
+    CHECK(e.setMode("FM")); out.clear(); e.tick(700, out); CHECK(hexs(out) == "08 00 00 00 07 ");
+    CHECK(!e.setTxFreq(435000000));
+    e.allowPtt = true; e.setPtt(false); out.clear(); e.tick(800, out); CHECK(hexs(out) == "00 00 00 00 88 ");
+}
+
+static void testRigctld() {
+    YaesuEngine e;
+    std::string out;
+    e.tick(0, out); feedS(e, "FA145825000;", 5);
+    out.clear(); e.tick(200, out); feedS(e, "MD04;", 205);
+    RigctlSession s;
+    std::string r;
+    s.feed("f\n", strlen("f\n"), e, r); CHECK(r == "145825000\n");
+    r.clear(); s.feed("m\n", strlen("m\n"), e, r); CHECK(r == "FM\n15000\n");
+    r.clear(); s.feed("F 145800000\n", strlen("F 145800000\n"), e, r); CHECK(r == "RPRT 0\n" && e.state().freq == 145800000ULL);
+    r.clear(); s.feed("\\set_freq 145790000.000000\n", strlen("\\set_freq 145790000.000000\n"), e, r); CHECK(r == "RPRT 0\n" && e.state().freq == 145790000ULL);
+    r.clear(); s.feed("T 1\n", strlen("T 1\n"), e, r); CHECK(r == "RPRT -9\n");          // PTT no permitido
+    r.clear(); s.feed("M USB 2400\n", strlen("M USB 2400\n"), e, r); CHECK(r == "RPRT 0\n" && e.state().mode == "USB");
+    r.clear(); s.feed("I 435100000\n", strlen("I 435100000\n"), e, r); CHECK(r == "RPRT 0\n" && e.state().txFreq == 435100000ULL);
+    r.clear(); s.feed("i\n", strlen("i\n"), e, r); CHECK(r == "435100000\n");
+    r.clear(); s.feed("v\n", strlen("v\n"), e, r); CHECK(r == "VFOA\n");
+    r.clear(); s.feed("l STRENGTH\n", strlen("l STRENGTH\n"), e, r); CHECK(r == "-54\n");
+    r.clear(); s.feed("\\chk_vfo\n", strlen("\\chk_vfo\n"), e, r); CHECK(r == "0\n");
+    r.clear(); s.feed("\\dump_state\n", strlen("\\dump_state\n"), e, r);
+    CHECK(r.compare(0, 6, "0\n2\n2\n") == 0 && r.find("0 0 0 0 0 0 0\n") != std::string::npos);
+    int lines = 0; for (char c : r) if (c == '\n') lines++;
+    CHECK(lines > 30);
+    r.clear(); s.feed("x\n", strlen("x\n"), e, r); CHECK(r == "USB\n2400\n");
+    r.clear(); s.feed("Z\n", strlen("Z\n"), e, r); CHECK(r == "RPRT -4\n");
+    bool closed = s.feed("q\n", strlen("q\n"), e, r); CHECK(closed);
+}
+
+static void testCatTracker() {
+    NEAR((double)dopplerRx(145800000ULL, 7.0), 145800000.0 - 145800000.0 * 7.0 / 299792.458, 1.0);
+    NEAR((double)dopplerTx(437800000ULL, -7.0), 437800000.0 - 437800000.0 * 7.0 / 299792.458, 1.0);
+    YaesuEngine e;
+    std::string out;
+    e.tick(0, out); feedS(e, "FA145800000;", 5);
+    CatTracker t;
+    t.update("ISS", 145800000ULL, 145990000ULL, -6.5, 100);
+    t.step(e, 1000);
+    CHECK(e.state().freq == dopplerRx(145800000ULL, -6.5) && e.state().txFreq == dopplerTx(145990000ULL, -6.5));
+    CHECK(t.doppler > 3000 && t.doppler < 3300);
+    const size_t q = e.queued();
+    t.update("ISS", 145800000ULL, 145990000ULL, -6.5001, 1200);
+    t.step(e, 1600);
+    CHECK(e.queued() == q);                                          // cambio menor que el paso: no manda nada
+    t.enabled = false; t.update("ISS", 145800000ULL, 0, 5.0, 2000); t.step(e, 3000);
+    CHECK(e.queued() == q);
+    t.enabled = true; t.step(e, 30000);
+    CHECK(!t.active);                                                // sin datos: se apaga
+    CHECK(normMode("dig") == "PKTUSB" && normMode("fm-n") == "FM" && normMode("CW-L") == "CWR");
+    CHECK(smeterFrom255(0) == 0 && smeterFrom255(120) == 9 && smeterFrom255(241) == 15 && smeterFrom30(30) == 15 && smeterDb(9) == 0);
+}
+
+struct CatHost : FakeHost {
+    YaesuEngine y;
+    CatTracker tr;
+    bool pa = false;
+    Rig* rig() override { return &y; }
+    CatTracker* catTracker() override { return &tr; }
+    bool catPttAllowed() override { return pa; }
+    uint32_t nowMs() override { return 5000; }
+};
+
+static void testCatApi() {
+    CatHost h;
+    ApiSession s;
+    std::vector<std::string> o;
+    std::string out;
+    h.y.tick(0, out); feedS(h.y, "FA145825000;", 5);
+    s.handle("{\"c\":\"auth\",\"pin\":\"123456\"}", h, o);
+    o.clear(); s.handle("{\"c\":\"cat\"}", h, o);
+    if (o[0].find("145825000") == std::string::npos) printf("%s\n", o[0].c_str());
+    CHECK(o[0].find("\"e\":\"cat\"") != std::string::npos && o[0].find("\"f\":145825000") != std::string::npos && o[0].find("\"l\":true") != std::string::npos);
+    o.clear(); s.handle("{\"c\":\"catset\",\"f\":145800000,\"m\":\"FM\"}", h, o);
+    CHECK(o[0] == "{\"e\":\"ok\",\"c\":\"catset\"}" && h.y.state().freq == 145800000ULL && h.y.state().mode == "FM");
+    o.clear(); s.handle("{\"c\":\"catset\",\"ptt\":true}", h, o); CHECK(o[0].find("ptt not allowed") != std::string::npos);
+    h.pa = true; h.y.allowPtt = true;
+    o.clear(); s.handle("{\"c\":\"catset\",\"ptt\":true}", h, o); CHECK(o[0].find("ok") != std::string::npos && h.y.state().ptt);
+    o.clear(); s.handle("{\"c\":\"cattrack\",\"name\":\"ISS\",\"dl\":145800000,\"ul\":145990000,\"rr\":-6.5}", h, o);
+    CHECK(o[0].find("ok") != std::string::npos && h.tr.active && h.tr.name == "ISS" && h.tr.upd == 5000);
+    o.clear(); s.handle("{\"c\":\"cattrack\",\"on\":false}", h, o); CHECK(!h.tr.enabled);
+    o.clear(); s.handle("{\"c\":\"info\"}", h, o); CHECK(o[0].find("\"cat\":true") != std::string::npos);
+    FakeHost nh; ApiSession s2;
+    o.clear(); s2.handle("{\"c\":\"cat\"}", nh, o); CHECK(o[0].find("no cat") != std::string::npos);
+}
+
+static std::string wsServer(int op, const std::string& p) {        // trama del servidor (sin máscara)
+    std::string f; f += (char)(0x80 | op);
+    if (p.size() < 126) f += (char)p.size(); else if (p.size() < 65536) { f += (char)126; f += (char)(p.size() >> 8); f += (char)(p.size() & 255); }
+    else { f += (char)127; for (int i = 7; i >= 0; i--) f += (char)((uint64_t)p.size() >> (8 * i)); }
+    return f + p;
+}
+static std::string wsUnmask(const std::string& f) {                  // trama del cliente -> texto
+    size_t hl = 2; size_t n = (uint8_t)f[1] & 0x7F;
+    if (n == 126) { n = ((uint8_t)f[2] << 8) | (uint8_t)f[3]; hl = 4; }
+    std::string p = f.substr(hl + 4, n);
+    for (size_t i = 0; i < p.size(); i++) p[i] ^= f[hl + (i % 4)];
+    return p;
+}
+static std::vector<std::string> wsSplit(const std::string& s) {
+    std::vector<std::string> v; size_t i = 0;
+    while (i + 2 <= s.size()) { size_t n = (uint8_t)s[i + 1] & 0x7F, hl = 2; if (n == 126) { n = ((uint8_t)s[i + 2] << 8) | (uint8_t)s[i + 3]; hl = 4; } v.push_back(wsUnmask(s.substr(i, hl + 4 + n))); i += hl + 4 + n; }
+    return v;
+}
+
+static void testSdrConnect() {
+    SdrConnectEngine e;
+    e.onConnect(0);
+    std::string out;
+    e.tick(0, out);
+    CHECK(out.compare(0, 16, "GET / HTTP/1.1\r\n") == 0 && out.find("Upgrade: websocket") != std::string::npos && out.find("Sec-WebSocket-Key:") != std::string::npos);
+    CHECK(!e.setFreq(145800000));                                    // aún sin WebSocket
+    feedS(e, "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n", 50);
+    CHECK(e.handshaken() && e.state().link);
+    out.clear();
+    for (uint32_t t = 60; t < 400; t += 10) e.tick(t, out);
+    std::vector<std::string> m = wsSplit(out);
+    CHECK(m.size() >= 5 && m[0] == "{\"event_type\":\"get_property\",\"property\":\"device_vfo_frequency\",\"device\":\"primary\",\"value\":\"\"}");
+    feedS(e, wsServer(1, "{\"event_type\":\"property_changed\",\"property\":\"device_vfo_frequency\",\"value\":\"145800000\"}"), 500);
+    feedS(e, wsServer(1, "{\"event_type\":\"get_property_response\",\"property\":\"demodulator\",\"value\":\"NFM\"}"), 510);
+    feedS(e, wsServer(2, std::string(5000, '\x11')), 520);         // espectro: se salta
+    feedS(e, wsServer(1, "{\"event_type\":\"property_changed\",\"property\":\"signal_power\",\"value\":-73.2}"), 530);
+    feedS(e, wsServer(1, "{\"event_type\":\"get_property_response\",\"property\":\"device_center_frequency\",\"value\":\"145000000\"}"), 540);
+    feedS(e, wsServer(1, "{\"event_type\":\"get_property_response\",\"property\":\"device_sample_rate\",\"value\":\"2000000\"}"), 550);
+    CHECK(e.state().freq == 145800000ULL && e.state().mode == "FM" && e.state().smeter == 9);
+    out.clear(); e.tick(2000, out); out.clear();
+    CHECK(e.setFreq(146500000ULL) && e.setMode("USB"));
+    for (uint32_t t = 2100; t < 2300; t += 30) e.tick(t, out);
+    m = wsSplit(out);
+    CHECK(m.size() >= 3 && m[0].find("device_center_frequency") != std::string::npos && m[0].find("146500000") != std::string::npos);
+    CHECK(m[1].find("\"device_vfo_frequency\",\"device\":\"primary\",\"value\":\"146500000\"") != std::string::npos && m[2].find("\"value\":\"USB\"") != std::string::npos);
+    e.allowPtt = true; CHECK(!e.setPtt(true) && !e.setTxFreq(435000000));     // receptor
+    out.clear(); feedS(e, wsServer(9, "hi"), 3000); e.tick(3100, out);
+    CHECK(!out.empty() && ((uint8_t)out[0] & 0x0F) == 10 && wsUnmask(out) == "hi");   // pong
+    CHECK(!e.stale(5000) && e.stale(10000));
+    CHECK(jsonField("{\"a\":\"x\\\"y\",\"b\": 12.5}", "a") == "x\"y" && jsonField("{\"a\":1,\"b\": 12.5}", "b") == "12.5");
+}
+
+static void testRigctlClient() {
+    RigctlClientEngine e;
+    e.onConnect(0);
+    std::string out;
+    e.tick(0, out); CHECK(out == "f\n");
+    feedS(e, "145800000\n", 10); CHECK(e.state().link && e.state().freq == 145800000ULL);
+    out.clear(); e.tick(300, out); CHECK(out == "m\n");
+    feedS(e, "FM\n15000\n", 310); CHECK(e.state().mode == "FM");
+    out.clear(); e.tick(600, out); CHECK(out == "l STRENGTH\n");
+    feedS(e, "RPRT -11\n", 610);                                    // SDR++ no lo tiene: no se vuelve a pedir
+    out.clear(); e.tick(900, out); CHECK(out == "t\n");
+    feedS(e, "0\n", 910);
+    out.clear(); e.tick(1200, out); CHECK(out == "i\n");
+    feedS(e, "RPRT -4\n", 1210);
+    out.clear(); e.tick(1500, out); CHECK(out == "f\n"); feedS(e, "145800000\n", 1510);
+    out.clear(); e.tick(1800, out); CHECK(out == "m\n"); feedS(e, "USB\n2400\n", 1810);
+    out.clear(); e.tick(2100, out); CHECK(out == "f\n");            // sin «l»: repite la frecuencia
+    feedS(e, "145800000\n", 2110);
+    CHECK(e.setFreq(145825000)); out.clear(); e.tick(2400, out); CHECK(out == "F 145825000\n");
+    feedS(e, "RPRT 0\n", 2410);
+    CHECK(e.setMode("dig")); out.clear(); e.tick(2500, out); CHECK(out == "M PKTUSB 0\n");
+}
+
 int main() {
     testRotctld();
     testGs232();
@@ -392,6 +663,15 @@ int main() {
     testTotp();
     testAprs();
     testApi();
+    testCatCiv();
+    testCatYaesu();
+    testCatKenwood();
+    testCatYaesu5();
+    testRigctld();
+    testCatTracker();
+    testCatApi();
+    testSdrConnect();
+    testRigctlClient();
     printf("%d comprobaciones, %d fallos\n", checks, fails);
     return fails ? 1 : 0;
 }

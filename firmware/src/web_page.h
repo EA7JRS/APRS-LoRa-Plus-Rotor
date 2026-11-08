@@ -44,6 +44,15 @@ a{color:var(--acc)}#about p{margin:6px 0;font-size:13px}
 <div class="row"><button onclick="cmd({c:'park'})">Park</button><button onclick="cmd({c:'clear'})">Borrar fallo</button></div>
 <p class="mut">Mantén pulsado CW / CCW / UP / DOWN para mover a mano.</p></div>
 
+<div class="c" id="catc" style="display:none"><h3>CAT · emisora <span class="mut" id="crig"></span></h3>
+<div class="row"><span class="big" id="cf">---.---.---</span><span class="mut">MHz</span><span id="cm"></span><span id="cp"></span><span id="cl"></span></div>
+<div class="row mut"><span id="csm"></span><span id="ctx"></span><span id="ctr"></span></div>
+<div class="row"><input id="cfi" type="number" step="0.000001" placeholder="MHz"><button onclick="catF()">Sintonizar</button></div>
+<div class="row"><button onclick="catT(-1)">−</button><select id="cst"><option value="10">10 Hz</option><option value="100">100 Hz</option><option value="1000" selected>1 kHz</option><option value="5000">5 kHz</option><option value="12500">12,5 kHz</option><option value="25000">25 kHz</option><option value="100000">100 kHz</option></select><button onclick="catT(1)">+</button></div>
+<div class="row" id="cmodes"></div>
+<div class="row"><button id="cvfo" onclick="cmd({c:'catset',vfo:'swap'})">A / B</button><button id="ctrk" onclick="catTrk()">Seguir satélite</button><button id="cptt" class="stop">PTT</button></div>
+<p class="mut">El PTT solo emite mientras se mantiene pulsado y si está permitido en la configuración (<code>cat.ptt</code>). El seguimiento con Doppler lo alimenta la app o el tracker (<code>cattrack</code>); GPredict puede usar directamente rigctld.</p></div>
+
 <div class="c"><h3>Calibración (control directo)</h3>
 <div class="row mut">Lectura en bruto: AZ <b id="raz">-</b> · EL <b id="rel">-</b> <span id="ru"></span></div>
 <div class="row"><select id="cax"><option value="az">Acimut</option><option value="el">Elevación</option></select>
@@ -60,7 +69,7 @@ a{color:var(--acc)}#about p{margin:6px 0;font-size:13px}
 <p class="mut" id="buildInfo"></p>
 <p>APRS LoRa+ Rotor - by <b>Manuel EA7JRS</b> &middot; &copy; 2026 Manuel - EA7JRS</p>
 <p><b>APRS LoRa+</b> &mdash; EA7JRS: <a href="https://github.com/EA7JRS/APRS-LoRa-Plus" target="_blank" rel="noopener">github.com/EA7JRS/APRS-LoRa-Plus</a> (tracker, app Android, rotor y gateway).</p>
-<p class="mut">Compatible con Hamlib (rotctld), Yaesu GS-232A/B, SPID Rot2Prog y EasyComm II. Librerías: NimBLE-Arduino, RadioLib, ArduinoJson; en la Raspberry Pi, rotctld de Hamlib. Licencia GPL-3.0-or-later.</p></div>
+<p class="mut">Compatible con Hamlib (rotctld, rigctld), Yaesu GS-232A/B, SPID Rot2Prog y EasyComm II; CAT: Icom CI-V, Yaesu, Kenwood / Elecraft, SDRconnect (SDRplay) y rigctl. Librerías: NimBLE-Arduino, RadioLib, ArduinoJson; en la Raspberry Pi, rotctld de Hamlib. Licencia GPL-3.0-or-later.</p></div>
 </main>
 <script>
 const $=id=>document.getElementById(id);let pos={},lim={maxAz:360};
@@ -87,7 +96,20 @@ async function loadCfg(){const r=await api([{c:'cfgget'}]);$('cfg').value=JSON.s
 async function saveCfg(){let t;try{t=JSON.stringify(JSON.parse($('cfg').value))}catch(e){return alert('JSON no válido')}
 const n=Math.ceil(t.length/180),L=[];for(let i=0;i<n;i++)L.push({c:'cfgset',i,n,d:t.substr(i*180,180)});
 const r=await api(L);const e=r.find(x=>x.e=='err');alert(e?('Error: '+e.m):'Guardado. Reiniciando...')}
+let cat=null;const MODES=[['LSB','LSB'],['USB','USB'],['CW','CW'],['FM','FM'],['AM','AM'],['DIG','PKTUSB']];
+const fq=f=>{const s=String(Math.round(f||0));return s.replace(/\B(?=(\d{3})+(?!\d))/g,'.')};
+function catInit(){$('catc').style.display='';$('cmodes').innerHTML=MODES.map(([l,m])=>`<button data-cm="${m}" onclick="cmd({c:'catset',m:'${m}'})">${l}</button>`).join('');
+const p=$('cptt');p.addEventListener('pointerdown',()=>cmd({c:'catset',ptt:true}));p.addEventListener('pointerup',()=>cmd({c:'catset',ptt:false}));p.addEventListener('pointerleave',e=>{if(e.buttons)cmd({c:'catset',ptt:false})});
+catPoll();setInterval(catPoll,1000)}
+async function catPoll(){try{const r=await api([{c:'cat'}]);cat=r[0];if(cat.e!='cat')return;$('crig').textContent=cat.rig||'';$('cf').textContent=cat.l&&cat.f?fq(cat.f):'---.---.---';
+$('cm').textContent=' '+(cat.m||'')+(cat.v?' · VFO '+cat.v:'');$('cp').innerHTML=cat.ptt?' <b class="bad">TX</b>':' RX';$('cl').innerHTML=cat.l?'':' <span class="bad">sin enlace</span>';
+$('csm').textContent=cat.sm>=0?('S'+(cat.sm<=9?cat.sm:'9+'+(cat.sm-9)*10)):'';$('ctx').textContent=cat.tf?(' · ↑ '+fq(cat.tf)):'';
+const t=cat.tr||{};$('ctr').textContent=t.on&&t.en?(' · siguiendo '+(t.n||'')+' (Doppler '+(t.dop/1000).toFixed(1)+' kHz)'):'';$('ctrk').textContent=t.en?'Seguir: sí':'Seguir: no';
+$('cptt').disabled=!cat.pa;document.querySelectorAll('[data-cm]').forEach(b=>b.style.outline=b.dataset.cm==cat.m?'2px solid var(--acc)':'')}catch(e){}}
+function catF(){const v=parseFloat($('cfi').value);if(!(v>0))return;cmd({c:'catset',f:Math.round(v*1e6)})}
+function catT(n){if(!cat||!cat.f)return;const s=+$('cst').value;cmd({c:'catset',f:(Math.floor(cat.f/s)+n)*s+(n<0&&cat.f%s?s:0)})}
+function catTrk(){cmd({c:'cattrack',on:!(cat&&cat.tr&&cat.tr.en)})}
 async function info(){try{const r=await api([{c:'info'}]);const i=r[0];lim=i.lim;$('ver').textContent=i.ver;$('buildInfo').textContent=`Rotor ${i.ver} · ${i.board} (${i.chip})`;$('hdr').textContent=i.name+' · '+i.call;
-$('info').textContent=`${i.board} (${i.chip}) · mando: ${i.drv} · IP ${i.ip} · rotctld ${i.rotctld||'off'} · rango AZ ${i.lim.minAz}–${i.lim.maxAz}, EL ${i.lim.minEl}–${i.lim.maxEl}`}catch(e){}}
+if(i.cat&&!cat)catInit();$('info').textContent=`${i.board} (${i.chip}) · mando: ${i.drv} · IP ${i.ip} · rotctld ${i.rotctld||'off'} · rigctld ${i.rigctld||'off'} · rango AZ ${i.lim.minAz}–${i.lim.maxAz}, EL ${i.lim.minEl}–${i.lim.maxEl}`}catch(e){}}
 info();poll();setInterval(poll,1000);setInterval(raw,2000);
 </script></body></html>)HTML";

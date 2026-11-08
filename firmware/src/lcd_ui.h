@@ -35,15 +35,37 @@ namespace Lcd {
         bool        ble = false, bleConn = false;
         uint32_t    upS = 0;
         int         bright = 80;
+        // CAT (emisora)
+        bool        catOn = false;                  // CAT configurado
+        bool        catLink = false;                // la emisora contesta
+        std::string rig;                            // "IC-9700 · CI-V A2 · 19200"
+        uint64_t    freq = 0, txFreq = 0;           // Hz (txFreq > 0: split / satélite)
+        std::string mode, txMode;                   // "FM", "USB"...
+        char        vfo = 'A';
+        bool        ptt = false, allowPtt = false;
+        bool        rxOnly = false;                 // receptor (SDR): sin PTT ni A/B
+        int         smeter = -1;                    // 0-15 (S0..S9 = 0..9, S9+10..+60 = 10..15); -1 sin dato
+        uint32_t    step = 1000;                    // paso de sintonía (Hz)
+        bool        tracking = false;               // seguimiento de satélite / Doppler
+        std::string trackName;                      // "ISS"
+        int32_t     doppler = 0;                    // Hz aplicados a la bajada
     };
 
-    enum class Cmd { NONE, MOVE, STOP, PARK, GOTO, CLEAR_FAULT, BRIGHT };
+    enum class Cmd { NONE, MOVE, STOP, PARK, GOTO, CLEAR_FAULT, BRIGHT, CAT };
+
+    // Órdenes a la emisora desde la pantalla
+    enum class CatOp { NONE, TUNE, STEP, MODE, VFO, TRACK, PTT_ON, PTT_OFF };
+
+    static const char* const CAT_MODES[6] = { "LSB", "USB", "CW", "FM", "AM", "DIG" };
+    static const uint32_t CAT_STEPS[7] = { 10, 100, 1000, 5000, 12500, 25000, 100000 };
 
     struct UiCmd {
         Cmd    cmd = Cmd::NONE;
         int    dir = 0;          // MOVE: direcciones RC::MOVE_* (2 UP, 4 DOWN, 8 CCW, 16 CW)
         double az = NAN;         // GOTO
-        int    value = 0;        // BRIGHT: nuevo brillo (%)
+        int    value = 0;        // BRIGHT: nuevo brillo (%); CAT TUNE: +1 / -1 pasos; STEP: nuevo paso (Hz); TRACK: 0/1
+        CatOp  cat = CatOp::NONE;
+        std::string text;        // CAT MODE: "USB"...
     };
 
     struct Rect {
@@ -73,6 +95,12 @@ namespace Lcd {
         int           infoValX = 118, lineH = 21;
         Rect          brMinus = { 16, 426, 80, 48 }, brPlus = { 224, 426, 80, 48 };
         int           brTextX = 160, brTextY = 441;
+        // Botón CAT de la cabecera y página CAT
+        Rect          catBtn = { 212, 10, 50, 28 };
+        int           linkMode = 0;                  // 0: estado WiFi/BLE junto a la versión; 1: a la izquierda del botón CAT
+        Rect          freqCard = { 8, 54, 304, 106 }, smeter = { 16, 170, 288, 22 }, trackCard = { 8, 202, 304, 50 };
+        Rect          tuneDown = { 8, 260, 92, 52 }, stepBtn = { 106, 260, 108, 52 }, tuneUp = { 220, 260, 92, 52 };
+        Rect          modeBtn[6], trackBtn = { 8, 414, 98, 60 }, vfoBtn = { 112, 414, 96, 60 }, pttBtn = { 214, 414, 98, 60 };
 
         static Layout make(int w, int h) {
             Layout l;
@@ -80,6 +108,9 @@ namespace Lcd {
             if (w <= h) {                            // vertical 320 x 480: rejilla de 3 x 2 botones abajo
                 const int gap = 6, bw = (w - 4 * gap) / 3, bh = 56, y0 = 362;
                 for (int i = 0; i < 6; i++) l.btn[i] = { gap + (i % 3) * (bw + gap), y0 + (i / 3) * (bh + gap), bw, bh };
+                const int mw = (w - 16 - 5 * 4) / 6;
+                for (int i = 0; i < 6; i++) l.modeBtn[i] = { 8 + i * (mw + 4), 320, mw, 44 };
+                // fila de modos (320-364); fila de TX / split (370-406); botones abajo (414-474)
                 return l;
             }
             // Apaisada 600 x 450: brújula a la izquierda, lecturas a la derecha, fila de 6 botones abajo
@@ -101,6 +132,12 @@ namespace Lcd {
             l.infoValX = 130; l.lineH = 33;
             l.brMinus = { 336, 368, 72, 72 }; l.brPlus = { 512, 368, 72, 72 };
             l.brTextX = 460; l.brTextY = 392;
+            l.catBtn = { 452, 12, 70, 34 }; l.linkMode = 1; l.linkX = 440;
+            l.freqCard = { 8, 62, 584, 138 }; l.smeter = { 16, 206, 360, 24 }; l.trackCard = { 8, 238, 584, 60 };
+            const int bw2 = (288 - 2 * 6) / 3, bh2 = 64, ya = 308, yb = 380;
+            l.tuneDown = { 8, ya, bw2, bh2 }; l.stepBtn = { 8 + bw2 + 6, ya, bw2, bh2 }; l.tuneUp = { 8 + 2 * (bw2 + 6), ya, bw2, bh2 };
+            l.trackBtn = { 8, yb, bw2, bh2 }; l.vfoBtn = { 8 + bw2 + 6, yb, bw2, bh2 }; l.pttBtn = { 8 + 2 * (bw2 + 6), yb, bw2, bh2 };
+            for (int i = 0; i < 6; i++) l.modeBtn[i] = { 304 + (i % 3) * (bw2 + 6), (i < 3 ? ya : yb), bw2, bh2 };
             return l;
         }
     };
@@ -109,7 +146,7 @@ namespace Lcd {
     public:
         explicit Ui(int w = 320, int h = 480) : L(Layout::make(w, h)) {}
         const Layout L;
-        enum Page { MAIN, INFO };
+        enum Page { MAIN, INFO, CAT };
         Page page = MAIN;
 
         // Colores (los de la WebUI)
@@ -121,7 +158,8 @@ namespace Lcd {
         void draw(Fb& fb, const UiState& s) {
             fb.fill(BG);
             header(fb, s);
-            if (page == MAIN) mainPage(fb, s); else infoPage(fb, s);
+            if (page == CAT && !s.catOn) page = MAIN;
+            if (page == MAIN) mainPage(fb, s); else if (page == INFO) infoPage(fb, s); else catPage(fb, s);
         }
 
         // ------------------------------------------------------------------------------------------------- toques
@@ -131,7 +169,10 @@ namespace Lcd {
             if (down && !pressed_) {                                   // empieza un toque
                 pressed_ = true; startMs_ = nowMs; held_ = -1; aiming_ = false; moveSent_ = false;
                 const int dx = x - L.infoX, dy = y - L.infoY, rr = L.infoR + 14;
-                if (dx * dx + dy * dy <= rr * rr) { page = page == MAIN ? INFO : MAIN; return c; }
+                if (dx * dx + dy * dy <= rr * rr) { page = page == INFO ? MAIN : INFO; return c; }
+                const Rect cb = { L.catBtn.x - 6, 0, L.catBtn.w + 12, L.hdrH };
+                if (s.catOn && cb.in(x, y)) { page = page == CAT ? MAIN : CAT; return c; }
+                if (page == CAT) return catTouch(x, y, s);
                 if (page == MAIN) {
                     const int b = buttonAt(x, y);
                     if (b >= 0) {
@@ -161,6 +202,7 @@ namespace Lcd {
             }
             if (!down && pressed_) {                                   // se levanta
                 pressed_ = false;
+                if (pttSent_) { pttSent_ = false; c.cmd = Cmd::CAT; c.cat = CatOp::PTT_OFF; held_ = -1; return c; }
                 if (moveSent_) { moveSent_ = false; c.cmd = Cmd::STOP; }
                 else if (aiming_ && nowMs - startMs_ >= AIM_HOLD_MS) { c.cmd = Cmd::GOTO; c.az = aimAz_; }
                 aiming_ = false; held_ = -1;
@@ -168,6 +210,7 @@ namespace Lcd {
             return c;
         }
 
+        static std::string fmtFreqPublic(uint64_t hz) { return fmtFreq(hz); }
         bool aiming(uint32_t nowMs) const { return aiming_ && pressed_ && nowMs - startMs_ >= AIM_HOLD_MS; }
         bool busyTouch() const { return pressed_; }
         void setFrameTime(uint32_t ms) { frameMs_ = ms; }
@@ -204,7 +247,7 @@ namespace Lcd {
 
     private:
         static constexpr uint32_t AIM_HOLD_MS = 500;
-        bool     pressed_ = false, moveSent_ = false, aiming_ = false;
+        bool     pressed_ = false, moveSent_ = false, aiming_ = false, pttSent_ = false;
         int      held_ = -1;
         uint32_t startMs_ = 0, frameMs_ = 0;
         double   aimAz_ = 0;
@@ -226,10 +269,24 @@ namespace Lcd {
             fb.text(L.titleX + 1, L.subY, sub.c_str(), *L.S, hex(0xf0d0d0));
             // Botón de información (i) / volver (×)
             fb.ring(L.infoX, L.infoY, L.infoR, 2 * L.k, WHITE);
-            fb.text(L.infoX, L.infoY - L.M->height / 2 + 1, page == MAIN ? "i" : "×", *L.M, WHITE, CENTER);
+            fb.text(L.infoX, L.infoY - L.M->height / 2 + 1, page == INFO ? "×" : "i", *L.M, WHITE, CENTER);
+            // Botón CAT (si hay emisora configurada)
+            if (s.catOn) {
+                const Rect& b = L.catBtn;
+                if (page == CAT) fb.fillRound(b.x, b.y, b.w, b.h, b.h / 2, WHITE);
+                else { fb.fillRound(b.x, b.y, b.w, b.h, b.h / 2, WHITE); fb.fillRound(b.x + 2, b.y + 2, b.w - 4, b.h - 4, b.h / 2 - 2, HDR); }
+                fb.text(b.x + b.w / 2, b.y + (b.h - L.S->height) / 2, "CAT", *L.S, page == CAT ? HDR : WHITE, CENTER);
+                if (s.catLink) fb.fillCircle(b.x + b.w - 4, b.y + 4, (int)(4 * L.k), s.ptt ? hex(0xffd23f) : hex(0x3fb950));
+            }
             // Enlaces: WiFi y BLE
-            fb.text(L.linkX, L.link1Y, "WiFi", *L.S, s.ip.empty() ? hex(0x6d2a2a) : WHITE, RIGHT);
-            if (s.ble) fb.text(L.linkX, L.link2Y, s.bleConn ? "BLE ●" : "BLE", *L.S, s.bleConn ? WHITE : hex(0xe6a0a0), RIGHT);
+            if (L.linkMode == 1) {
+                fb.text(L.linkX, L.link1Y, "WiFi", *L.S, s.ip.empty() ? hex(0x6d2a2a) : WHITE, RIGHT);
+                if (s.ble) fb.text(L.linkX, L.link2Y, s.bleConn ? "BLE ●" : "BLE", *L.S, s.bleConn ? WHITE : hex(0xe6a0a0), RIGHT);
+            } else {
+                int x = L.titleX + 1 + Fb::textWidth(*L.S, sub.c_str()) + 8;      // blanco = conectado
+                x = fb.text(x, L.subY, "WiFi", *L.S, s.ip.empty() ? hex(0xd88a8a) : WHITE) + 5;
+                if (s.ble) fb.text(x, L.subY, "BLE", *L.S, s.bleConn ? WHITE : hex(0xd88a8a));
+            }
         }
 
         void needle(Fb& fb, double az, double len, double thick, uint16_t c, bool tip) {
@@ -361,6 +418,126 @@ namespace Lcd {
                     }
                 }
             }
+        }
+
+
+        // ------------------------------------------------------------------------------------------------- CAT
+        static std::string fmtFreq(uint64_t hz) {               // 145825000 -> "145.825.000"
+            char t[24];
+            snprintf(t, sizeof t, "%llu", (unsigned long long)hz);
+            std::string d = t, o;
+            const int n = (int)d.size();
+            for (int i = 0; i < n; i++) { o += d[i]; const int r = n - 1 - i; if (r > 0 && r % 3 == 0) o += '.'; }
+            return o;
+        }
+        static std::string dispMode(const std::string& m) {
+            if (m == "PKTUSB") return "DIG-U";
+            if (m == "PKTLSB") return "DIG-L";
+            if (m == "PKTFM") return "DIG-FM";
+            return m;
+        }
+        static std::string fmtStep(uint32_t hz) {
+            char t[16];
+            if (hz >= 1000) { if (hz % 1000) snprintf(t, sizeof t, "%.1f kHz", hz / 1000.0); else snprintf(t, sizeof t, "%u kHz", (unsigned)(hz / 1000)); }
+            else snprintf(t, sizeof t, "%u Hz", (unsigned)hz);
+            return t;
+        }
+
+        UiCmd catTouch(int x, int y, const UiState& s) {
+            UiCmd c;
+            c.cmd = Cmd::CAT;
+            if (L.tuneDown.in(x, y)) { held_ = 100; c.cat = CatOp::TUNE; c.value = -1; return c; }
+            if (L.tuneUp.in(x, y))   { held_ = 101; c.cat = CatOp::TUNE; c.value = 1; return c; }
+            if (L.stepBtn.in(x, y)) {
+                held_ = 102;
+                int i = 0;
+                while (i < 7 && CAT_STEPS[i] != s.step) i++;
+                c.cat = CatOp::STEP; c.value = (int)CAT_STEPS[(i + 1) % 7];
+                return c;
+            }
+            for (int i = 0; i < 6; i++) if (L.modeBtn[i].in(x, y)) { held_ = 110 + i; c.cat = CatOp::MODE; c.text = CAT_MODES[i]; return c; }
+            if (L.trackBtn.in(x, y)) { held_ = 103; c.cat = CatOp::TRACK; c.value = s.tracking ? 0 : 1; return c; }
+            if (L.vfoBtn.in(x, y) && !s.rxOnly) { held_ = 104; c.cat = CatOp::VFO; return c; }
+            if (L.pttBtn.in(x, y) && s.allowPtt && s.catLink) { held_ = 105; pttSent_ = true; c.cat = CatOp::PTT_ON; return c; }
+            c.cmd = Cmd::NONE;
+            return c;
+        }
+
+        void catButton(Fb& fb, const Rect& b, int id, const char* label, bool on, bool dis, uint16_t onColor) {
+            uint16_t bg = on ? onColor : BTN;
+            if (held_ == id && pressed_ && !dis && !on) bg = BTN_ON;
+            fb.fillRound(b.x, b.y, b.w, b.h, (int)(10 * L.k), bg);
+            const bool big = b.h >= 50 && Fb::textWidth(*L.M, label) <= b.w - 8;
+            const LcdFont& f = big ? *L.M : *L.S;
+            std::vector<std::string> ls = wrap(f, label, b.w - 8);
+            const int lh = f.height, ty = b.y + (b.h - lh * (int)ls.size()) / 2;
+            for (size_t i = 0; i < ls.size(); i++) fb.text(b.x + b.w / 2, ty + (int)i * lh, ls[i].c_str(), f, dis ? hex(0x4a5868) : WHITE, CENTER);
+        }
+
+        void catPage(Fb& fb, const UiState& s) {
+            const LcdFont &S = *L.S, &F = *L.L;
+            const uint16_t YEL = hex(0xffd23f);
+            // Frecuencia
+            const Rect& fc = L.freqCard;
+            fb.fillRound(fc.x, fc.y, fc.w, fc.h, (int)(10 * L.k), CARD);
+            if (s.ptt) fb.fillRect(fc.x + 6, fc.y + fc.h - (int)(4 * L.k), fc.w - 12, (int)(3 * L.k), RED);
+            fb.fillCircle(fc.x + fc.w - (int)(14 * L.k), fc.y + (int)(14 * L.k), (int)(5 * L.k), s.catLink ? GREEN : RED);
+            fb.text(fc.x + 10, fc.y + 6, fit(S, s.rig.empty() ? "Emisora" : s.rig, fc.w - (int)(40 * L.k)).c_str(), S, MUT);
+            std::string fq = s.catLink && s.freq ? fmtFreq(s.freq) : "---.---.---";
+            const int mhzW = Fb::textWidth(S, "MHz") + 6, fw = Fb::textWidth(F, fq.c_str());
+            const int fx = fc.x + (fc.w - fw - mhzW) / 2, fy = fc.y + S.height + 8;
+            fb.text(fx, fy, fq.c_str(), F, s.catLink ? FG : MUT);
+            fb.text(fx + fw + 6, fy + F.ascent - S.ascent, "MHz", S, MUT);
+            // Modo, VFO, RX/TX
+            int px = fc.x + 10;
+            const int py = fy + F.height + (int)(2 * L.k);
+            auto pill = [&](const std::string& t, uint16_t bg, uint16_t fg) {
+                const int w = Fb::textWidth(S, t.c_str()) + (int)(16 * L.k), h = S.height + 4;
+                fb.fillRound(px, py, w, h, h / 2, bg);
+                fb.text(px + w / 2, py + 2, t.c_str(), S, fg, CENTER);
+                px += w + 6;
+            };
+            pill(s.mode.empty() ? "--" : dispMode(s.mode), hex(0x26445f), WHITE);
+            if (!s.rxOnly) pill(std::string("VFO ") + s.vfo, hex(0x26445f), WHITE);
+            pill(s.ptt ? "TX" : "RX", s.ptt ? RED : hex(0x1f4d2b), WHITE);
+            if (s.txFreq) {
+                const std::string t = "↑ " + fmtFreq(s.txFreq) + (s.txMode.empty() ? "" : " " + s.txMode);
+                fb.text(fc.x + fc.w - 10, py + 2, fit(S, t, fc.x + fc.w - 10 - px).c_str(), S, s.ptt ? RED : FG, RIGHT);
+            }
+            // S-meter
+            const Rect& sm = L.smeter;
+            const int segs = 15, gap = 2, sw = (sm.w - 40 * (int)L.k - gap * (segs - 1)) / segs;
+            for (int i = 0; i < segs; i++) {
+                const bool lit = s.smeter >= 0 && i < s.smeter;
+                const uint16_t c = lit ? (i < 9 ? GREEN : (i < 12 ? YEL : RED)) : LINE;
+                fb.fillRect(sm.x + i * (sw + gap), sm.y + (i < 9 ? sm.h / 3 : 0), sw, i < 9 ? sm.h * 2 / 3 : sm.h, c);
+            }
+            char t[48];
+            if (s.smeter < 0) snprintf(t, sizeof t, "S-");
+            else if (s.smeter <= 9) snprintf(t, sizeof t, "S%d", s.smeter);
+            else snprintf(t, sizeof t, "+%d", (s.smeter - 9) * 10);
+            fb.text(sm.x + sm.w, sm.y + (sm.h - S.height) / 2, t, S, FG, RIGHT);
+            // Seguimiento (satélite / Doppler)
+            const Rect& tc = L.trackCard;
+            fb.fillRound(tc.x, tc.y, tc.w, tc.h, (int)(10 * L.k), s.tracking ? hex(0x14324a) : CARD);
+            if (s.tracking) {
+                snprintf(t, sizeof t, "Siguiendo %s", s.trackName.empty() ? "satélite" : s.trackName.c_str());
+                fb.text(tc.x + 10, tc.y + 4, t, S, ACC);
+                snprintf(t, sizeof t, "Doppler %+.1f kHz", s.doppler / 1000.0);
+                fb.text(tc.x + 10, tc.y + 4 + S.height, t, S, FG);
+            } else {
+                fb.text(tc.x + 10, tc.y + 4, "Seguimiento apagado", S, MUT);
+                fb.text(tc.x + 10, tc.y + 4 + S.height, "SAT del tracker o rigctld (GPredict)", S, MUT);
+            }
+            // Sintonía
+            catButton(fb, L.tuneDown, 100, "−", false, !s.catLink, BTN);
+            catButton(fb, L.tuneUp, 101, "+", false, !s.catLink, BTN);
+            catButton(fb, L.stepBtn, 102, ("Paso " + fmtStep(s.step)).c_str(), false, false, BTN);
+            for (int i = 0; i < 6; i++) catButton(fb, L.modeBtn[i], 110 + i, CAT_MODES[i], s.mode == CAT_MODES[i] || (i == 5 && s.mode.rfind("PKT", 0) == 0), !s.catLink, hex(0x2f6fb0));
+            if (!L.land) fb.text(L.W / 2, 378, s.rxOnly ? "Receptor: sin PTT" : (s.allowPtt ? "PTT: mantener pulsado para emitir" : "PTT desactivado (cat.ptt)"), S, MUT, CENTER);
+            catButton(fb, L.trackBtn, 103, "Seguir", s.tracking, !s.catLink, hex(0x2f6fb0));
+            catButton(fb, L.vfoBtn, 104, "A / B", false, !s.catLink || s.rxOnly, BTN);
+            catButton(fb, L.pttBtn, 105, "PTT", s.ptt, !(s.allowPtt && s.catLink), STOPC);
         }
 
         void infoLine(Fb& fb, int& y, const char* k, const std::string& v) {

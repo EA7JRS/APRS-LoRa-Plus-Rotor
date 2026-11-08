@@ -20,6 +20,7 @@
 #include "lora_aprs.h"
 #include "rc_common.h"
 #include "rc_serialproto.h"
+#include "cat.h"
 
 // Pantallas: 1 = ST7796 por SPI, 320 x 480 vertical (ESP32-C5-Touch-LCD-3.5)
 //            2 = RM690B0 AMOLED por QSPI, 600 x 450 apaisada (ESP32-S3-Touch-AMOLED-2.41)
@@ -282,6 +283,18 @@ namespace LcdHw {
         st.bleConn = st.ble && Bt::connected();
         st.upS = millis() / 1000;
         st.bright = Cfg.lcdBright;
+        // CAT
+        RC::CatEngine* e = Cat::engine();
+        st.catOn = e != nullptr;
+        if (e) {
+            const RC::CatState& c = e->state();
+            st.catLink = c.link; st.rig = e->info(); st.freq = c.freq; st.txFreq = e->receiver() ? 0 : c.txFreq;
+            st.mode = c.mode; st.txMode = c.txMode; st.vfo = c.vfo; st.ptt = c.ptt; st.smeter = c.smeter;
+            st.rxOnly = e->receiver(); st.allowPtt = Cfg.catPtt && !st.rxOnly;
+            st.step = Cat::step();
+            const RC::CatTracker& t = Cat::tracker();
+            st.tracking = t.enabled && t.active; st.trackName = t.name; st.doppler = t.doppler;
+        }
     }
 
     static void applyBright() { setBright(dimmed ? LCD_DIM_PCT : Cfg.lcdBright); }
@@ -305,6 +318,21 @@ namespace LcdHw {
                 applyBright();
                 brightSaveAt = millis() + 3000;          // se guarda cuando deja de tocar
                 break;
+            case Lcd::Cmd::CAT: {
+                RC::CatEngine* e = Cat::engine();
+                if (!e) break;
+                switch (c.cat) {
+                    case Lcd::CatOp::TUNE:    Cat::tune(c.value); break;
+                    case Lcd::CatOp::STEP:    Cat::setStep((uint32_t)c.value); break;
+                    case Lcd::CatOp::MODE:    e->setMode(c.text); break;
+                    case Lcd::CatOp::VFO:     e->toggleVfo(); break;
+                    case Lcd::CatOp::TRACK:   Cat::tracker().enabled = c.value != 0; Cat::tracker().reset(); break;
+                    case Lcd::CatOp::PTT_ON:  if (Cfg.catPtt) e->setPtt(true); break;
+                    case Lcd::CatOp::PTT_OFF: e->setPtt(false); break;
+                    case Lcd::CatOp::NONE:    break;
+                }
+                break;
+            }
             case Lcd::Cmd::NONE: break;
         }
     }

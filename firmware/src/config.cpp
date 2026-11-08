@@ -107,6 +107,10 @@ namespace Config {
         a["totp"] = secrets ? c.aprs.totpSecret : (c.aprs.totpSecret.empty() ? std::string() : std::string(MASK));
         a["reply"] = c.aprs.reply; a["beaconMin"] = c.beaconMin; a["lat"] = c.lat; a["lon"] = c.lon; a["comment"] = c.comment;
         d["led"] = c.led;
+        JsonObject ct = d["cat"].to<JsonObject>();
+        ct["proto"] = c.catProto; ct["baud"] = c.catBaud; ct["rx"] = c.catRx; ct["tx"] = c.catTx; ct["civ"] = c.catCiv;
+        ct["model"] = c.catModel; ct["pollMs"] = c.catPollMs; ct["ptt"] = c.catPtt; ct["pttMaxS"] = c.catPttMaxS; ct["trackStep"] = c.catTrackStep;
+        ct["rigctld"] = c.rigctld; ct["rigctldPort"] = c.rigctldPort; ct["host"] = c.catHost; ct["port"] = c.catPort;
     #if ROTOR_HAS_LCD
         JsonObject lc = d["lcd"].to<JsonObject>();
         lc["bright"] = c.lcdBright; lc["dimS"] = c.lcdDimS;
@@ -137,6 +141,14 @@ namespace Config {
         if (c.loraSf < 6 || c.loraSf > 12 || c.loraCr < 5 || c.loraCr > 8) { err = "lora sf / cr"; return false; }
         if (c.aprs.callsign.empty() || c.aprs.callsign.size() > 9) { err = "aprs.call"; return false; }
         if (c.lcdBright < 10 || c.lcdBright > 100 || c.lcdDimS < 0) { err = "lcd.bright 10-100 / lcd.dimS >= 0"; return false; }
+        if (c.catProto < 0 || c.catProto > 6) { err = "cat.proto 0-6"; return false; }
+        const bool catNet = RC::catIsNetwork(c.catProto);
+        if (c.catProto && !catNet && (c.catRx < 0 || c.catTx < 0)) { err = "cat.rx / cat.tx"; return false; }
+        if (c.catProto && !catNet && c.driver == 1 && (c.catRx == c.serRx || c.catTx == c.serTx)) { err = "cat: same pins as serial gateway"; return false; }
+        if (catNet && (c.catHost.empty() || c.catPort < 0 || c.catPort > 65535)) { err = "cat.host / cat.port"; return false; }
+        if (catNet && !ROTOR_HAS_WIFI) { err = "cat: network needs WiFi"; return false; }
+        if (c.catBaud < 300 || c.catBaud > 921600 || c.catCiv < 0 || c.catCiv > 0xFF || c.catPollMs < 20 || c.catTrackStep < 1 || c.catPttMaxS < 5 || c.catPttMaxS > 3600) { err = "cat baud / civ / pollMs"; return false; }
+        if (c.rigctldPort <= 0 || c.rigctldPort > 65535 || c.rigctldPort == c.rotctldPort || c.rigctldPort == c.apiPort) { err = "cat.rigctldPort"; return false; }
         if (!c.aprs.totpSecret.empty()) {
             uint8_t k[64];
             if (RC::Crypto::base32(c.aprs.totpSecret.c_str(), k, sizeof(k)) < 10) { err = "aprs.totp (base32, >= 16 chars)"; return false; }
@@ -179,6 +191,10 @@ namespace Config {
         getD(a, "lat", n.lat); getD(a, "lon", n.lon); getS(a, "comment", n.comment);
         get(d, "led", n.led);
         get(d["lcd"], "bright", n.lcdBright); get(d["lcd"], "dimS", n.lcdDimS);
+        JsonVariantConst ct = d["cat"];
+        get(ct, "proto", n.catProto); get(ct, "baud", n.catBaud); get(ct, "rx", n.catRx); get(ct, "tx", n.catTx); get(ct, "civ", n.catCiv);
+        getS(ct, "model", n.catModel); get(ct, "pollMs", n.catPollMs); get(ct, "ptt", n.catPtt); get(ct, "pttMaxS", n.catPttMaxS); get(ct, "trackStep", n.catTrackStep);
+        get(ct, "rigctld", n.rigctld); get(ct, "rigctldPort", n.rigctldPort); getS(ct, "host", n.catHost); get(ct, "port", n.catPort);
         n.aprs.callsign = RC::Aprs::upper(n.aprs.callsign);
         if (!validate(n, err)) return false;
         c = n;

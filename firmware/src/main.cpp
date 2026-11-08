@@ -28,6 +28,7 @@
 #include "bt.h"
 #include "lora_aprs.h"
 #include "lcd_hw.h"
+#include "cat.h"
 
 static ProtoPort usb;
 static uint32_t  ledT = 0;
@@ -47,6 +48,7 @@ void setup() {
     usb.setProto(Cfg.usbProto);
     if (Cfg.led >= 0) pinMode(Cfg.led, OUTPUT);
     logf("\nAPRS LoRa+ Rotor %s (%s, %s) - mando: %s\n", ROTOR_VERSION, ROTOR_BOARD, Board::chip(), Drv::name());
+    Cat::begin();                                      // antes de la red: el servidor rigctld depende de él
     Net::begin();
     Bt::begin();
     LoraAprs::begin();
@@ -59,6 +61,7 @@ void loop() {
     Net::loop();
     Bt::loop();
     LoraAprs::loop();
+    Cat::loop();
     LcdHw::loop();
     serviceReboot();
     // LED: fijo moviendose, parpadeo rapido con fallo, destello lento en reposo

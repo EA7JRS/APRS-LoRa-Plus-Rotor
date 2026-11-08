@@ -23,6 +23,7 @@
 #include <string>
 #include "rc_control.h"
 #include "rc_aprs.h"
+#include "rc_cat.h"
 #include "board.h"
 
 #define ROTOR_VERSION "5.3.5"            // el mismo numero que el tracker APRS LoRa+ (todos los repositorios del proyecto van a la par)
@@ -95,6 +96,22 @@ struct RotorConfig {
     std::string comment = "APRS LoRa+ Rotor";
 
     int         led = DEF_LED;
+
+    // CAT de la emisora (rc_cat.h)
+    int         catProto = 0;               // 0 ninguno, 1 Icom CI-V, 2 Yaesu (texto), 3 Yaesu 5 bytes (FT-817/857/897), 4 Kenwood / Elecraft,
+                                            // 5 SDRconnect (SDRplay RSPdx-R2...) y 6 rigctld (SDR++, gqrx, Hamlib) por red
+    std::string catHost;                    // red: equipo con SDRconnect / SDR++ / rigctld
+    int         catPort = 0;                // red: 0 = el de siempre (5454 SDRconnect, 4532 rigctl)
+    int         catBaud = 19200;
+    int         catRx = DEF_CAT_RX, catTx = DEF_CAT_TX;
+    int         catCiv = 0xA2;              // direccion CI-V de la emisora (IC-9700 A2, IC-705 A4, IC-7300 94, IC-7610 98)
+    std::string catModel;                   // nombre que se muestra ("IC-9700")
+    int         catPollMs = 120;
+    bool        catPtt = false;             // permitir PTT desde la red, la app y la pantalla
+    int         catPttMaxS = 180;           // limite de emision continua: pasado este tiempo se suelta el PTT
+    int         catTrackStep = 50;          // Hz: cambio minimo para resintonizar con el Doppler
+    bool        rigctld = true;             // servidor rigctld (Hamlib NET rigctl) si hay CAT
+    int         rigctldPort = 4532;
 
     // Pantalla tactil (placas con LCD)
     int         lcdBright = 80;             // brillo 10-100 %

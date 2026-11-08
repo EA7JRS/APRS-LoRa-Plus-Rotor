@@ -73,6 +73,12 @@
 #ifndef DEF_LED
     #define DEF_LED -1
 #endif
+#ifndef DEF_CAT_RX
+    #define DEF_CAT_RX -1           // UART del CAT de la emisora
+#endif
+#ifndef DEF_CAT_TX
+    #define DEF_CAT_TX -1
+#endif
 #ifndef DEF_LORA_CHIP
     #define DEF_LORA_CHIP 0
 #endif

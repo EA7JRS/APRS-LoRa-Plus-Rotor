@@ -23,6 +23,7 @@
 #include <vector>
 #include "rc_common.h"
 #include "rc_rotctld.h"
+#include "rc_cat.h"
 
 namespace RC {
 
@@ -44,6 +45,10 @@ namespace RC {
         virtual void        reboot() = 0;
         virtual const char* pin() = 0;                                      // "" = sin PIN
         virtual std::string lastAprs() { return ""; }
+        virtual Rig*        rig() { return nullptr; }                       // emisora por CAT (nullptr = sin CAT)
+        virtual CatTracker* catTracker() { return nullptr; }
+        virtual bool        catPttAllowed() { return false; }
+        virtual uint32_t    nowMs() { return 0; }
     };
 
     class ApiSession {
@@ -67,6 +72,7 @@ namespace RC {
             if (c == "get")  { out.push_back(posEvent(h)); return; }
             if (c == "raw")  { JsonDocument d; d["e"] = "raw"; h.raw(d.as<JsonObject>()); out.push_back(dump(d)); return; }
             if (c == "sub")  { subMs = in["ms"] | 1000; if (subMs != 0 && subMs < 200) subMs = 200; ok(out, c); return; }
+            if (c == "cat")  { const std::string e = catEvent(h); if (e.empty()) err(out, c, "no cat"); else out.push_back(e); return; }
             if (needPin && !authed) { err(out, c, "auth required"); return; }
 
             Rotor& r = h.rotor();
@@ -131,6 +137,36 @@ namespace RC {
                 JsonDocument a; a["e"] = "ok"; a["c"] = c; a["i"] = i; a["done"] = true; out.push_back(dump(a));
                 return;
             }
+            if (c == "catset") {
+                Rig* g = h.rig();
+                if (!g) { err(out, c, "no cat"); return; }
+                bool good = true;
+                if (in["f"].is<double>()) { const double f = in["f"].as<double>(); good &= f > 0 && f < 1e11 && g->setFreq((uint64_t)llround(f)); }
+                if (in["m"].is<const char*>()) good &= g->setMode(in["m"].as<const char*>());
+                if (in["txf"].is<double>()) { const double f = in["txf"].as<double>(); good &= f > 0 && f < 1e11 && g->setTxFreq((uint64_t)llround(f)); }
+                if (in["split"].is<bool>()) good &= g->setSplit(in["split"].as<bool>());
+                if (in["vfo"].is<const char*>()) {
+                    const std::string v = in["vfo"].as<const char*>();
+                    good &= v == "swap" ? g->toggleVfo() : g->setVfo(v == "B" ? 'B' : 'A');
+                }
+                if (in["ptt"].is<bool>()) {
+                    const bool on = in["ptt"].as<bool>();
+                    if (on && !h.catPttAllowed()) { err(out, c, "ptt not allowed"); return; }
+                    good &= g->setPtt(on);
+                }
+                if (good) ok(out, c); else err(out, c, "rejected");
+                return;
+            }
+            if (c == "cattrack") {
+                CatTracker* t = h.catTracker();
+                if (!t) { err(out, c, "no cat"); return; }
+                if (in["on"].is<bool>()) { t->enabled = in["on"].as<bool>(); t->reset(); }
+                if (in["dl"].is<double>() || in["ul"].is<double>()) {
+                    t->update(in["name"] | "", (uint64_t)llround(in["dl"] | 0.0), (uint64_t)llround(in["ul"] | 0.0), in["rr"] | 0.0, h.nowMs());
+                }
+                ok(out, c);
+                return;
+            }
             if (c == "reboot") { ok(out, c); h.reboot(); return; }
             err(out, c, "unknown");
         }
@@ -150,6 +186,31 @@ namespace RC {
             return dump(d);
         }
 
+        // Estado de la emisora: {"e":"cat","l":enlace,"f":Hz,"m":modo,"tf":Hz,"sp":split,"v":"A","ptt":..,"sm":0-15,"pa":ptt permitido,
+        //   "tr":{"en":seguir,"on":con datos,"n":nombre,"dop":Hz}}
+        static std::string catEvent(ApiHost& h) {
+            Rig* g = h.rig();
+            if (!g) return "";
+            const CatState& s = g->state();
+            JsonDocument d;
+            d["e"] = "cat";
+            d["rig"] = g->info();
+            d["l"] = s.link;
+            putHz(d["f"], s.freq);
+            d["m"] = s.mode;
+            if (s.txFreq) putHz(d["tf"], s.txFreq);
+            d["sp"] = s.split;
+            d["v"] = std::string(1, s.vfo);
+            d["ptt"] = s.ptt;
+            d["sm"] = s.smeter;
+            d["pa"] = h.catPttAllowed();
+            if (CatTracker* t = h.catTracker()) {
+                JsonObject tr = d["tr"].to<JsonObject>();
+                tr["en"] = t->enabled; tr["on"] = t->active; tr["n"] = t->name; tr["dop"] = t->doppler;
+            }
+            return dump(d);
+        }
+
         static void info(ApiHost& h, std::vector<std::string>& out) {
             JsonDocument d;
             d["e"] = "info";
@@ -161,8 +222,12 @@ namespace RC {
             d["hasEl"] = r.hasEl();
             d["pin"] = h.pin() && h.pin()[0];
             h.info(d.as<JsonObject>());
+            d["cat"] = h.rig() != nullptr;
             out.push_back(dump(d));
         }
+
+        // Hz como entero (hasta 4,29 GHz cabe en 32 bits en todas las placas)
+        template <typename V> static void putHz(V v, uint64_t hz) { if (hz <= 0xFFFFFFFFull) v.set((uint32_t)hz); else v.set((double)hz); }
 
         static double round1(double v) { return round(v * 10.0) / 10.0; }
 

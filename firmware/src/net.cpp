@@ -28,11 +28,13 @@ namespace Net {
 #include "config.h"
 #include "drivers.h"
 #include "services.h"
+#include "cat.h"
+#include "rc_rigctld.h"
 #include "web_page.h"
 
 namespace Net {
 
-    static const int ROT_CLIENTS = 4, API_CLIENTS = 3;
+    static const int ROT_CLIENTS = 4, API_CLIENTS = 3, RIG_CLIENTS = 3;
 
     static WebServer        web(80);
     static HTTPUpdateServer updater;
@@ -40,6 +42,9 @@ namespace Net {
     static WiFiServer*      apiSrv = nullptr;
     static WiFiClient       rotCli[ROT_CLIENTS];
     static RC::RotctlSession rotSess[ROT_CLIENTS];
+    static WiFiServer*      rigSrv = nullptr;
+    static WiFiClient       rigCli[RIG_CLIENTS];
+    static RC::RigctlSession rigSess[RIG_CLIENTS];
     static WiFiClient       apiCli[API_CLIENTS];
     static ApiClient        apiSess[API_CLIENTS];
     static bool             started = false, apMode = false, mdnsOk = false;
@@ -89,6 +94,7 @@ namespace Net {
         updater.setup(&web, "/update", Cfg.webUser.c_str(), webPass.c_str());
         web.begin();
         if (Cfg.rotctld) { rotSrv = new WiFiServer(Cfg.rotctldPort); rotSrv->begin(); rotSrv->setNoDelay(true); }
+        if (Cat::engine() && Cfg.rigctld) { rigSrv = new WiFiServer(Cfg.rigctldPort); rigSrv->begin(); rigSrv->setNoDelay(true); }
         apiSrv = new WiFiServer(Cfg.apiPort);
         apiSrv->begin();
         apiSrv->setNoDelay(true);
@@ -96,6 +102,7 @@ namespace Net {
         if (mdnsOk) {
             MDNS.addService("http", "tcp", 80);
             if (Cfg.rotctld) MDNS.addService("rotctld", "tcp", Cfg.rotctldPort);
+            if (rigSrv) MDNS.addService("rigctld", "tcp", Cfg.rigctldPort);
             MDNS.addService("aprsrotor", "tcp", Cfg.apiPort);
         }
         Board::startNtp(Cfg.ntp.c_str());
@@ -150,7 +157,22 @@ namespace Net {
         RC::Rotor& rot = Drv::rotor();
         accept(rotSrv, rotCli, rotSess);
         accept(apiSrv, apiCli, apiSess);
+        accept(rigSrv, rigCli, rigSess);
         char buf[128];
+        if (RC::CatEngine* rig = Cat::engine()) {
+            for (int i = 0; i < RIG_CLIENTS; i++) {
+                WiFiClient& c = rigCli[i];
+                if (!c || !c.connected()) continue;
+                while (c.available()) {
+                    const int n = c.read((uint8_t*)buf, sizeof(buf));
+                    if (n <= 0) break;
+                    std::string out;
+                    const bool close = rigSess[i].feed(buf, n, *rig, out);
+                    if (!out.empty()) c.write((const uint8_t*)out.data(), out.size());
+                    if (close) { c.stop(); break; }
+                }
+            }
+        }
         for (int i = 0; i < ROT_CLIENTS; i++) {
             WiFiClient& c = rotCli[i];
             if (!c || !c.connected()) continue;

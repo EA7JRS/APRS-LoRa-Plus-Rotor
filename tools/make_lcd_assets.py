@@ -18,7 +18,7 @@ import subprocess
 from PIL import Image, ImageDraw, ImageFont
 
 ASCII = [chr(c) for c in range(32, 127)]
-EXTRA = list("°·©ñÑáéíóúÁÉÍÓÚü¿¡±→×●−…")
+EXTRA = list("°·©ñÑáéíóúÁÉÍÓÚü¿¡±→×●−…↑↓")
 
 # nombre, fichero, tamaño en px, caracteres
 FONTS = [

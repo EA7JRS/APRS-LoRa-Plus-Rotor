@@ -41,6 +41,10 @@ public:
     void        reboot() override;
     const char* pin() override;
     std::string lastAprs() override;
+    RC::Rig*        rig() override;
+    RC::CatTracker* catTracker() override;
+    bool            catPttAllowed() override;
+    uint32_t        nowMs() override { return millis(); }
 };
 extern RotorApiHost ApiHost;
 
@@ -52,10 +56,10 @@ void serviceReboot();
 struct ApiClient {
     RC::ApiSession sess;
     std::string    in;
-    uint32_t       lastEvt = 0;
+    uint32_t       lastEvt = 0, lastCat = 0;
     bool           wasMoving = false;
     // Devuelve las lineas a enviar por los datos recibidos y por el temporizador de eventos
     void feed(const char* data, size_t n, std::vector<std::string>& out);
     void tick(std::vector<std::string>& out);
-    void reset() { sess = RC::ApiSession(); in.clear(); lastEvt = 0; wasMoving = false; }
+    void reset() { sess = RC::ApiSession(); in.clear(); lastEvt = 0; lastCat = 0; wasMoving = false; }
 };

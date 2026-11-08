@@ -11,6 +11,7 @@
 #include "lora_aprs.h"
 #include "net.h"
 #include "bt.h"
+#include "cat.h"
 #if ROTOR_ESP32
     #include <esp_ota_ops.h>
 #endif
@@ -97,8 +98,10 @@ void RotorApiHost::info(JsonObject o) {
     caps["cal"] = Cfg.driver == 0;
     caps["move"] = !(Cfg.driver == 1 && Cfg.serProto == RC::SP_ROT2PROG);
     caps["lcd"] = ROTOR_HAS_LCD != 0;
+    caps["cat"] = Cat::engine() != nullptr;
     o["ip"] = Net::ip();
     o["rotctld"] = Cfg.rotctld ? Cfg.rotctldPort : 0;
+    o["rigctld"] = (Cat::engine() && Cfg.rigctld) ? Cfg.rigctldPort : 0;
     o["heap"] = Board::freeHeap();
     o["up"] = millis() / 1000;
     o["utc"] = (unsigned long long)Board::utc();
@@ -129,6 +132,9 @@ void RotorApiHost::clearFault() { Drv::clearFault(); }
 void RotorApiHost::reboot() { requestReboot(); }
 const char* RotorApiHost::pin() { return Cfg.pin.c_str(); }
 std::string RotorApiHost::lastAprs() { return LoraAprs::lastResult(); }
+RC::Rig* RotorApiHost::rig() { return Cat::engine(); }
+RC::CatTracker* RotorApiHost::catTracker() { return Cat::engine() ? &Cat::tracker() : nullptr; }
+bool RotorApiHost::catPttAllowed() { return Cfg.catPtt && Cat::engine() && !Cat::engine()->receiver(); }
 
 // ---------------------------------------------------------------------------------------------------------------------------
 static uint32_t rebootAt = 0;
@@ -163,5 +169,9 @@ void ApiClient::tick(std::vector<std::string>& out) {
         wasMoving = moving;
         lastEvt = now;
         out.push_back(RC::ApiSession::posEvent(ApiHost));
+    }
+    if (Cat::engine() && now - lastCat >= (sess.subMs < 1000 ? 1000 : sess.subMs)) {     // estado de la emisora cada segundo
+        lastCat = now;
+        out.push_back(RC::ApiSession::catEvent(ApiHost));
     }
 }

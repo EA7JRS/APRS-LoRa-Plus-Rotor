@@ -127,6 +127,65 @@ static void run(int W, int H, const std::string& out) {
     ui.touch(false, 0, 0, 8700, s);
     CHECK(ui.page == Lcd::Ui::MAIN);
 
+    // ---- CAT
+    ui.touch(true, L.catBtn.x + 5, L.catBtn.y + 5, 9000, s);    // sin CAT configurado: nada
+    ui.touch(false, 0, 0, 9050, s);
+    CHECK(ui.page == Lcd::Ui::MAIN);
+    s.catOn = true; s.catLink = true; s.rig = "IC-9700 · CI-V A2 · 19200"; s.freq = 145825000; s.mode = "FM"; s.vfo = 'A';
+    s.smeter = 7; s.step = 5000; s.allowPtt = true; s.tracking = true; s.trackName = "ISS"; s.doppler = 2340;
+    s.txFreq = 145990000; s.txMode = "FM";
+    ui.draw(fb, s);
+    writePpm(fb, p + "main_with_cat.ppm");
+    center(L.catBtn, x, y);
+    ui.touch(true, x, y, 9100, s);
+    ui.touch(false, 0, 0, 9150, s);
+    CHECK(ui.page == Lcd::Ui::CAT);
+    ui.draw(fb, s);
+    writePpm(fb, p + "cat_sat.ppm");
+    center(L.tuneUp, x, y);
+    c = ui.touch(true, x, y, 9200, s);
+    CHECK(c.cmd == Lcd::Cmd::CAT && c.cat == Lcd::CatOp::TUNE && c.value == 1);
+    ui.touch(false, 0, 0, 9250, s);
+    center(L.tuneDown, x, y);
+    c = ui.touch(true, x, y, 9300, s);
+    CHECK(c.cmd == Lcd::Cmd::CAT && c.cat == Lcd::CatOp::TUNE && c.value == -1);
+    ui.touch(false, 0, 0, 9350, s);
+    center(L.stepBtn, x, y);
+    c = ui.touch(true, x, y, 9400, s);
+    CHECK(c.cat == Lcd::CatOp::STEP && c.value == 12500);
+    ui.touch(false, 0, 0, 9450, s);
+    center(L.modeBtn[1], x, y);
+    c = ui.touch(true, x, y, 9500, s);
+    CHECK(c.cat == Lcd::CatOp::MODE && c.text == "USB");
+    ui.touch(false, 0, 0, 9550, s);
+    center(L.trackBtn, x, y);
+    c = ui.touch(true, x, y, 9600, s);
+    CHECK(c.cat == Lcd::CatOp::TRACK && c.value == 0);
+    ui.touch(false, 0, 0, 9650, s);
+    center(L.pttBtn, x, y);
+    c = ui.touch(true, x, y, 9700, s);
+    CHECK(c.cat == Lcd::CatOp::PTT_ON);
+    s.ptt = true;
+    ui.draw(fb, s);
+    writePpm(fb, p + "cat_tx.ppm");
+    c = ui.touch(false, 0, 0, 9900, s);
+    CHECK(c.cmd == Lcd::Cmd::CAT && c.cat == Lcd::CatOp::PTT_OFF);
+    s.ptt = false; s.allowPtt = false;
+    c = ui.touch(true, x, y, 10000, s);                      // PTT desactivado
+    CHECK(c.cmd == Lcd::Cmd::NONE);
+    ui.touch(false, 0, 0, 10050, s);
+    s.tracking = false; s.txFreq = 0; s.freq = 14074000; s.mode = "USB"; s.smeter = 12; s.step = 100; s.rig = "FT-991A · Yaesu · 38400";
+    ui.draw(fb, s);
+    writePpm(fb, p + "cat_hf.ppm");
+    for (int i = 0; i < 6; i++) CHECK(L.modeBtn[i].x + L.modeBtn[i].w <= W && L.modeBtn[i].y + L.modeBtn[i].h <= H);
+    CHECK(L.pttBtn.y + L.pttBtn.h <= H && L.trackCard.y + L.trackCard.h <= L.tuneDown.y);
+    CHECK(Lcd::Ui::fmtFreqPublic(145825000) == "145.825.000" && Lcd::Ui::fmtFreqPublic(7074000) == "7.074.000");
+    center(L.catBtn, x, y);
+    ui.touch(true, x, y, 10100, s);
+    ui.touch(false, 0, 0, 10150, s);
+    CHECK(ui.page == Lcd::Ui::MAIN);
+    s.catOn = false;
+
     // ---- todo dentro de la pantalla
     for (int i = 0; i < 6; i++) CHECK(L.btn[i].x >= 0 && L.btn[i].x + L.btn[i].w <= W && L.btn[i].y + L.btn[i].h <= H);
     CHECK(L.cy + L.tickLabelR + L.S->height / 2 <= L.btn[0].y);
