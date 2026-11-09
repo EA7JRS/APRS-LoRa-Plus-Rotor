@@ -65,7 +65,7 @@ In the WebUI, **Calibración**: take the rotor to one end (e.g. 0°), type the d
 - **GPredict / Look4Sat / PstRotator**: Hamlib "NET rotctl", `IP:4533`.
 - **PC over USB**: the board shows up as a GS-232B (`rotctl -m 603 -r /dev/ttyUSB0`).
 - **Touch screen**: hold a button to move; hold the compass for half a second, drag and release to aim.
-- **Wind (optional)**: with `wind.on: true` and the app's internet weather on, the box parks the rotor on gusts of `wind.park` m/s (15) or more.
+- **Wind (optional)**: with `wind.on: true` and the app's internet weather on, the box parks the rotor on gusts of `wind.park` m/s (15) or more. With a cup anemometer on the box (`wind.anemoPin`, `wind.kmhPerHz`), it uses that one instead of the internet data.
 - **APRS messages over LoRa**: send `P 123 45` to the rotor's callsign (boards with a LoRa module).
 - **Radio or SDR (CAT, optional)**: radio on `cat.rx` / `cat.tx` (3.3 V; MAX3232 for RS-232), `cat.proto` (1 Icom, 2 Yaesu, 3 FT-817/857/897, 4 Kenwood/Elecraft, 5 SDRconnect for the RSPdx-R2, 6 SDR++/gqrx), `cat.baud`, `cat.civ` (Icom). Drive it with the **CAT** button on the screen, the WebUI, the app (*Radio (CAT)*, with satellite Doppler) or over rigctld on port 4532. PTT off unless `cat.ptt: true`. See [CAT.md](CAT.md).
 

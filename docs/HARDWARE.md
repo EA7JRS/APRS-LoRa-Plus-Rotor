@@ -68,6 +68,23 @@ El G-5500 necesita una pausa antes de invertir el giro (`reverseMs`, 1,2 s) y no
 
 Seguridad del control directo: para en los topes (`limitMargin`), da fallo de atasco si no avanza `stallDeg` en `stallMs` y apaga todo si el sensor deja de leer. Tras un fallo, una orden de posición nueva o `clear` lo rearma.
 
+## Anemómetro de cazoletas
+
+Los de cazoletas baratos (Misol, Fine Offset, SparkFun, Davis) llevan una **ampolla reed**: el imán del eje la cierra una o dos veces por vuelta. Es un simple contacto, sin alimentación:
+
+```
+pin wind.anemoPin ──┬──── hilo 1 del anemómetro
+                    │
+          100 nF ═══╪          (opcional, con cable largo)
+                    │
+GND ────────────────┴──── hilo 2 del anemómetro
+```
+
+- Con `wind.pullup: true` basta la resistencia interna. Con más de unos metros de cable, pon una externa de 4,7 k a 3V3 y el condensador de 100 nF junto a la placa (filtra los picos); la caja además ignora los cierres a menos de 5 ms del anterior (rebotes).
+- En los de conector RJ11 de las estaciones meteorológicas, el anemómetro va en los **dos hilos centrales** (o en la veleta, si vienen juntos: mide con el polímetro cuál cierra al girar las cazoletas).
+- Elige un GPIO libre de la placa que admita interrupciones (no los del expansor de las Waveshare). En la ESP32 DevKit valen por ejemplo 4 o 13; en la ESP32-S3, 10-14 o 21 (si no los usa el módulo LoRa); en la Pico, cualquier GP libre.
+- Rayos: el mástil y el cable del anemómetro son una buena antena. Mejor con un protector (TVS o diodos a 3V3 y GND) en la entrada.
+
 ## Pasarela serie
 
 UART de la placa → controlador. Con controladores RS-232 (GS-232A/B, Rot2Prog, MD-01) pon un módulo MAX3232 a 3,3 V. Con placas TTL (K3NG, SatNOGS v3) directo, si son de 3,3 V; si son de 5 V, divisor en el RX.

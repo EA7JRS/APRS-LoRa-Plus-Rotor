@@ -117,6 +117,7 @@ namespace Config {
         ct["rigctld"] = c.rigctld; ct["rigctldPort"] = c.rigctldPort; ct["host"] = c.catHost; ct["port"] = c.catPort;
         JsonObject wd = d["wind"].to<JsonObject>();
         wd["on"] = c.windOn; wd["park"] = c.windParkMs; wd["resume"] = c.windResumeMs; wd["hold"] = c.windHoldMin;
+        wd["anemoPin"] = c.anemoPin; wd["kmhPerHz"] = c.anemoKmhHz; wd["pullup"] = c.anemoPullup;
     #if ROTOR_HAS_LCD
         JsonObject lc = d["lcd"].to<JsonObject>();
         lc["bright"] = c.lcdBright; lc["dimS"] = c.lcdDimS;
@@ -154,6 +155,8 @@ namespace Config {
         if (!(c.windParkMs >= 3 && c.windParkMs <= 60) || !(c.windResumeMs > 0 && c.windResumeMs <= c.windParkMs) || c.windHoldMin < 0 || c.windHoldMin > 720) {
             err = "wind: park 3-60 m/s, 0 < resume <= park, hold 0-720 min"; return false;
         }
+        if (c.anemoPin >= 100 || c.anemoPin < -1) { err = "wind.anemoPin (GPIO de la placa, no del expansor)"; return false; }
+        if (!(c.anemoKmhHz > 0.1 && c.anemoKmhHz < 50)) { err = "wind.kmhPerHz 0.1-50"; return false; }
         if (c.lcdBright < 10 || c.lcdBright > 100 || c.lcdDimS < 0) { err = "lcd.bright 10-100 / lcd.dimS >= 0"; return false; }
         if (c.catProto < 0 || c.catProto > 6) { err = "cat.proto 0-6"; return false; }
         const bool catNet = RC::catIsNetwork(c.catProto);
@@ -207,6 +210,7 @@ namespace Config {
         get(d, "led", n.led);
         JsonVariantConst wd = d["wind"];
         get(wd, "on", n.windOn); getD(wd, "park", n.windParkMs); getD(wd, "resume", n.windResumeMs); get(wd, "hold", n.windHoldMin);
+        get(wd, "anemoPin", n.anemoPin); getD(wd, "kmhPerHz", n.anemoKmhHz); get(wd, "pullup", n.anemoPullup);
         get(d["lcd"], "bright", n.lcdBright); get(d["lcd"], "dimS", n.lcdDimS);
         JsonVariantConst ct = d["cat"];
         get(ct, "proto", n.catProto); get(ct, "baud", n.catBaud); get(ct, "rx", n.catRx); get(ct, "tx", n.catTx); get(ct, "civ", n.catCiv);

@@ -83,6 +83,18 @@ Cada eje:
 | `trackStep` | 50 | Hz mínimos para resintonizar al seguir el Doppler |
 | `rigctld` / `rigctldPort` | true / 4532 | servidor rigctld de la emisora |
 
+## `wind` (protección por viento)
+
+| Clave | Por defecto | |
+|---|---|---|
+| `on` | false | aparcar y bloquear el rotor con viento fuerte |
+| `park` | 15 | racha (o viento medio si no hay racha), m/s, para aparcar |
+| `resume` | 10 | por debajo de esto, m/s… |
+| `hold` | 15 | …y tras estos minutos sin rachas fuertes, vuelve a aceptar movimientos |
+| `anemoPin` | -1 | pin del anemómetro de cazoletas (ampolla reed a masa); -1 = se usa el tiempo de internet de la app. Un GPIO de la placa (no del expansor) que admita interrupciones |
+| `kmhPerHz` | 2.4 | km/h por impulso por segundo (Misol / Fine Offset 2,4; Davis 6410 3,62) |
+| `pullup` | true | resistencia interna a 3V3 (con cable largo, mejor una externa de 4,7 k) |
+
 ## `aprs`
 
 `call` (indicativo del rotor), `tocall` (`APZLRR`), `path`, `allow`, `totp`, `reply`, `beaconMin`, `lat`, `lon`, `comment`. Ver [APRS_CONTROL.md](APRS_CONTROL.md).

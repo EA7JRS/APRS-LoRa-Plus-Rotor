@@ -173,6 +173,7 @@ namespace RC {
             if (c == "wx") {                                    // tiempo de internet de la app: ws / wg m/s, wd grados, age s, src
                 WindGuard* g = h.wind();
                 if (!g) { err(out, c, "no wind"); return; }
+                if (g->local) { ok(out, c); return; }           // manda el anemómetro de la caja
                 if (!in["ws"].is<double>() && !in["wg"].is<double>()) { err(out, c, "ws"); return; }
                 const double ws = in["ws"] | 0.0, wg = in["wg"].is<double>() ? in["wg"].as<double>() : -1.0;
                 if (ws < 0 || ws > 150 || wg > 150) { err(out, c, "range"); return; }
@@ -219,6 +220,7 @@ namespace RC {
             w["pk"] = round1(g->peak());
             w["age"] = g->ageS(now);
             if (g->src()[0]) w["src"] = g->src();
+            if (g->local) w["local"] = true;
             if (g->locked()) w["hold"] = g->holdLeftS(now);
         }
 

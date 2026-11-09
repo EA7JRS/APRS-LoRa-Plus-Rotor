@@ -16,6 +16,7 @@
 #include "rc_cat.h"
 #include "rc_rigctld.h"
 #include "rc_wind.h"
+#include "rc_anemo.h"
 
 using namespace RC;
 
@@ -402,6 +403,37 @@ static void testWind() {
     o.clear(); s2.handle("{\"c\":\"wx\",\"ws\":3}", f, o); CHECK(o[0].find("no wind") != std::string::npos);
     o.clear(); s2.handle("{\"c\":\"get\"}", f, o); CHECK(o[0].find("wind") == std::string::npos);
     CHECK(std::string(faultText(F_WIND)) == "WIND");
+    // Con anemómetro en la caja, el tiempo de internet no cuenta
+    WindHost h2; h2.g.cfg.on = true; h2.g.local = true; ApiSession s3;
+    o.clear(); s3.handle("{\"c\":\"wx\",\"ws\":30,\"wg\":40}", h2, o);
+    CHECK(o[0] == "{\"e\":\"ok\",\"c\":\"wx\"}" && !h2.g.locked() && !h2.g.have());
+    h2.g.update(4, 6, -1, 0, "anemo", h2.t);
+    o.clear(); s3.handle("{\"c\":\"get\"}", h2, o); CHECK(o[0].find("\"src\":\"anemo\",\"local\":true") != std::string::npos);
+}
+
+// Anemómetro de cazoletas: impulsos -> viento, medio, racha
+static void testAnemo() {
+    Anemometer a;
+    uint32_t total = 0, t = 0;
+    a.sample(total, t);
+    for (int i = 0; i < 60; i++) { t += 1000; total += 10; a.sample(total, t); }        // 10 Hz durante 1 min
+    CHECK(a.have() && a.seconds() == 60);
+    NEAR(a.hz(), 10, 1e-9); NEAR(a.windMs(), 10 * 2.4 / 3.6, 1e-9); NEAR(a.avgMs(120), 10 * 2.4 / 3.6, 1e-9);
+    for (int i = 0; i < 3; i++) { t += 1000; total += 30; a.sample(total, t); }          // racha: 30 Hz durante 3 s
+    for (int i = 0; i < 10; i++) { t += 1000; total += 10; a.sample(total, t); }
+    NEAR(a.gustMs(), 30 * 2.4 / 3.6, 1e-9); NEAR(a.windMs(), 10 * 2.4 / 3.6, 1e-9);
+    NEAR(a.avgMs(73), (70 * 10 + 90) / 73.0 * 2.4 / 3.6, 1e-9);
+    t += 500; total += 99; a.sample(total, t);                                             // menos de 1 s: espera
+    CHECK(a.seconds() == 73);
+    t += 1000; a.sample(total, t);                                                         // 1,5 s con 99 impulsos = 66 Hz
+    NEAR(a.hz(1), 66, 1e-9);
+    t += 10000; a.sample(total, t); CHECK(!a.have());                                      // hueco de 10 s: de nuevo
+    for (int i = 0; i < 3; i++) { t += 1000; a.sample(total, t); }
+    CHECK(a.have() && a.windMs() == 0 && a.gustMs() == 0);
+    a.kmhPerHz = 3.62;                                                                     // Davis
+    CHECK(Anemometer::beaufort(0.2) == 0 && Anemometer::beaufort(5.0) == 3 && Anemometer::beaufort(17.2) == 8 && Anemometer::beaufort(40) == 12);
+    ReedDebounce r;
+    CHECK(r.accept(10000) && !r.accept(12000) && r.accept(15001) && r.accept(0xFFFFFFF0u) && r.accept(5000));   // vuelta del contador
 }
 
 static void testApi() {
@@ -796,6 +828,7 @@ int main() {
     testAprs();
     testApi();
     testWind();
+    testAnemo();
     testCatCiv();
     testCatYaesu();
     testCatKenwood();

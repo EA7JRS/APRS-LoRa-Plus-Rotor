@@ -11,6 +11,7 @@
 #include <string>
 #include "rc_common.h"
 #include "rc_wind.h"
+#include "rc_anemo.h"
 
 namespace Drv {
     void        begin();

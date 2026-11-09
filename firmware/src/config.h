@@ -122,6 +122,9 @@ struct RotorConfig {
     double      windParkMs = 15.0;          // racha (o viento medio) en m/s para aparcar y bloquear
     double      windResumeMs = 10.0;        // vuelve a aceptar movimientos por debajo de esto...
     int         windHoldMin = 15;           // ...y tras estos minutos sin rachas fuertes
+    int         anemoPin = -1;              // anemómetro de cazoletas (ampolla reed a masa); -1 = sin él (se usa el tiempo de la app)
+    double      anemoKmhHz = 2.4;           // km/h por impulso por segundo (Misol / Fine Offset 2,4; Davis 6410 3,62)
+    bool        anemoPullup = true;         // resistencia interna a 3V3
 
     // Pantalla tactil (placas con LCD)
     int         lcdBright = 80;             // brillo 10-100 %

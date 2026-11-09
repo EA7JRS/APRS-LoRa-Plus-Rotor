@@ -27,6 +27,7 @@ namespace RC {
     class WindGuard {
     public:
         WindCfg cfg;
+        bool    local = false;                  // hay anemómetro en la caja: el tiempo de internet (wx) no se usa
 
         // Dato nuevo (m/s; gust < 0 = sin racha). Devuelve true si acaba de bloquear (hay que aparcar)
         bool update(double wind, double gust, int dirDeg, uint32_t ageS, const char* src, uint32_t nowMs) {

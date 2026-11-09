@@ -340,11 +340,43 @@ namespace Drv {
     RC::WindGuard& wind() { return windG; }
     void windConfig() {
         windG.cfg.on = Cfg.windOn; windG.cfg.parkMs = Cfg.windParkMs; windG.cfg.resumeMs = Cfg.windResumeMs; windG.cfg.holdMin = Cfg.windHoldMin;
+        windG.local = Cfg.anemoPin >= 0;
+    }
+
+    // Anemómetro de cazoletas: la interrupción cuenta los cierres de la ampolla (con filtro de rebotes) y cada segundo el
+    // viento (media de 2 min) y la racha (mayor media de 3 s de los últimos 2 min) van a la protección por viento
+#ifndef IRAM_ATTR
+    #define IRAM_ATTR
+#endif
+    static RC::Anemometer   anemo;
+    static volatile uint32_t anemoPulses = 0, anemoLastUs = 0;
+    static uint32_t anemoLastFeed = 0;
+    // Rebotes de la ampolla: un cierre cuenta si han pasado 5 ms desde el anterior (200 Hz como mucho)
+    static void IRAM_ATTR anemoIsr() {
+        const uint32_t t = (uint32_t)micros();
+        if (t - anemoLastUs >= 5000) { anemoLastUs = t; anemoPulses = anemoPulses + 1; }
+    }
+
+    static void anemoBegin() {
+        if (Cfg.anemoPin < 0) return;
+        anemo.kmhPerHz = Cfg.anemoKmhHz;
+        pinMode(Cfg.anemoPin, Cfg.anemoPullup ? INPUT_PULLUP : INPUT);
+        attachInterrupt(digitalPinToInterrupt(Cfg.anemoPin), anemoIsr, FALLING);
+        logf("anemometro en el pin %d (%.2f km/h por Hz)\n", Cfg.anemoPin, Cfg.anemoKmhHz);
+    }
+
+    static void anemoLoop(uint32_t now) {
+        if (Cfg.anemoPin < 0) return;
+        anemo.sample(anemoPulses, now);
+        if (!anemo.have() || now - anemoLastFeed < 1000) return;
+        anemoLastFeed = now;
+        if (windG.update(anemo.avgMs(120), anemo.gustMs(120), -1, 0, "anemo", now)) { rotor().stop(); rotor().park(); }
     }
     static RC::Rotor& realRotor() { if (Cfg.driver == 1) return serial; return direct; }
 
     void begin() {
         windConfig();
+        anemoBegin();
         if (Cfg.driver == 1) {
             openSerial();
             return;
@@ -374,6 +406,7 @@ namespace Drv {
 
     void loop() {
         windG.tick(millis());
+        anemoLoop(millis());
         if (Cfg.driver == 1) { serial.poll(); return; }
         if (usingAds) Ads::poll(Cfg.azPins.sensor == 1 ? Cfg.azPins.adsChannel : -1, (Cfg.elEnabled && Cfg.elPins.sensor == 1) ? Cfg.elPins.adsChannel : -1);
         const uint32_t now = millis();
@@ -405,6 +438,10 @@ namespace Drv {
     }
 
     void raw(JsonObject o) {
+        if (Cfg.anemoPin >= 0) {                                    // para calibrar el anemómetro: impulsos por segundo
+            o["anemoHz"] = round(anemo.hz(3) * 100) / 100;
+            o["anemoPulses"] = (uint32_t)anemoPulses;
+        }
         if (Cfg.driver == 1) {
             o["link"] = serial.linkOk();
             if (Cfg.serProto == RC::SP_RSBUS && serial.busErr) o["err"] = serial.busErr;   // código del controlador
