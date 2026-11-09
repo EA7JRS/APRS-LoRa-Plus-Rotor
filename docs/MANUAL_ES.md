@@ -212,6 +212,7 @@ Placas **Waveshare ESP32-C5-Touch-LCD-3.5** (vertical), **ESP32-S3-Touch-AMOLED-
 - **Fallo**: aparece en rojo; tócalo para borrarlo.
 - **CAT** (botón de la cabecera, con `cat.proto`): frecuencia, − / paso / +, LSB · USB · CW · FM · AM · DIG, *Seguir* (Doppler), A / B y PTT manteniendo pulsado. El tono CTCSS se ve junto al nombre de la emisora.
 - **ⓘ**: nombre, indicativo, placa, WiFi, IP, puertos, Bluetooth, tiempo encendida, **Acerca de** y brillo.
+- **Colores**: de serie, la paleta de la app Android (la misma que APRS LoRa+ Display); con `lcd.theme` 1, la de la WebUI (cabecera roja).
 - **Brillo y apagado**: `lcd.bright` y `lcd.dimS`. La LCD se atenúa; la AMOLED se apaga para que no queden marcas. El primer toque solo la enciende.
 
 ## 9. App Android

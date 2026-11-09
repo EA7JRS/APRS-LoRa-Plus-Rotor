@@ -120,7 +120,7 @@ namespace Config {
         wd["anemoPin"] = c.anemoPin; wd["kmhPerHz"] = c.anemoKmhHz; wd["pullup"] = c.anemoPullup;
     #if ROTOR_HAS_LCD
         JsonObject lc = d["lcd"].to<JsonObject>();
-        lc["bright"] = c.lcdBright; lc["dimS"] = c.lcdDimS;
+        lc["bright"] = c.lcdBright; lc["dimS"] = c.lcdDimS; lc["theme"] = c.lcdTheme;
     #endif
         std::string out;
         serializeJson(d, out);
@@ -158,6 +158,7 @@ namespace Config {
         if (c.anemoPin >= 100 || c.anemoPin < -1) { err = "wind.anemoPin (GPIO de la placa, no del expansor)"; return false; }
         if (!(c.anemoKmhHz > 0.1 && c.anemoKmhHz < 50)) { err = "wind.kmhPerHz 0.1-50"; return false; }
         if (c.lcdBright < 10 || c.lcdBright > 100 || c.lcdDimS < 0) { err = "lcd.bright 10-100 / lcd.dimS >= 0"; return false; }
+        if (c.lcdTheme < 0 || c.lcdTheme > 1) { err = "lcd.theme 0 (app) / 1 (rotor)"; return false; }
         if (c.catProto < 0 || c.catProto > 6) { err = "cat.proto 0-6"; return false; }
         const bool catNet = RC::catIsNetwork(c.catProto);
         if (c.catProto && !catNet && (c.catRx < 0 || c.catTx < 0)) { err = "cat.rx / cat.tx"; return false; }
@@ -211,7 +212,7 @@ namespace Config {
         JsonVariantConst wd = d["wind"];
         get(wd, "on", n.windOn); getD(wd, "park", n.windParkMs); getD(wd, "resume", n.windResumeMs); get(wd, "hold", n.windHoldMin);
         get(wd, "anemoPin", n.anemoPin); getD(wd, "kmhPerHz", n.anemoKmhHz); get(wd, "pullup", n.anemoPullup);
-        get(d["lcd"], "bright", n.lcdBright); get(d["lcd"], "dimS", n.lcdDimS);
+        get(d["lcd"], "bright", n.lcdBright); get(d["lcd"], "dimS", n.lcdDimS); get(d["lcd"], "theme", n.lcdTheme);
         JsonVariantConst ct = d["cat"];
         get(ct, "proto", n.catProto); get(ct, "baud", n.catBaud); get(ct, "rx", n.catRx); get(ct, "tx", n.catTx); get(ct, "civ", n.catCiv);
         getS(ct, "model", n.catModel); get(ct, "pollMs", n.catPollMs); get(ct, "ptt", n.catPtt); get(ct, "pttMaxS", n.catPttMaxS); get(ct, "trackStep", n.catTrackStep);

@@ -18,6 +18,25 @@
 
 namespace Lcd {
 
+    // Paletas: la de la app Android (Theme.kt, de serie; la misma que APRS LoRa+ Display) y la de antes (cabecera roja)
+    struct Pal {
+        uint32_t bg, card, cardB, fg, mut, acc, red, green, yel, line;
+        uint32_t hdr, hdrLine, title, sub, linkOn, linkOff;              // cabecera
+        uint32_t btn, btnB, btnText, btnPr, btnPrText, sel, selText;     // botones (normal, pulsado, elegido)
+        uint32_t stop, stopPr, dis, faultBg, trackBg, pillMode, pillRx, overlap;
+    };
+    enum Theme { THEME_APP = 0, THEME_ROTOR = 1 };
+    static const Pal PAL_APP = {    // fondo gris azulado, verde y cian del logo; ámbar para lo elegido
+        0x131A22, 0x18222D, 0x263443, 0xE8EEF3, 0x9FB0BF, 0x28B5E1, 0xFF6B6B, 0x3CE68A, 0xFFB347, 0x263443,
+        0x131A22, 0x263443, 0xE8EEF3, 0x28B5E1, 0x3CE68A, 0xFFB347,
+        0x1E2A36, 0x2E3E4F, 0xE8EEF3, 0x28B5E1, 0x131A22, 0xFFB347, 0x131A22,
+        0xD64545, 0xFF6B6B, 0x4A5868, 0x3A1E24, 0x15303D, 0x1E3A4A, 0x1C4030, 0xFFB347 };
+    static const Pal PAL_ROTOR = {  // la de la WebUI: fondo oscuro, azul, cabecera roja
+        0x10151c, 0x19212b, 0x19212b, 0xe6edf3, 0x8b98a5, 0x4aa3ff, 0xff5d5d, 0x3fb950, 0xffd23f, 0x33475c,
+        0xb21d1d, 0x7a1414, 0xffffff, 0xf0d0d0, 0xffffff, 0xd88a8a,
+        0x263241, 0x263241, 0xffffff, 0x4aa3ff, 0xffffff, 0x2f6fb0, 0xffffff,
+        0xd63a3a, 0xff8080, 0x4a5868, 0x4a1a1a, 0x14324a, 0x26445f, 0x1f4d2b, 0xd29922 };
+
     struct UiState {
         // Rotor
         double      az = NAN, el = NAN;             // posición
@@ -174,15 +193,35 @@ namespace Lcd {
 
     class Ui {
     public:
-        explicit Ui(int w = 320, int h = 480) : L(Layout::make(w, h)) {}
+        explicit Ui(int w = 320, int h = 480, int theme = THEME_APP) : L(Layout::make(w, h)) { setTheme(theme); }
         const Layout L;
         enum Page { MAIN, INFO, CAT };
         Page page = MAIN;
 
-        // Colores (los de la WebUI)
-        const uint16_t BG = hex(0x10151c), CARD = hex(0x19212b), FG = hex(0xe6edf3), MUT = hex(0x8b98a5), ACC = hex(0x4aa3ff);
-        const uint16_t RED = hex(0xff5d5d), HDR = hex(0xb21d1d), BTN = hex(0x263241), BTN_ON = hex(0x4aa3ff);
-        const uint16_t LINE = hex(0x33475c), GREEN = hex(0x3fb950), WHITE = hex(0xffffff), STOPC = hex(0xd63a3a);
+        // Colores de la paleta elegida (lcd.theme)
+        int theme = -1;
+        uint16_t BG, CARD, CARDB, FG, MUT, ACC, RED, GREEN, YEL, LINE, HDR, HDRL, TITLE, SUB, LINK_ON, LINK_OFF;
+        uint16_t BTN, BTNB, BTNT, BTN_ON, BTN_ONT, SEL, SELT, STOPC, STOP_PR, DIS, FAULT_BG, TRACK_BG, PILL_MODE, PILL_RX, OVERLAP;
+        const uint16_t WHITE = hex(0xffffff);
+        void setTheme(int t) {
+            if (t != THEME_ROTOR) t = THEME_APP;
+            if (t == theme) return;
+            theme = t;
+            const Pal& p = t == THEME_ROTOR ? PAL_ROTOR : PAL_APP;
+            BG = hex(p.bg); CARD = hex(p.card); CARDB = hex(p.cardB); FG = hex(p.fg); MUT = hex(p.mut); ACC = hex(p.acc);
+            RED = hex(p.red); GREEN = hex(p.green); YEL = hex(p.yel); LINE = hex(p.line);
+            HDR = hex(p.hdr); HDRL = hex(p.hdrLine); TITLE = hex(p.title); SUB = hex(p.sub); LINK_ON = hex(p.linkOn); LINK_OFF = hex(p.linkOff);
+            BTN = hex(p.btn); BTNB = hex(p.btnB); BTNT = hex(p.btnText); BTN_ON = hex(p.btnPr); BTN_ONT = hex(p.btnPrText);
+            SEL = hex(p.sel); SELT = hex(p.selText); STOPC = hex(p.stop); STOP_PR = hex(p.stopPr); DIS = hex(p.dis);
+            FAULT_BG = hex(p.faultBg); TRACK_BG = hex(p.trackBg); PILL_MODE = hex(p.pillMode); PILL_RX = hex(p.pillRx); OVERLAP = hex(p.overlap);
+        }
+        // Tarjeta o botón con borde (si la paleta lo lleva)
+        void box(Fb& fb, int x, int y, int w, int h, int r, uint16_t fill, uint16_t border) {
+            if (border == fill) { fb.fillRound(x, y, w, h, r, fill); return; }
+            fb.fillRound(x, y, w, h, r, border);
+            fb.fillRound(x + 1, y + 1, w - 2, h - 2, r > 1 ? r - 1 : r, fill);
+        }
+        void card(Fb& fb, const Rect& c, uint16_t fill) { box(fb, c.x, c.y, c.w, c.h, (int)(10 * L.k), fill, CARDB); }
 
         // ------------------------------------------------------------------------------------------------- dibujo
         // Pantalla de arranque: la de bienvenida de la app (logo sobre #131A22) y debajo "Rotor <versión>".
@@ -326,30 +365,30 @@ namespace Lcd {
 
         void header(Fb& fb, const UiState& s) {
             fb.fillRect(0, 0, L.W, L.hdrH, HDR);
-            fb.fillRect(0, L.hdrH - 1, L.W, 1, hex(0x7a1414));
-            for (int y = 0; y < LCD_LOGO_H; y++) for (int x = 0; x < LCD_LOGO_W; x++) fb.set(L.logoX + x, L.logoY + y, LCD_LOGO[y * LCD_LOGO_W + x]);
-            fb.text(L.titleX, L.titleY, "APRS LoRa+", *L.M, WHITE);
+            fb.fillRect(0, L.hdrH - 1, L.W, 1, HDRL);
+            for (int y = 0; y < LCD_LOGO_H; y++) for (int x = 0; x < LCD_LOGO_W; x++) fb.set(L.logoX + x, L.logoY + y, (theme == THEME_ROTOR ? LCD_LOGO : LCD_LOGO_APP)[y * LCD_LOGO_W + x]);
+            fb.text(L.titleX, L.titleY, "APRS LoRa+", *L.M, TITLE);
             const std::string sub = "Rotor " + s.ver;
-            fb.text(L.titleX + 1, L.subY, sub.c_str(), *L.S, hex(0xf0d0d0));
+            fb.text(L.titleX + 1, L.subY, sub.c_str(), *L.S, SUB);
             // Botón de información (i) / volver (×)
-            fb.ring(L.infoX, L.infoY, L.infoR, 2 * L.k, WHITE);
-            fb.text(L.infoX, L.infoY - L.M->height / 2 + 1, page == INFO ? "×" : "i", *L.M, WHITE, CENTER);
+            fb.ring(L.infoX, L.infoY, L.infoR, 2 * L.k, TITLE);
+            fb.text(L.infoX, L.infoY - L.M->height / 2 + 1, page == INFO ? "×" : "i", *L.M, TITLE, CENTER);
             // Botón CAT (si hay emisora configurada)
             if (s.catOn) {
                 const Rect& b = L.catBtn;
-                if (page == CAT) fb.fillRound(b.x, b.y, b.w, b.h, b.h / 2, WHITE);
-                else { fb.fillRound(b.x, b.y, b.w, b.h, b.h / 2, WHITE); fb.fillRound(b.x + 2, b.y + 2, b.w - 4, b.h - 4, b.h / 2 - 2, HDR); }
-                fb.text(b.x + b.w / 2, b.y + (b.h - L.S->height) / 2, "CAT", *L.S, page == CAT ? HDR : WHITE, CENTER);
-                if (s.catLink) fb.fillCircle(b.x + b.w - 4, b.y + 4, (int)(4 * L.k), s.ptt ? hex(0xffd23f) : hex(0x3fb950));
+                if (page == CAT) fb.fillRound(b.x, b.y, b.w, b.h, b.h / 2, TITLE);
+                else { fb.fillRound(b.x, b.y, b.w, b.h, b.h / 2, TITLE); fb.fillRound(b.x + 2, b.y + 2, b.w - 4, b.h - 4, b.h / 2 - 2, HDR); }
+                fb.text(b.x + b.w / 2, b.y + (b.h - L.S->height) / 2, "CAT", *L.S, page == CAT ? HDR : TITLE, CENTER);
+                if (s.catLink) fb.fillCircle(b.x + b.w - 4, b.y + 4, (int)(4 * L.k), s.ptt ? YEL : GREEN);
             }
             // Enlaces: WiFi y BLE
             if (L.linkMode == 1) {
-                fb.text(L.linkX, L.link1Y, "WiFi", *L.S, s.ip.empty() ? hex(0x6d2a2a) : WHITE, RIGHT);
-                if (s.ble) fb.text(L.linkX, L.link2Y, s.bleConn ? "BLE ●" : "BLE", *L.S, s.bleConn ? WHITE : hex(0xe6a0a0), RIGHT);
+                fb.text(L.linkX, L.link1Y, "WiFi", *L.S, s.ip.empty() ? LINK_OFF : LINK_ON, RIGHT);
+                if (s.ble) fb.text(L.linkX, L.link2Y, s.bleConn ? "BLE ●" : "BLE", *L.S, s.bleConn ? LINK_ON : LINK_OFF, RIGHT);
             } else {
                 int x = L.titleX + 1 + Fb::textWidth(*L.S, sub.c_str()) + 8;      // blanco = conectado
-                x = fb.text(x, L.subY, "WiFi", *L.S, s.ip.empty() ? hex(0xd88a8a) : WHITE) + 5;
-                if (s.ble) fb.text(x, L.subY, "BLE", *L.S, s.bleConn ? WHITE : hex(0xd88a8a));
+                x = fb.text(x, L.subY, "WiFi", *L.S, s.ip.empty() ? LINK_OFF : LINK_ON) + 5;
+                if (s.ble) fb.text(x, L.subY, "BLE", *L.S, s.bleConn ? LINK_ON : LINK_OFF);
             }
         }
 
@@ -402,7 +441,7 @@ namespace Lcd {
             if (s.maxAz > 360) {
                 for (double a = 0; a <= s.maxAz - 360; a += 1) {
                     const double k = a * M_PI / 180.0;
-                    fb.fillCircle(L.cx + (int)(sin(k) * (R + 2)), L.cy - (int)(cos(k) * (R + 2)), (int)(2 * L.k), hex(0xd29922));
+                    fb.fillCircle(L.cx + (int)(sin(k) * (R + 2)), L.cy - (int)(cos(k) * (R + 2)), (int)(2 * L.k), OVERLAP);
                 }
             }
             if (!std::isnan(s.taz)) needle(fb, fmod(s.taz, 360.0), R - 16 * L.k, 3 * L.k, ACC, false);
@@ -445,11 +484,11 @@ namespace Lcd {
             if (s.fault == 6) {                                        // RC::F_WIND
                 st = "Aparcado por viento" + (s.wind.empty() ? std::string() : " (" + s.wind + ")");
                 if (L.statusLines > 1) st += " · toca para liberar";
-                fb.fillRound(sr.x, sr.y, sr.w, sr.h, (int)(6 * L.k), hex(0x4a1a1a));
+                fb.fillRound(sr.x, sr.y, sr.w, sr.h, (int)(6 * L.k), FAULT_BG);
                 col = RED;
             } else if (s.fault) {
                 st = s.faultText + " (toca para borrar)";
-                fb.fillRound(sr.x, sr.y, sr.w, sr.h, (int)(6 * L.k), hex(0x4a1a1a));
+                fb.fillRound(sr.x, sr.y, sr.w, sr.h, (int)(6 * L.k), FAULT_BG);
                 col = RED;
             } else if (st.empty() && s.aprs.empty() && !s.wind.empty()) {
                 st = "Viento " + s.wind;
@@ -469,10 +508,10 @@ namespace Lcd {
             for (int i = 0; i < 6; i++) {
                 const Rect& b = L.btn[i];
                 const bool dis = ((i == 0 || i == 2 || i == 3 || i == 5) && !s.canMove) || ((i == 3 || i == 5) && !s.hasEl);
-                uint16_t bg = i == 1 ? STOPC : BTN;
-                if (held_ == i && pressed_ && !dis) bg = i == 1 ? hex(0xff8080) : BTN_ON;
-                fb.fillRound(b.x, b.y, b.w, b.h, (int)(10 * L.k), bg);
-                const uint16_t fg = dis ? hex(0x4a5868) : WHITE;
+                const bool pr = held_ == i && pressed_ && !dis;
+                const uint16_t bg = i == 1 ? (pr ? STOP_PR : STOPC) : (pr ? BTN_ON : BTN);
+                box(fb, b.x, b.y, b.w, b.h, (int)(10 * L.k), bg, i == 1 || pr ? bg : BTNB);
+                const uint16_t fg = dis ? DIS : (i == 1 ? WHITE : (pr ? BTN_ONT : BTNT));
                 const int mx = b.x + b.w / 2, my = b.y + b.h / 2;
                 if (L.stacked) {                                        // icono arriba, texto abajo
                     arrow(fb, i, mx, b.y + b.h / 3, fg);
@@ -535,22 +574,22 @@ namespace Lcd {
         }
 
         void catButton(Fb& fb, const Rect& b, int id, const char* label, bool on, bool dis, uint16_t onColor) {
-            uint16_t bg = on ? onColor : BTN;
-            if (held_ == id && pressed_ && !dis && !on) bg = BTN_ON;
-            fb.fillRound(b.x, b.y, b.w, b.h, (int)(10 * L.k), bg);
+            const bool pr = held_ == id && pressed_ && !dis && !on;
+            const uint16_t bg = on ? onColor : (pr ? BTN_ON : BTN);
+            const uint16_t tc = dis ? DIS : (on ? (onColor == SEL ? SELT : WHITE) : (pr ? BTN_ONT : BTNT));
+            box(fb, b.x, b.y, b.w, b.h, (int)(10 * L.k), bg, on || pr ? bg : BTNB);
             const bool big = b.h >= 50 && Fb::textWidth(*L.M, label) <= b.w - 8;
             const LcdFont& f = big ? *L.M : *L.S;
             std::vector<std::string> ls = wrap(f, label, b.w - 8);
             const int lh = f.height, ty = b.y + (b.h - lh * (int)ls.size()) / 2;
-            for (size_t i = 0; i < ls.size(); i++) fb.text(b.x + b.w / 2, ty + (int)i * lh, ls[i].c_str(), f, dis ? hex(0x4a5868) : WHITE, CENTER);
+            for (size_t i = 0; i < ls.size(); i++) fb.text(b.x + b.w / 2, ty + (int)i * lh, ls[i].c_str(), f, tc, CENTER);
         }
 
         void catPage(Fb& fb, const UiState& s) {
             const LcdFont &S = *L.S, &F = *L.L;
-            const uint16_t YEL = hex(0xffd23f);
             // Frecuencia
             const Rect& fc = L.freqCard;
-            fb.fillRound(fc.x, fc.y, fc.w, fc.h, (int)(10 * L.k), CARD);
+            card(fb, fc, CARD);
             if (s.ptt) fb.fillRect(fc.x + 6, fc.y + fc.h - (int)(4 * L.k), fc.w - 12, (int)(3 * L.k), RED);
             fb.fillCircle(fc.x + fc.w - (int)(14 * L.k), fc.y + (int)(14 * L.k), (int)(5 * L.k), s.catLink ? GREEN : RED);
             // Tono CTCSS a la derecha de la línea de la emisora (en vertical no cabe con la subida)
@@ -576,9 +615,9 @@ namespace Lcd {
                 fb.text(px + w / 2, py + 2, t.c_str(), S, fg, CENTER);
                 px += w + 6;
             };
-            pill(s.mode.empty() ? "--" : dispMode(s.mode), hex(0x26445f), WHITE);
-            if (!s.rxOnly) pill(std::string("VFO ") + s.vfo, hex(0x26445f), WHITE);
-            pill(s.ptt ? "TX" : "RX", s.ptt ? RED : hex(0x1f4d2b), WHITE);
+            pill(s.mode.empty() ? "--" : dispMode(s.mode), PILL_MODE, FG);
+            if (!s.rxOnly) pill(std::string("VFO ") + s.vfo, PILL_MODE, FG);
+            pill(s.ptt ? "TX" : "RX", s.ptt ? RED : PILL_RX, s.ptt ? WHITE : FG);
             if (s.txFreq) {
                 const std::string t = "↑ " + fmtFreq(s.txFreq) + (s.txMode.empty() ? "" : " " + s.txMode);
                 fb.text(fc.x + fc.w - 10, py + 2, fit(S, t, fc.x + fc.w - 10 - px).c_str(), S, s.ptt ? RED : FG, RIGHT);
@@ -598,7 +637,7 @@ namespace Lcd {
             fb.text(sm.x + sm.w, sm.y + (sm.h - S.height) / 2, t, S, FG, RIGHT);
             // Seguimiento (satélite / Doppler)
             const Rect& tc = L.trackCard;
-            fb.fillRound(tc.x, tc.y, tc.w, tc.h, (int)(10 * L.k), s.tracking ? hex(0x14324a) : CARD);
+            card(fb, tc, s.tracking ? TRACK_BG : CARD);
             if (s.tracking) {
                 snprintf(t, sizeof t, "Siguiendo %s", s.trackName.empty() ? "satélite" : s.trackName.c_str());
                 fb.text(tc.x + 10, tc.y + 4, t, S, ACC);
@@ -612,9 +651,9 @@ namespace Lcd {
             catButton(fb, L.tuneDown, 100, "−", false, !s.catLink, BTN);
             catButton(fb, L.tuneUp, 101, "+", false, !s.catLink, BTN);
             catButton(fb, L.stepBtn, 102, ("Paso " + fmtStep(s.step)).c_str(), false, false, BTN);
-            for (int i = 0; i < 6; i++) catButton(fb, L.modeBtn[i], 110 + i, CAT_MODES[i], s.mode == CAT_MODES[i] || (i == 5 && s.mode.rfind("PKT", 0) == 0), !s.catLink, hex(0x2f6fb0));
+            for (int i = 0; i < 6; i++) catButton(fb, L.modeBtn[i], 110 + i, CAT_MODES[i], s.mode == CAT_MODES[i] || (i == 5 && s.mode.rfind("PKT", 0) == 0), !s.catLink, SEL);
             if (!L.land) fb.text(L.W / 2, 378, s.rxOnly ? "Receptor: sin PTT" : (s.allowPtt ? "PTT: mantener pulsado para emitir" : "PTT desactivado (cat.ptt)"), S, MUT, CENTER);
-            catButton(fb, L.trackBtn, 103, "Seguir", s.tracking, !s.catLink, hex(0x2f6fb0));
+            catButton(fb, L.trackBtn, 103, "Seguir", s.tracking, !s.catLink, SEL);
             catButton(fb, L.vfoBtn, 104, "A / B", false, !s.catLink || s.rxOnly, BTN);
             catButton(fb, L.pttBtn, 105, "PTT", s.ptt, !(s.allowPtt && s.catLink), STOPC);
         }
@@ -629,7 +668,7 @@ namespace Lcd {
         void infoPage(Fb& fb, const UiState& s) {
             const LcdFont &S = *L.S, &M = *L.M;
             const Rect& ic = L.infoCard;
-            fb.fillRound(ic.x, ic.y, ic.w, ic.h, (int)(10 * L.k), CARD);
+            card(fb, ic, CARD);
             int y = ic.y + (L.land ? 10 : 6);
             char t[64];
             infoLine(fb, y, "Nombre", s.name);
@@ -655,7 +694,7 @@ namespace Lcd {
 
             // Acerca de (como el tracker y la WebUI)
             const Rect& ac = L.aboutCard;
-            fb.fillRound(ac.x, ac.y, ac.w, ac.h, (int)(10 * L.k), CARD);
+            card(fb, ac, CARD);
             int ay = ac.y + 4;
             fb.text(ac.x + 8, ay, "Acerca de", M, MUT);
             ay += M.height + 4;
@@ -668,10 +707,10 @@ namespace Lcd {
             para("GPL-3.0-or-later · DejaVu Sans", MUT);
 
             // Brillo
-            fb.fillRound(L.brMinus.x, L.brMinus.y, L.brMinus.w, L.brMinus.h, (int)(10 * L.k), BTN);
-            fb.fillRound(L.brPlus.x, L.brPlus.y, L.brPlus.w, L.brPlus.h, (int)(10 * L.k), BTN);
-            fb.text(L.brMinus.x + L.brMinus.w / 2, L.brMinus.y + (L.brMinus.h - M.height) / 2, "−", M, WHITE, CENTER);
-            fb.text(L.brPlus.x + L.brPlus.w / 2, L.brPlus.y + (L.brPlus.h - M.height) / 2, "+", M, WHITE, CENTER);
+            box(fb, L.brMinus.x, L.brMinus.y, L.brMinus.w, L.brMinus.h, (int)(10 * L.k), BTN, BTNB);
+            box(fb, L.brPlus.x, L.brPlus.y, L.brPlus.w, L.brPlus.h, (int)(10 * L.k), BTN, BTNB);
+            fb.text(L.brMinus.x + L.brMinus.w / 2, L.brMinus.y + (L.brMinus.h - M.height) / 2, "−", M, BTNT, CENTER);
+            fb.text(L.brPlus.x + L.brPlus.w / 2, L.brPlus.y + (L.brPlus.h - M.height) / 2, "+", M, BTNT, CENTER);
             snprintf(t, sizeof t, "Brillo %d%%", s.bright);
             fb.text(L.brTextX, L.brTextY, t, S, FG, CENTER);
         }

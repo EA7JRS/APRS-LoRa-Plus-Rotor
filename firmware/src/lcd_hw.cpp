@@ -551,6 +551,7 @@ namespace LcdHw {
         if (lastDraw && now - lastDraw < 200) return;
         lastDraw = now ? now : 1;
         fillState();
+        ui.setTheme(Cfg.lcdTheme);                       // cambia en caliente: se manda lo que cambia
         ui.setFrameTime(now);
         ui.draw(fb, st);
         nextBand = 0;

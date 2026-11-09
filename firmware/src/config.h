@@ -128,6 +128,7 @@ struct RotorConfig {
 
     // Pantalla tactil (placas con LCD)
     int         lcdBright = 80;             // brillo 10-100 %
+    int         lcdTheme = 0;               // paleta de la pantalla: 0 = la de la app Android, 1 = la de la WebUI (cabecera roja)
     int         lcdDimS = 300;              // segundos sin tocar hasta bajar el brillo al 10 % (0 = nunca)
 };
 

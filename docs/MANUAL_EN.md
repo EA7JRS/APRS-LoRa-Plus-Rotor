@@ -214,6 +214,7 @@ At `http://APRS-Rotor.local/` (boards) or `http://IP:8080/` (Raspberry Pi). User
 - **Fault**: shown in red; tap it to clear it.
 - **CAT** (header button, with `cat.proto`): frequency, − / step / +, LSB · USB · CW · FM · AM · DIG, *Seguir* (Doppler), A / B and PTT while held. The CTCSS tone shows next to the radio's name.
 - **ⓘ**: name, callsign, board, WiFi, IP, ports, Bluetooth, uptime, **Acerca de** (about) and brightness.
+- **Colours**: by default, the Android app palette (the same as APRS LoRa+ Display); with `lcd.theme` 1, the WebUI one (red header).
 - **Brightness and sleep**: `lcd.bright` and `lcd.dimS`. The LCD dims; the AMOLED turns off so it does not get burn-in. The first touch only wakes it.
 
 ## 9. Android app

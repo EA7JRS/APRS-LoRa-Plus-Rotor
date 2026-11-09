@@ -70,6 +70,7 @@ def build(name, path, size, chars):
 
 
 HEADER_RGB = (0xB2, 0x1D, 0x1D)
+APP_HEADER_RGB = (0x13, 0x1A, 0x22)     # cabecera de la paleta de la app (lcd_ui.h PAL_APP)
 
 
 def rgb565_sw(r, g, b):
@@ -82,10 +83,12 @@ def make_logo(out, h):
     b64 = re.search(r'<img class="logo" src="data:image/png;base64,([A-Za-z0-9+/=]+)"', page).group(1)
     img = Image.open(io.BytesIO(base64.b64decode(b64))).convert("RGBA")
     img = img.resize((h * img.size[0] // img.size[1], h), Image.LANCZOS)
-    bg = Image.new("RGBA", img.size, HEADER_RGB + (255,))
-    img = Image.alpha_composite(bg, img).convert("RGB")
     w, h = img.size
-    vals = [rgb565_sw(*img.getpixel((x, y))) for y in range(h) for x in range(w)]
+
+    def on(rgb):        # el logo sobre el color de la cabecera de cada paleta
+        bg = Image.new("RGBA", img.size, rgb + (255,))
+        im = Image.alpha_composite(bg, img).convert("RGB")
+        return [rgb565_sw(*im.getpixel((x, y))) for y in range(h) for x in range(w)]
     lines = [
         "/* Copyright (C) 2026 Manuel - EA7JRS",
         " *",
@@ -97,11 +100,14 @@ def make_logo(out, h):
         "#include <stdint.h>",
         "",
         "static const int LCD_LOGO_W = %d, LCD_LOGO_H = %d;" % (w, h),
-        "static const uint16_t LCD_LOGO[] = {   // RGB565, byte alto primero, sobre el rojo de la cabecera",
     ]
-    for i in range(0, len(vals), 16):
-        lines.append("    " + ",".join("0x%04x" % v for v in vals[i:i + 16]) + ",")
-    lines.append("};")
+    for name, rgb, what in (("LCD_LOGO", HEADER_RGB, "el rojo de la cabecera (paleta del rotor)"),
+                            ("LCD_LOGO_APP", APP_HEADER_RGB, "la cabecera de la paleta de la app (#131A22)")):
+        vals = on(rgb)
+        lines.append("static const uint16_t %s[] = {   // RGB565, byte alto primero, sobre %s" % (name, what))
+        for i in range(0, len(vals), 16):
+            lines.append("    " + ",".join("0x%04x" % v for v in vals[i:i + 16]) + ",")
+        lines.append("};")
     with open(out, "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
     print("written", out, w, "x", h)

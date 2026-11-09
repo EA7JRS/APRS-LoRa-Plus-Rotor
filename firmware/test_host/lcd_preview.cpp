@@ -29,14 +29,14 @@ static void writePpm(const Lcd::Fb& fb, const std::string& path) {
 
 static void center(const Lcd::Rect& r, int& x, int& y) { x = r.x + r.w / 2; y = r.y + r.h / 2; }
 
-static void run(int W, int H, const std::string& out) {
+static void run(int W, int H, const std::string& out, int theme = Lcd::THEME_APP) {
     std::vector<uint16_t> buf(W * H);
     Lcd::Fb fb;
     fb.attach(buf.data(), W, H);
-    Lcd::Ui ui(W, H);
+    Lcd::Ui ui(W, H, theme);
     const Lcd::Layout& L = ui.L;
     char pre[16];
-    snprintf(pre, sizeof pre, "%dx%d_", W, H);
+    snprintf(pre, sizeof pre, "%s%dx%d_", theme == Lcd::THEME_ROTOR ? "rotor_" : "", W, H);
     const std::string p = out + "/" + pre;
 
     Lcd::UiState s;
@@ -127,7 +127,7 @@ static void run(int W, int H, const std::string& out) {
     s.fault = 6; s.faultText = "WIND"; s.wind = "20/28 m/s";
     ui.draw(fb, s);
     writePpm(fb, p + "main_wind.ppm");
-    CHECK(fb.get(L.status.x + 3, L.status.y + L.status.h / 2) == Lcd::hex(0x4a1a1a));
+    CHECK(fb.get(L.status.x + 3, L.status.y + L.status.h / 2) == ui.FAULT_BG);
     { center(L.status, x, y); Lcd::UiCmd cw = ui.touch(true, x, y, 7400, s); CHECK(cw.cmd == Lcd::Cmd::CLEAR_FAULT); ui.touch(false, 0, 0, 7450, s); }
     s.wind.clear();
     s.fault = 0; s.faultText = "OK";
@@ -225,6 +225,17 @@ int main(int argc, char** argv) {
     run(320, 480, out);
     run(600, 450, out);
     run(1024, 600, out);
+    run(320, 480, out, Lcd::THEME_ROTOR);
+    run(600, 450, out, Lcd::THEME_ROTOR);
+    run(1024, 600, out, Lcd::THEME_ROTOR);
+    {   // paletas: la de la app de serie; cambio en caliente
+        Lcd::Ui u(320, 480);
+        CHECK(u.theme == Lcd::THEME_APP && u.BG == Lcd::hex(0x131A22) && u.HDR == Lcd::hex(0x131A22) && u.SEL == Lcd::hex(0xFFB347));
+        u.setTheme(Lcd::THEME_ROTOR);
+        CHECK(u.HDR == Lcd::hex(0xb21d1d) && u.BG == Lcd::hex(0x10151c));
+        u.setTheme(7);
+        CHECK(u.theme == Lcd::THEME_APP && u.ACC == Lcd::hex(0x28B5E1));
+    }
     // Texto
     CHECK(Lcd::Fb::textWidth(FontS, "°") > 0);
     CHECK(Lcd::Ui::wrap(FontS, "uno dos tres cuatro", Lcd::Fb::textWidth(FontS, "uno dos")).size() == 3);
