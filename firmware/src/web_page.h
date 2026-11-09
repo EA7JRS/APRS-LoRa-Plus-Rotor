@@ -69,7 +69,7 @@ a{color:var(--acc)}#about p{margin:6px 0;font-size:13px}
 <div class="row mut" id="info"></div></div>
 <div class="c" style="grid-column:1/-1" id="about"><h3>Acerca de</h3>
 <p class="mut" id="buildInfo"></p>
-<p>APRS LoRa+ Rotor - by <b>Manuel EA7JRS</b> &middot; &copy; 2026 Manuel - EA7JRS</p>
+<p>APRS LoRa+ Rotor &middot; &copy; 2026 Manuel - EA7JRS</p>
 <p><b>APRS LoRa+</b> &mdash; EA7JRS: <a href="https://github.com/EA7JRS/APRS-LoRa-Plus" target="_blank" rel="noopener">github.com/EA7JRS/APRS-LoRa-Plus</a> (tracker, app Android, rotor y gateway).</p>
 <p class="mut">Compatible con Hamlib (rotctld, rigctld), Yaesu GS-232A/B, SPID Rot2Prog y EasyComm II; CAT: Icom CI-V, Yaesu, Kenwood / Elecraft, SDRconnect (SDRplay) y rigctl. Librerías: NimBLE-Arduino, RadioLib, ArduinoJson; en la Raspberry Pi, rotctld de Hamlib. Licencia GPL-3.0-or-later.</p></div>
 </main>

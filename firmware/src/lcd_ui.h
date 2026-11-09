@@ -701,7 +701,6 @@ namespace Lcd {
             const int aw = ac.w - 16, lh = S.height + (L.land ? 0 : 4);
             auto para = [&](const std::string& txt, uint16_t c) { for (const std::string& l : wrap(S, txt, aw)) { fb.text(ac.x + 8, ay, l.c_str(), S, c); ay += lh; } };
             para("APRS LoRa+ Rotor " + s.ver, FG);
-            para("by Manuel EA7JRS", FG);
             para("© 2026 Manuel - EA7JRS", FG);
             para("github.com/EA7JRS/APRS-LoRa-Plus", ACC);
             para("GPL-3.0-or-later · DejaVu Sans", MUT);

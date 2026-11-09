@@ -369,4 +369,4 @@ More in [RASPBERRY_PI.md](RASPBERRY_PI.md) (in Spanish).
 
 Documents (in Spanish): [CONFIG.md](CONFIG.md) (all options) · [CAT.md](CAT.md) (radios and SDR) · [HARDWARE.md](HARDWARE.md) (wiring) · [CONTROL_PROTOCOL.md](CONTROL_PROTOCOL.md) (JSON protocol) · [APRS_CONTROL.md](APRS_CONTROL.md) · [INTEGRATION.md](INTEGRATION.md) · [RASPBERRY_PI.md](RASPBERRY_PI.md) · [WAVESHARE_C5_LCD35.md](WAVESHARE_C5_LCD35.md) · [WAVESHARE_S3_AMOLED241.md](WAVESHARE_S3_AMOLED241.md) · [WAVESHARE_S3_LCD7B.md](WAVESHARE_S3_LCD7B.md).
 
-**About**: APRS LoRa+ Rotor — by Manuel EA7JRS · © 2026 Manuel - EA7JRS · GPL-3.0-or-later · https://github.com/EA7JRS/APRS-LoRa-Plus. Protocol formats taken from Hamlib; screen font: DejaVu Sans.
+**About**: APRS LoRa+ Rotor · © 2026 Manuel - EA7JRS · GPL-3.0-or-later · https://github.com/EA7JRS/APRS-LoRa-Plus. Protocol formats taken from Hamlib; screen font: DejaVu Sans.
