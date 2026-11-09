@@ -1,6 +1,6 @@
 # APRS LoRa+ Rotor — Manual de usuario
 
-*Versión 5.3.5 · © 2026 Manuel - EA7JRS · GPL-3.0-or-later · [English](MANUAL_EN.md) · [Guía rápida](QUICKSTART_ES.md)*
+*Versión 5.3.6 · © 2026 Manuel - EA7JRS · GPL-3.0-or-later · [English](MANUAL_EN.md) · [Guía rápida](QUICKSTART_ES.md)*
 
 ## Índice
 

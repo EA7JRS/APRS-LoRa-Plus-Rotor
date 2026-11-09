@@ -40,14 +40,14 @@ static void run(int W, int H, const std::string& out) {
     const std::string p = out + "/" + pre;
 
     Lcd::UiState s;
-    s.ver = "5.3.5"; s.name = "APRS-Rotor"; s.call = "EA7JRS-12"; s.board = W > H ? "waveshare_s3_amoled241" : "waveshare_c5_lcd35";
+    s.ver = "5.3.6"; s.name = "APRS-Rotor"; s.call = "EA7JRS-12"; s.board = W > H ? "waveshare_s3_amoled241" : "waveshare_c5_lcd35";
     s.chip = W > H ? "ESP32-S3" : "ESP32-C5";
     s.drv = "direct (relays)"; s.ip = "192.168.1.57"; s.wifi = "Casa (-61 dBm)"; s.rotctld = 4533; s.apiPort = 4534;
     s.ble = true; s.bleConn = true; s.upS = 3 * 3600 + 25 * 60; s.maxAz = 450;
     s.az = 123.4; s.el = 32.5; s.taz = 210.0; s.tel = 45.0; s.maz = 123.4; s.moving = true;
 
     // ---- pantalla de arranque: el logo cabe entero, fondo #131A22 en las esquinas, texto debajo dentro de la pantalla
-    ui.splash(fb, "5.3.5");
+    ui.splash(fb, "5.3.6");
     writePpm(fb, p + "splash.ppm");
     const uint16_t sbg = Lcd::hex(LCD_SPLASH_BG);
     CHECK(fb.get(0, 0) == sbg && fb.get(W - 1, H - 1) == sbg);
@@ -59,7 +59,7 @@ static void run(int W, int H, const std::string& out) {
         for (int yy = 0; yy < H; yy++) for (int xx = 0; xx < W; xx++) if (fb.get(xx, yy) != sbg) lit++;
         CHECK(lit > LCD_SPLASH_W * LCD_SPLASH_H / 4);
         CHECK(fb.get(W / 2, (H - sh - L.S->height - 6) / 2 + sh / 2) != sbg);
-        int below = 0;                                            // "Rotor 5.3.5" bajo el logo
+        int below = 0;                                            // "Rotor 5.3.6" bajo el logo
         const int y0 = (H - sh - L.S->height - 6) / 2 + sh + 4;
         for (int yy = y0; yy < y0 + L.S->height && yy < H; yy++) for (int xx = 0; xx < W; xx++) if (fb.get(xx, yy) != sbg) below++;
         CHECK(below > 20);
