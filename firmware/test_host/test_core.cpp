@@ -605,6 +605,28 @@ static void testCatTone() {
     }
 }
 
+// Bus RS485 con direcciones (pasarela 4)
+static void testRsBus() {
+    using namespace RsBus;
+    CHECK(lastNumber("0") == 0 && lastNumber("160,50") == 160.5 && lastNumber("151,30;20") == 20 && lastNumber("KW Beam") == 0);
+    CHECK(lastNumber("-3.5") == -3.5 && lastNumber("A1;B2,25") == 2.25);
+    CHECK(fmtNum(27) == "27" && fmtNum(187.5) == "187,5" && fmtNum(23.25) == "23,25");
+    CHECK(frame(3, 20, "GETPOSDG", "0") == "#3:20:GETPOSDG:0:23$");
+    CHECK(frame(3, 20, "SETPOSDG", fmtDeg(160.5)) == "#3:20:SETPOSDG:160,50:183,5$");
+    CHECK(frame(3, 21, "STOP", "0") == "#3:21:STOP:0:24$");
+    Msg m;
+    CHECK(parse("20:3:ACK_GETPOSDG:372,04:395,04", m) && m.src == 20 && m.dst == 3 && m.cmd == "ACK_GETPOSDG" && fabs(num(m.params) - 372.04) < 1e-9);
+    CHECK(parse("20:3:ACK_GETPOSDG:160,00:183.00", m));            // suma con punto y ceros
+    CHECK(!parse("20:3:ACK_GETPOSDG:160,00:184", m));              // suma mala
+    CHECK(!parse("20:3:ACK_GETPOSDG", m) && !parse("x:3:A:1:4", m));
+    Reader rd; int got = 0;
+    const char* stream = "basura#20:255:ERR:16:291$##21:3:ACK_STOP:1:25$#20:3:NAK_SETPOSDG:1:9$";
+    std::vector<Msg> ms;
+    for (const char* p = stream; *p; p++) if (rd.push(*p, m)) { got++; ms.push_back(m); }
+    CHECK(got == 2 && ms[0].cmd == "ERR" && ms[0].dst == 255 && num(ms[0].params) == 16 && ms[1].cmd == "ACK_STOP");
+    CHECK(std::string(serialProtoName(SP_RSBUS)) == "RS485 bus");
+}
+
 static void testRigctld() {
     YaesuEngine e;
     std::string out;
@@ -779,6 +801,7 @@ int main() {
     testCatKenwood();
     testCatYaesu5();
     testCatTone();
+    testRsBus();
     testRigctld();
     testCatTracker();
     testCatApi();

@@ -5,6 +5,7 @@
 
 #include "drivers.h"
 #include <Wire.h>
+#include <vector>
 #include "config.h"
 #include "board.h"
 #include "rc_control.h"
@@ -118,10 +119,17 @@ namespace Drv {
                 case RC::SP_GS232A: case RC::SP_GS232B: send(RC::GS232::cmdSet(a, e, Cfg.serHasEl)); break;
                 case RC::SP_EASYCOMM2: send(RC::EasyComm::cmdSet(a, e)); break;
                 case RC::SP_ROT2PROG: { uint8_t f[13]; RC::Rot2Prog::frameSet(f, a, Cfg.serHasEl ? e : 0); sendBin(f, 13); break; }
+                case RC::SP_RSBUS:
+                    busPush(Cfg.serAzId, "SETPOSDG", RC::RsBus::fmtDeg(a), true);
+                    if (Cfg.serHasEl) busPush(Cfg.serElId, "SETPOSDG", RC::RsBus::fmtDeg(e), true);
+                    break;
             }
             return true;
         }
-        bool setAz(double a) override { return setPos(a, known ? el : 0); }
+        bool setAz(double a) override {
+            if (Cfg.serProto == RC::SP_RSBUS) { taz = a; manualDir = 0; busPush(Cfg.serAzId, "SETPOSDG", RC::RsBus::fmtDeg(a), true); return true; }
+            return setPos(a, known ? el : 0);
+        }
         void getPos(double& a, double& e) override { a = az; e = el; }
         bool stop() override {
             taz = tel = NAN; manualDir = 0;
@@ -129,6 +137,11 @@ namespace Drv {
                 case RC::SP_GS232A: case RC::SP_GS232B: send(RC::GS232::cmdStop()); break;
                 case RC::SP_EASYCOMM2: send(RC::EasyComm::cmdStop()); break;
                 case RC::SP_ROT2PROG: { uint8_t f[13]; RC::Rot2Prog::frameSimple(f, RC::Rot2Prog::K_STOP); sendBin(f, 13); break; }
+                case RC::SP_RSBUS:
+                    busQ.clear();                                   // la parada va antes que nada
+                    busPush(Cfg.serAzId, "STOP", "0", true);
+                    if (Cfg.serHasEl) busPush(Cfg.serElId, "STOP", "0", true);
+                    break;
             }
             return true;
         }
@@ -136,6 +149,16 @@ namespace Drv {
         bool move(int dir, int pct) override {
             if (Cfg.serProto == RC::SP_ROT2PROG) return false;
             if (!Cfg.serHasEl && (dir == RC::MOVE_UP || dir == RC::MOVE_DOWN)) return false;
+            if (Cfg.serProto == RC::SP_RSBUS) {
+                // sin orden de mover: ir hacia el tope de ese lado hasta que llegue la parada
+                taz = tel = NAN;
+                manualDir = dir;
+                if (dir == RC::MOVE_LEFT)  busPush(Cfg.serAzId, "SETPOSDG", RC::RsBus::fmtDeg(Cfg.serMinAz), true);
+                if (dir == RC::MOVE_RIGHT) busPush(Cfg.serAzId, "SETPOSDG", RC::RsBus::fmtDeg(Cfg.serMaxAz), true);
+                if (dir == RC::MOVE_DOWN)  busPush(Cfg.serElId, "SETPOSDG", RC::RsBus::fmtDeg(0), true);
+                if (dir == RC::MOVE_UP)    busPush(Cfg.serElId, "SETPOSDG", RC::RsBus::fmtDeg(Cfg.serMaxEl), true);
+                return true;
+            }
             taz = tel = NAN;
             manualDir = dir;
             if (Cfg.serProto == RC::SP_EASYCOMM2) send(RC::EasyComm::cmdMove(dir));
@@ -159,6 +182,65 @@ namespace Drv {
 
         bool linkOk() const { return lastReply && millis() - lastReply < 3000; }
 
+        // ---- bus RS485: una trama cada vez (semidúplex); la siguiente tras la respuesta o 200 ms
+        struct BusItem { std::string data; bool urgent; };
+        std::vector<BusItem> busQ;
+        RC::RsBus::Reader    busRd;
+        bool     busWaiting = false;
+        uint32_t busSentAt = 0;
+        uint8_t  busErr = 0, busErrAxis = 0;               // último ERR (código del controlador) y eje (1 AZ, 2 EL)
+        bool     busAskEl = false;
+
+        void busPush(int dst, const char* cmd, const std::string& params, bool urgent = false) {
+            BusItem it{RC::RsBus::frame(Cfg.serBusId, dst, cmd, params), urgent};
+            if (urgent) {
+                size_t i = 0;
+                while (i < busQ.size() && busQ[i].urgent) i++;
+                busQ.insert(busQ.begin() + i, it);
+            } else if (busQ.size() < 8) {
+                busQ.push_back(it);
+            }
+        }
+        void busPump(uint32_t now) {
+            if (busWaiting && now - busSentAt < 200) return;
+            busWaiting = false;
+            if (busQ.empty()) return;
+            send(busQ.front().data);
+            busQ.erase(busQ.begin());
+            busWaiting = true;
+            busSentAt = now;
+        }
+        void busGot(const RC::RsBus::Msg& m) {
+            const bool isAz = m.src == Cfg.serAzId, isEl = Cfg.serHasEl && m.src == Cfg.serElId;
+            if (!isAz && !isEl) return;
+            if (m.dst == Cfg.serBusId) busWaiting = false;
+            if (m.cmd == "ERR" && (m.dst == RC::RsBus::BROADCAST || m.dst == Cfg.serBusId)) {
+                busErr = (uint8_t)RC::RsBus::num(m.params);
+                busErrAxis = isAz ? 1 : 2;
+                if (busErr) { taz = tel = NAN; manualDir = 0; }
+                lastReply = millis();
+                return;
+            }
+            if (m.dst != Cfg.serBusId) return;
+            if (m.cmd == "ACK_GETPOSDG") {
+                const double v = RC::RsBus::num(m.params);
+                if (isAz) gotPos(v, el, false); else gotPos(az, v, true);
+            } else {
+                lastReply = millis();
+            }
+        }
+        uint8_t busFault() const {
+            if (!busErr) return RC::F_NONE;
+            if (busErr == 12) return RC::F_ESTOP;
+            if (busErr == 15 || busErr == 16 || busErr == 18) return busErrAxis == 2 ? RC::F_STALL_EL : RC::F_STALL_AZ;
+            return RC::F_SENSOR;
+        }
+        void busClear() {
+            if (!busErr) return;
+            busPush(busErrAxis == 2 ? Cfg.serElId : Cfg.serAzId, "SETREF", "0", true);   // borra el fallo sin buscar la referencia
+            busErr = 0;
+        }
+
         void gotPos(double a, double e, bool hasE) {
             if (known && (fabs(a - az) > 0.4 || (hasE && fabs(e - el) > 0.4))) lastMoveSeen = millis();
             az = a;
@@ -178,6 +260,11 @@ namespace Drv {
             while (port->available()) {
                 const int c = port->read();
                 if (c < 0) break;
+                if (Cfg.serProto == RC::SP_RSBUS) {
+                    RC::RsBus::Msg m;
+                    if (busRd.push((char)c, m)) busGot(m);
+                    continue;
+                }
                 if (Cfg.serProto == RC::SP_ROT2PROG) {
                     if (binLen == 0 && c != 0x57) continue;
                     bin[binLen++] = (uint8_t)c;
@@ -215,8 +302,14 @@ namespace Drv {
                         askEl = !askEl;
                         break;
                     case RC::SP_ROT2PROG: { uint8_t f[13]; RC::Rot2Prog::frameSimple(f, RC::Rot2Prog::K_STATUS); sendBin(f, 13); break; }
+                    case RC::SP_RSBUS:
+                        // AZ y EL alternos; las consultas mantienen vivo al controlador mientras se mueve
+                        if (busQ.size() < 2) busPush(busAskEl && Cfg.serHasEl ? Cfg.serElId : Cfg.serAzId, "GETPOSDG", "0");
+                        busAskEl = !busAskEl;
+                        break;
                 }
             }
+            if (Cfg.serProto == RC::SP_RSBUS) busPump(now);
         }
     };
     static SerialRotor serial;
@@ -302,12 +395,24 @@ namespace Drv {
     }
 
     uint8_t fault() {
+<<<<<<< HEAD
         const uint8_t f = Cfg.driver == 1 ? (serial.linkOk() ? RC::F_NONE : RC::F_LINK) : direct.fault();
         return f == RC::F_NONE && windG.locked() ? RC::F_WIND : f;
+=======
+        if (Cfg.driver == 1) {
+            if (!serial.linkOk()) return RC::F_LINK;
+            return Cfg.serProto == RC::SP_RSBUS ? serial.busFault() : RC::F_NONE;
+        }
+        return direct.fault();
+>>>>>>> 0c6be43 (Pasarela al bus RS485 con direcciones (serial.proto 4): un controlador por eje, ERR como fallo, borrar con SETREF:0)
     }
 
     void raw(JsonObject o) {
-        if (Cfg.driver == 1) { o["link"] = serial.linkOk(); return; }
+        if (Cfg.driver == 1) {
+            o["link"] = serial.linkOk();
+            if (Cfg.serProto == RC::SP_RSBUS && serial.busErr) o["err"] = serial.busErr;   // código del controlador
+            return;
+        }
         if (!isnan(rawAz)) o["az"] = rawAz;
         if (!isnan(rawEl)) o["el"] = rawEl;
         o["unit"] = (Cfg.azPins.sensor == 1) ? "ads" : (Board::adcIsCounts(Cfg.azPins.adcPin) ? "adc" : "mV");
@@ -357,5 +462,12 @@ namespace Drv {
         return true;
     }
 
+<<<<<<< HEAD
     void clearFault() { windG.release(); if (Cfg.driver == 0) direct.clearFaults(); }
+=======
+    void clearFault() {
+        if (Cfg.driver == 0) direct.clearFaults();
+        else if (Cfg.serProto == RC::SP_RSBUS) serial.busClear();
+    }
+>>>>>>> 0c6be43 (Pasarela al bus RS485 con direcciones (serial.proto 4): un controlador por eje, ERR como fallo, borrar con SETREF:0)
 }

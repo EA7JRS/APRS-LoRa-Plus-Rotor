@@ -40,7 +40,7 @@
 Puede mover el rotor de dos maneras:
 
 - **Control directo**: la placa sustituye al ordenador del mando. Activa los relés o transistores de giro y lee la posición del potenciómetro del rotor.
-- **Pasarela serie**: la placa habla con un controlador comercial (Yaesu GS-232A/B, SPID Rot2Prog / MD-01 / MD-02, EasyComm II: K3NG, SatNOGS, ERC…).
+- **Pasarela serie**: la placa habla con un controlador comercial (Yaesu GS-232A/B, SPID Rot2Prog / MD-01 / MD-02, EasyComm II: K3NG, SatNOGS, ERC…) o controladores con encóder en un bus RS485 con direcciones.
 
 En la **Raspberry Pi** el rotor lo maneja el `rotctld` de Hamlib, así que sirve **cualquier rotor que Hamlib conozca**.
 
@@ -154,6 +154,7 @@ UART de la placa → controlador. Con RS-232, pon un MAX3232 a 3,3 V; con TTL de
 | Yaesu GS-232B, K3NG en modo Yaesu | 1 | 9600 |
 | EasyComm II (K3NG, SatNOGS, ERC) | 2 | 9600 / 19200 |
 | SPID Rot2Prog, MD-01, MD-02 | 3 | 600 / 460800 |
+| Bus RS485 con direcciones (un controlador por eje; `serial.busId`, `azId`, `elId`) | 4 | 115200 |
 
 `serial.hasEl: false` en rotores solo de acimut. `minAz`, `maxAz` y `maxEl` son los límites que se anuncian a Hamlib.
 

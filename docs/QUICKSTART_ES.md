@@ -51,7 +51,7 @@ Si la placa no entra en tu WiFi en 30 s, vuelve a abrir el punto de acceso **APR
 
 Pines por defecto de cada placa: [HARDWARE.md](HARDWARE.md).
 
-**Pasarela serie:** UART de la placa → MAX3232 → controlador (GS-232A/B, Rot2Prog, MD-01/02, EasyComm II). Pon `serial.proto` y `serial.baud`.
+**Pasarela serie:** UART de la placa → MAX3232 → controlador (GS-232A/B, Rot2Prog, MD-01/02, EasyComm II) o transceptor RS485 → controladores en bus (`serial.proto` 4, `busId`, `azId`, `elId`). Pon `serial.proto` y `serial.baud`.
 
 ## 5. Calibra (solo control directo)
 

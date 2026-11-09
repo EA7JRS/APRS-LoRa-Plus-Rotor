@@ -15,7 +15,8 @@ Casi todos los GPIO van al panel. Para el rotor quedan los conectores HY2.0:
 | **Sensor** (3P) | GPIO6 (ADC1), 3V3, GND | **potenciómetro AZ** (`direct.az.adcPin` 6, en milivoltios) |
 | **I2C** (4P) | SDA GPIO8, SCL GPIO9, 3V3, GND | **placa de relés PCF8574** (pines 120-127) y ADS1115 opcional para la elevación. El bus es el del táctil (0x5D / 0x14) y el expansor (0x24): no uses esas direcciones |
 | **UART** (4P) | TX GPIO43, RX GPIO44 | **pasarela serie** al controlador (`driver` 1) **o** CAT de la emisora: la misma UART, una de las dos. Pon el conmutador *UART* de la placa en el conector |
-| RS485, CAN | GPIO15 / 16, GPIO19 / 20 | no se usan (CAN comparte pines con el USB) |
+| RS485 | RX GPIO16, TX GPIO15 (transceptor con conmutación automática) | **pasarela al bus RS485** (`serial.proto` 4, `serial.rx` 16 / `tx` 15): controladores con encóder, uno por eje |
+| CAN | GPIO19 / 20 | no se usa (comparte pines con el USB) |
 
 El USB nativo (Type-C *USB*) hace de puerto serie: instalador web, registro y `usb.proto` (la placa se presenta como un GS-232B). EXIO5 queda **bajo** (USB; alto sería CAN): si el puerto USB desaparece al arrancar, compila con `-D EXIO_USB_SEL_LEVEL=1`.
 
@@ -39,6 +40,8 @@ Estas placas activan el relé con **0**: por eso `direct.activeHigh` es `false` 
 ## Pasarela serie o CAT
 
 La UART del conector (3,3 V) sirve para **una** de las dos cosas: un controlador comercial (GS-232A/B, Rot2Prog, EasyComm II: `driver` 1, `serial.rx` 44 / `tx` 43) o la emisora (`cat.proto`, `cat.rx` 44 / `tx` 43). Para RS-232, un MAX3232. Con el rotor por pasarela y la emisora a la vez, la emisora por red: SDRconnect o rigctl ([CAT.md](CAT.md)).
+
+Con la pasarela por el RS485, el conector UART queda libre para el CAT de la emisora.
 
 ## Sin verificar en la placa
 

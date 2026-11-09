@@ -99,6 +99,7 @@ namespace Config {
         putAxis(dr["el"].to<JsonObject>(), c.el, c.elPins);
         JsonObject s = d["serial"].to<JsonObject>();
         s["proto"] = c.serProto; s["baud"] = c.serBaud; s["rx"] = c.serRx; s["tx"] = c.serTx; s["hasEl"] = c.serHasEl;
+        s["busId"] = c.serBusId; s["azId"] = c.serAzId; s["elId"] = c.serElId;
         s["pollMs"] = c.serPollMs; s["minAz"] = c.serMinAz; s["maxAz"] = c.serMaxAz; s["maxEl"] = c.serMaxEl;
         JsonObject l = d["lora"].to<JsonObject>();
         l["chip"] = c.loraChip; l["freq"] = c.loraFreq; l["bw"] = c.loraBw; l["sf"] = c.loraSf; l["cr"] = c.loraCr;
@@ -139,7 +140,12 @@ namespace Config {
         if (c.wifiMode < 0 || c.wifiMode > 2) { err = "wifi.mode"; return false; }
         if (c.apPass.size() < 8) { err = "wifi.apPass >= 8"; return false; }
         if (c.usbProto < 0 || c.usbProto > 5 || c.sppProto < 0 || c.sppProto > 4 || c.btMode < 0 || c.btMode > 2) { err = "usb / bt"; return false; }
-        if (c.driver < 0 || c.driver > 1 || c.serProto < 0 || c.serProto > 3) { err = "driver"; return false; }
+        if (c.driver < 0 || c.driver > 1 || c.serProto < 0 || c.serProto > 4) { err = "driver"; return false; }
+        if (c.serProto == 4) {
+            for (int id : {c.serBusId, c.serAzId}) if (id < 1 || id > 254) { err = "serial.busId / azId 1-254"; return false; }
+            if (c.serHasEl && (c.serElId < 1 || c.serElId > 254 || c.serElId == c.serAzId)) { err = "serial.elId"; return false; }
+            if (c.serBusId == c.serAzId || c.serBusId == c.serElId) { err = "serial.busId"; return false; }
+        }
         if (!axisOk(c.az, "az")) return false;
         if (c.elEnabled && !axisOk(c.el, "el")) return false;
         if (c.loraChip < 0 || c.loraChip > 4) { err = "lora.chip"; return false; }
@@ -187,6 +193,7 @@ namespace Config {
         getAxis(dr["el"], n.el, n.elPins);
         JsonVariantConst s = d["serial"];
         get(s, "proto", n.serProto); get(s, "baud", n.serBaud); get(s, "rx", n.serRx); get(s, "tx", n.serTx); get(s, "hasEl", n.serHasEl);
+        get(s, "busId", n.serBusId); get(s, "azId", n.serAzId); get(s, "elId", n.serElId);
         get(s, "pollMs", n.serPollMs); getD(s, "minAz", n.serMinAz); getD(s, "maxAz", n.serMaxAz); getD(s, "maxEl", n.serMaxEl);
         JsonVariantConst l = d["lora"];
         get(l, "chip", n.loraChip); getD(l, "freq", n.loraFreq); getD(l, "bw", n.loraBw); get(l, "sf", n.loraSf); get(l, "cr", n.loraCr);

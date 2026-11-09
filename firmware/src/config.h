@@ -74,7 +74,10 @@ struct RotorConfig {
     bool        reportMech = false;
 
     // Pasarela serie
-    int         serProto = 1;               // 0 GS-232A, 1 GS-232B, 2 EasyComm II, 3 Rot2Prog
+    int         serProto = 1;               // 0 GS-232A, 1 GS-232B, 2 EasyComm II, 3 Rot2Prog, 4 bus RS485
+    int         serBusId = 3;               // bus RS485: dirección de la placa (maestro)
+    int         serAzId = 20;               // bus RS485: dirección del controlador del acimut
+    int         serElId = 21;               // bus RS485: dirección del de elevación (con serHasEl)
     int         serBaud = 9600;
     int         serRx = DEF_SER_RX, serTx = DEF_SER_TX;
     bool        serHasEl = true;

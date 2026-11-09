@@ -61,7 +61,7 @@ Cada eje:
 
 ## `serial` (pasarela)
 
-`proto` (0 GS-232A, 1 GS-232B, 2 EasyComm II, 3 Rot2Prog), `baud`, `rx`, `tx`, `hasEl`, `pollMs` (500), `minAz` / `maxAz` / `maxEl` (los que se anuncian a Hamlib).
+`proto` (0 GS-232A, 1 GS-232B, 2 EasyComm II, 3 Rot2Prog, 4 bus RS485), `baud`, `rx`, `tx`, `hasEl`, `pollMs` (500), `busId` / `azId` / `elId` (3 / 20 / 21: direcciones en el bus RS485), `minAz` / `maxAz` / `maxEl` (los que se anuncian a Hamlib).
 
 ## `lora`
 

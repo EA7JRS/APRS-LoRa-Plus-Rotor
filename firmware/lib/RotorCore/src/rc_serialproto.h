@@ -30,7 +30,7 @@
 
 namespace RC {
 
-    enum SerialProto : uint8_t { SP_GS232A = 0, SP_GS232B = 1, SP_EASYCOMM2 = 2, SP_ROT2PROG = 3 };
+    enum SerialProto : uint8_t { SP_GS232A = 0, SP_GS232B = 1, SP_EASYCOMM2 = 2, SP_ROT2PROG = 3, SP_RSBUS = 4 };
 
     inline const char* serialProtoName(int p) {
         switch (p) {
@@ -38,6 +38,7 @@ namespace RC {
             case SP_GS232B:    return "GS-232B";
             case SP_EASYCOMM2: return "EasyComm II";
             case SP_ROT2PROG:  return "SPID Rot2Prog";
+            case SP_RSBUS:     return "RS485 bus";
         }
         return "?";
     }
@@ -384,6 +385,116 @@ namespace RC {
                 out.append((const char*)r, 12);
             }
         };
+    }
+
+
+    // ---------------------------------------------------------------------------------------------------------------
+    // Bus RS485 con direcciones: tramas de texto "#ORIGEN:DESTINO:ORDEN:DATOS:SUMA$". Un maestro (la placa) y un esclavo por
+    // eje (acimut y elevación con direcciones distintas). SUMA = ORIGEN + DESTINO + el último número de DATOS (0 si no hay).
+    // Los decimales van con coma ("160,50"); se aceptan también con punto. Respuestas "ACK_<ORDEN>" o "NAK_<ORDEN>"; los
+    // fallos llegan solos como "ERR" a la dirección 255.
+    // ---------------------------------------------------------------------------------------------------------------
+    namespace RsBus {
+
+        static const int BROADCAST = 255;
+
+        // Último número ([-+]dígitos[(,|.)dígitos]) del texto; 0 si no hay ninguno
+        inline double lastNumber(const std::string& p) {
+            double last = 0;
+            size_t i = 0;
+            while (i < p.size()) {
+                size_t j = i;
+                if (p[j] == '+' || p[j] == '-') j++;
+                if (j < p.size() && isdigit((unsigned char)p[j])) {
+                    size_t k = j;
+                    while (k < p.size() && isdigit((unsigned char)p[k])) k++;
+                    if (k + 1 < p.size() && (p[k] == ',' || p[k] == '.') && isdigit((unsigned char)p[k + 1])) {
+                        k++;
+                        while (k < p.size() && isdigit((unsigned char)p[k])) k++;
+                    }
+                    std::string t = p.substr(i, k - i);
+                    for (char& c : t) if (c == ',') c = '.';
+                    last = strtod(t.c_str(), nullptr);
+                    i = k;
+                } else {
+                    i++;
+                }
+            }
+            return last;
+        }
+
+        // Número con coma y como mucho 2 decimales, sin ceros de sobra ("187", "160,5")
+        inline std::string fmtNum(double v) {
+            char b[32];
+            const double r = round(v);
+            if (fabs(v - r) < 0.005) { snprintf(b, sizeof b, "%ld", (long)r); return b; }
+            snprintf(b, sizeof b, "%.2f", v);
+            std::string s = b;
+            while (!s.empty() && s.back() == '0') s.pop_back();
+            for (char& c : s) if (c == '.') c = ',';
+            return s;
+        }
+
+        // Grados con dos decimales ("160,00")
+        inline std::string fmtDeg(double v) {
+            char b[24];
+            snprintf(b, sizeof b, "%.2f", v);
+            for (char* c = b; *c; c++) if (*c == '.') *c = ',';
+            return b;
+        }
+
+        inline std::string frame(int src, int dst, const char* cmd, const std::string& params) {
+            return "#" + std::to_string(src) + ":" + std::to_string(dst) + ":" + cmd + ":" + params + ":" +
+                   fmtNum(src + dst + lastNumber(params)) + "$";
+        }
+
+        struct Msg { int src = 0, dst = 0; std::string cmd, params; };
+
+        // Interpreta lo que hay entre '#' y '$' (sin ellos) y comprueba la suma
+        inline bool parse(const std::string& body, Msg& m) {
+            const size_t a = body.find(':');
+            if (a == std::string::npos) return false;
+            const size_t b = body.find(':', a + 1);
+            if (b == std::string::npos) return false;
+            const size_t c = body.find(':', b + 1);
+            const size_t z = body.rfind(':');
+            if (c == std::string::npos || z <= c) return false;
+            char* e;
+            m.src = (int)strtol(body.c_str(), &e, 10);
+            if (e != body.c_str() + a) return false;
+            m.dst = (int)strtol(body.c_str() + a + 1, &e, 10);
+            if (e != body.c_str() + b) return false;
+            m.cmd = body.substr(b + 1, c - b - 1);
+            m.params = body.substr(c + 1, z - c - 1);
+            std::string cs = body.substr(z + 1);
+            for (char& ch : cs) if (ch == ',') ch = '.';
+            const double sum = strtod(cs.c_str(), &e);
+            if (cs.empty() || *e) return false;
+            return fabs(sum - (m.src + m.dst + lastNumber(m.params))) < 0.011;
+        }
+
+        // Recoge tramas de un flujo de bytes
+        class Reader {
+        public:
+            // true cuando hay una trama completa y válida en m
+            bool push(char c, Msg& m) {
+                if (c == '#') { buf_.clear(); in_ = true; return false; }
+                if (!in_) return false;
+                if (c == '$') { in_ = false; return parse(buf_, m); }
+                if (buf_.size() >= 160) { in_ = false; return false; }
+                buf_ += c;
+                return false;
+            }
+        private:
+            std::string buf_;
+            bool        in_ = false;
+        };
+
+        inline double num(const std::string& s) {
+            std::string t = s.substr(0, s.find(';'));
+            for (char& c : t) if (c == ',') c = '.';
+            return strtod(t.c_str(), nullptr);
+        }
     }
 
 }

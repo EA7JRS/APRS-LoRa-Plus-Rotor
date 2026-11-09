@@ -42,7 +42,7 @@ The WebUI and the touch screen are in Spanish; their labels are given here as th
 It can move the rotor in two ways:
 
 - **Direct drive**: the board replaces the controller's computer interface. It switches the rotation relays or transistors and reads the position from the rotor potentiometer.
-- **Serial gateway**: the board talks to a commercial controller (Yaesu GS-232A/B, SPID Rot2Prog / MD-01 / MD-02, EasyComm II: K3NG, SatNOGS, ERC…).
+- **Serial gateway**: the board talks to a commercial controller (Yaesu GS-232A/B, SPID Rot2Prog / MD-01 / MD-02, EasyComm II: K3NG, SatNOGS, ERC…) or encoder controllers on an addressed RS485 bus.
 
 On the **Raspberry Pi** the rotor is run by Hamlib's `rotctld`, so **any rotor Hamlib knows** will work.
 
@@ -156,6 +156,7 @@ Board UART → controller. With RS-232, use a MAX3232 at 3.3 V; with 5 V TTL, a 
 | Yaesu GS-232B, K3NG in Yaesu mode | 1 | 9600 |
 | EasyComm II (K3NG, SatNOGS, ERC) | 2 | 9600 / 19200 |
 | SPID Rot2Prog, MD-01, MD-02 | 3 | 600 / 460800 |
+| Addressed RS485 bus (one controller per axis; `serial.busId`, `azId`, `elId`) | 4 | 115200 |
 
 `serial.hasEl: false` for azimuth-only rotors. `minAz`, `maxAz` and `maxEl` are the limits announced to Hamlib.
 

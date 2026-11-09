@@ -78,8 +78,11 @@ UART de la placa → controlador. Con controladores RS-232 (GS-232A/B, Rot2Prog,
 | Yaesu GS-232B, K3NG en modo Yaesu | 1 | 9600 |
 | EasyComm II (K3NG, SatNOGS, ERC) | 2 | 9600 / 19200 |
 | SPID Rot2Prog, MD-01, MD-02 | 3 | 600 (Rot2Prog) / 460800 (MD-01 USB) |
+| Bus RS485 con direcciones (`#ORIGEN:DESTINO:ORDEN:DATOS:SUMA$`) | 4 | 115200 |
 
 `serial.hasEl: false` para rotores solo de acimut; `minAz` / `maxAz` / `maxEl` son los que se anuncian a Hamlib.
+
+**Bus RS485 (4)**: controladores con encóder que trabajan como esclavos de un bus RS485 de texto, un controlador por eje. La placa es el maestro: `serial.busId` (su dirección, 3), `serial.azId` (20) y `serial.elId` (21, con `hasEl`). Manda `SETPOSDG`, `STOP` y pide `GETPOSDG` (AZ y EL alternos, cada `pollMs`); una trama cada vez, la siguiente tras la respuesta. Los fallos que manda el controlador (`ERR`) se ven como fallo del rotor y se borran con *Borrar fallo* (manda `SETREF:0`, sin buscar la referencia). Mover a mano = ir hacia `minAz` / `maxAz` (o 0 / `maxEl`) hasta soltar. Con encóder de más de una vuelta, pon `maxAz` (por ejemplo 420). Hace falta un transceptor RS485 a 3,3 V (MAX3485, SP3485) con conmutación automática o con DE/RE unidos al TX; la ESP32-S3-Touch-LCD-7B ya lo trae (RX 16 / TX 15). Si otro maestro comparte el bus (un mando o el PC), cada uno con su dirección.
 
 ## La placa como controlador para el PC
 

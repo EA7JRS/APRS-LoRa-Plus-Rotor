@@ -11,7 +11,7 @@ Controlador de rotores de antena **compatible con Hamlib** para el ecosistema **
  Tracker APRS LoRa+ ──►│ rotctld (WiFi 4533)   · GS-232B por SPP           │
                        │ mensajes APRS por LoRa (P az el + TOTP)           │──► rotor
  App Android ─────────►│ BLE / TCP 4534: protocolo JSON (PIN)              │    · control directo (relés / puente H + potenciómetro)
- GPredict, Look4Sat ──►│ rotctld (Hamlib NET rotctl, modelo 2)             │    · pasarela serie (GS-232, Rot2Prog, EasyComm)
+ GPredict, Look4Sat ──►│ rotctld (Hamlib NET rotctl, modelo 2)             │    · pasarela serie (GS-232, Rot2Prog, EasyComm, RS485)
  PC con Hamlib (USB) ─►│ se hace pasar por GS-232A/B, EasyComm II, Rot2Prog│    · Raspberry: rotctld de Hamlib (cualquier modelo)
  GPredict, WSJT-X ───►│ rigctld 4532 (CAT)  ──────────────────────────────│──► emisora / SDR (CI-V, Yaesu, Kenwood, SDRconnect)
  Navegador ───────────►│ WebUI (brújula, mando, calibración, config, OTA)  │
