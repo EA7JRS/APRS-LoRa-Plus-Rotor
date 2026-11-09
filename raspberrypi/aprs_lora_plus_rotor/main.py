@@ -43,6 +43,7 @@ from .kiss import KissDecoder, ax25_to_tnc2, kiss_encode, tnc2_to_ax25
 from .protocols import RotctlSession, make_server
 from .serialport import SerialPort
 from .web import WebServer
+from .wind import WindGuard, WindRotor
 
 log = logging.getLogger("rotor")
 
@@ -52,7 +53,8 @@ class Daemon(ApiHost):
         self.cfg = cfg
         d = cfg.data
         self.proc = RotctldProcess(d["hamlib"])
-        self.rotor = HamlibRotor(d["hamlib"], (float(d["park"]["az"]), float(d["park"]["el"])))
+        self.wind = WindGuard(d["wind"])
+        self.rotor = WindRotor(HamlibRotor(d["hamlib"], (float(d["park"]["az"]), float(d["park"]["el"]))), self.wind)
         a = d["aprs"]
         self.aprs = AprsControl(AprsConfig(a["call"].upper(), a["tocall"], a["path"], a["allow"], a["totp"], bool(a["reply"])))
         self.kiss_writer = None
@@ -68,7 +70,8 @@ class Daemon(ApiHost):
         return {"dev": "APRS LoRa+ Rotor", "ver": __version__, "board": "raspberrypi", "chip": _pi_model(),
                 "name": d["name"], "drv": f"hamlib {d['hamlib']['model']}", "call": d["aprs"]["call"],
                 "caps": {"wifi": True, "ble": bool(d["bt"]["ble"]), "spp": bool(d["bt"]["spp"]),
-                         "lora": bool(d["aprs"]["enabled"]), "cal": False, "move": True, "cat": bool(self.cat)},
+                         "lora": bool(d["aprs"]["enabled"]), "cal": False, "move": True, "cat": bool(self.cat),
+                         "wind": True},
                 "ip": _ip(), "rotctld": d["net"]["rotctldPort"] if d["net"]["rotctld"] else 0,
                 "up": int(time.monotonic() - self.started), "utc": int(time.time()),
                 "hamlib": self.proc.last_error or "ok",
@@ -77,7 +80,10 @@ class Daemon(ApiHost):
 
     def pos_extra(self) -> dict:
         r = self.rotor
+        self.wind.tick()
         e = {"f": "OK" if r.link_ok else "NO LINK"}
+        if e["f"] == "OK" and self.wind.locked:
+            e["f"] = "WIND"
         if r.taz is not None:
             e["taz"] = round(r.taz, 1)
         if r.tel is not None and r.has_el:
@@ -97,6 +103,9 @@ class Daemon(ApiHost):
 
     def raw(self) -> dict:
         return {"link": self.rotor.link_ok}
+
+    def clear_fault(self):
+        self.wind.release()
 
     def reboot(self):
         """Reinicia el demonio (systemd lo vuelve a arrancar con la configuracion nueva)."""

@@ -34,7 +34,7 @@ El PIN viaja en claro dentro del enlace: el BLE va cifrado; por TCP/HTTP úsalo 
 | `stop` | — | `ok` |
 | `park` | — | `ok` / `err` |
 | `move` | `d`: `cw`, `ccw`, `up`, `down` (o el número `ROT_MOVE_*` de Hamlib); `s`: velocidad 1-100 (opcional) | `ok`. Se mueve hasta `stop` o hasta el tope |
-| `clear` | — | `ok`: borra el fallo (atasco, sensor) |
+| `clear` | — | `ok`: borra el fallo (atasco, sensor) y libera el bloqueo por viento hasta la siguiente racha fuerte |
 | `cal` | `axis` (`az`/`el`), `pt` (`a`/`b`), `deg` | `ok` / `err`. Toma la lectura actual del sensor como punto de calibración (solo control directo) |
 | `here` | `axis`, `deg` | `ok` / `err`. Corrige el desfase: la posición actual pasa a valer `deg` (solo control directo) |
 | `raw` | — | evento `raw` |
@@ -43,6 +43,7 @@ El PIN viaja en claro dentro del enlace: el BLE va cifrado; por TCP/HTTP úsalo 
 | `cat` | — | evento `cat` (sin PIN) o `err` `no cat` |
 | `catset` | `f` (Hz), `m` (modo de Hamlib: LSB, USB, CW, CWR, AM, FM, WFM, PKTUSB…), `txf` (Hz de subida), `split` (bool), `vfo` (`A`, `B`, `swap`), `tone` (CTCSS en Hz, 0 = apagado), `ptt` (bool); los que se quieran | `ok` / `err` (`no cat`, `rejected`, `ptt not allowed`) |
 | `cattrack` | `on` (bool: seguir o no) y/o `name`, `dl`, `ul` (Hz nominales de bajada y subida, 0 = no), `rr` (velocidad radial, km/s, + = se aleja) | `ok`. La caja corrige el Doppler y sintoniza; sin datos en 15 s deja de seguir |
+| `wx` | `ws` (viento medio, m/s), `wg` (racha, m/s, opcional), `wd` (grados, opcional), `age` (s desde la observación), `src` (`OWM`, `IQAir`…) | `ok` / `err` (`no wind`, `ws`, `range`). Tiempo de internet de la app. Con `wind.on` y racha (o viento medio sin racha) ≥ `wind.park` m/s el rotor para, va a *park* y rechaza `pos` / `move` (y los de rotctld, GS-232, APRS, pantalla…) con `rejected` hasta que el viento baja de `wind.resume` y pasan `wind.hold` minutos sin rachas fuertes. Sin datos nuevos sigue aparcado; `clear` lo libera a mano |
 | `reboot` | — | `ok` y reinicio |
 
 Orden desconocida: `{"e":"err","c":"…","m":"unknown"}`. Línea que no es JSON: `{"e":"err","m":"bad json"}`.
@@ -59,7 +60,7 @@ Orden desconocida: `{"e":"err","c":"…","m":"unknown"}`. Línea que no es JSON:
  "ip":"192.168.1.50","rotctld":4533,"heap":187000,"up":3600,"utc":1762500000}
 ```
 
-Con CAT configurado: `"cat":true`, `caps.cat` y `"rigctld":4532` (0 = apagado).
+Con CAT configurado: `"cat":true`, `caps.cat` y `"rigctld":4532` (0 = apagado). Con protección por viento (todas las versiones desde la 5.3.5): `"wind":true` y `caps.wind`.
 
 `board` es el entorno de PlatformIO (`esp32dev`, `esp32s3`, `waveshare_c5_lcd35`, `waveshare_s3_amoled241`, `waveshare_s3_lcd7b`, `pico2w`, `pico2`) o `raspberrypi`. En la Raspberry `drv` es `hamlib <modelo>` y se añade `hamlib` (estado del rotctld).
 
@@ -71,7 +72,8 @@ Con CAT configurado: `"cat":true`, `caps.cat` y `"rigctld":4532` (0 = apagado).
 
 - `az` 0-360 (o el mecánico si *reportMech*), `el` solo si hay elevación.
 - `st`: banderas de estado de Hamlib (`rot_status_t`): 1 BUSY, 2 MOVING, 4 MOVING_AZ, 8 MOVING_LEFT, 16 MOVING_RIGHT, 32 MOVING_EL, 64 MOVING_UP, 128 MOVING_DOWN, 256 LIMIT_UP, 512 LIMIT_DOWN, 1024 LIMIT_LEFT, 2048 LIMIT_RIGHT, 4096 OVERLAP_UP, 16384 OVERLAP_LEFT, 65536 OVERLAP_RIGHT.
-- `f`: `OK`, `STALL AZ`, `STALL EL`, `SENSOR`, `NO LINK` (pasarela serie o rotctld sin respuesta).
+- `f`: `OK`, `STALL AZ`, `STALL EL`, `SENSOR`, `NO LINK` (pasarela serie o rotctld sin respuesta), `WIND` (aparcado por viento).
+- `wind` (con `wind.on` o tras recibir `wx`): `{"on":true,"park":15,"lk":true,"ws":20,"wg":28.4,"wd":250,"pk":28.4,"age":150,"src":"OWM","hold":870}`: `lk` = aparcado, `pk` = el mayor de medio y racha, `age` = segundos de la observación, `hold` = segundos que faltan como mínimo para liberar.
 - `maz`: acimut mecánico (control directo; > 360 = en el solape). `taz` / `tel`: objetivo. `aprs`: última orden APRS.
 
 ### `cat`

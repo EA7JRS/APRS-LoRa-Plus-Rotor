@@ -15,6 +15,7 @@
 #include "rc_api.h"
 #include "rc_cat.h"
 #include "rc_rigctld.h"
+#include "rc_wind.h"
 
 using namespace RC;
 
@@ -344,6 +345,64 @@ struct FakeHost : ApiHost {
     void reboot() override { rebooted = true; }
     const char* pin() override { return "123456"; }
 };
+
+// Host con proteccion por viento: el rotor de verdad va detras de WindRotor, como en el firmware
+struct WindHost : FakeHost {
+    WindGuard g;
+    WindRotor w{g};
+    uint32_t t = 1000;
+    WindHost() { w.attach(&r); }
+    Rotor& rotor() override { return w; }
+    WindGuard* wind() override { return &g; }
+    uint32_t nowMs() override { return t; }
+    const char* pin() override { return ""; }
+    void clearFault() override { g.release(); }
+};
+
+static void testWind() {
+    // Guarda sola
+    WindGuard g;
+    g.cfg.on = true; g.cfg.parkMs = 15; g.cfg.resumeMs = 10; g.cfg.holdMin = 15;
+    CHECK(!g.update(8, 12, 270, 60, "OWM", 0) && !g.locked());
+    CHECK(g.update(9, 16.5, 270, 60, "OWM", 1000) && g.locked());          // racha de 16,5: bloquea (true solo la primera vez)
+    CHECK(!g.update(9, 17, 270, 60, "OWM", 2000) && g.locked());
+    NEAR(g.peak(), 17, 1e-9);
+    CHECK(!g.update(5, 8, 270, 0, "OWM", 2000 + 5 * 60000) && g.locked()); // calma, pero aun no pasan 15 min
+    CHECK(g.holdLeftS(2000 + 5 * 60000) == 600);
+    g.tick(2000 + 15 * 60000); CHECK(!g.locked());                          // 15 min sin rachas fuertes: libre
+    CHECK(g.update(16, -1, -1, 0, "", 2000 + 16 * 60000) && g.locked());    // sin racha, cuenta el viento medio
+    CHECK(!g.update(12, 13, -1, 0, "", 2000 + 40 * 60000) && g.locked());   // entre resume y park: sigue aparcado
+    g.release(); CHECK(!g.locked());                                         // a mano
+    CHECK(g.update(15, 15, -1, 0, "", 2000 + 41 * 60000));                   // la siguiente racha fuerte vuelve a bloquear
+    g.cfg.on = false; g.tick(2000 + 42 * 60000); CHECK(!g.locked());
+    CHECK(!g.update(30, 40, -1, 0, "", 2000 + 43 * 60000) && !g.locked());  // apagada: nunca bloquea
+    CHECK(g.ageS(2000 + 43 * 60000 + 5000) == 5);
+
+    // Por la API: aparca, rechaza movimientos, deja parar, "clear" libera
+    WindHost h;
+    h.g.cfg.on = true;
+    ApiSession s;
+    std::vector<std::string> o;
+    s.handle("{\"c\":\"info\"}", h, o); CHECK(o[0].find("\"wind\":true") != std::string::npos);
+    o.clear(); s.handle("{\"c\":\"wx\",\"ws\":20,\"wg\":28.4,\"wd\":250,\"age\":120,\"src\":\"OWM\"}", h, o);
+    CHECK(o[0] == "{\"e\":\"ok\",\"c\":\"wx\"}" && h.r.parked && h.r.stopped && h.g.locked());
+    o.clear(); s.handle("{\"c\":\"pos\",\"az\":100}", h, o); CHECK(o[0].find("rejected") != std::string::npos);
+    o.clear(); s.handle("{\"c\":\"move\",\"d\":\"cw\"}", h, o); CHECK(o[0].find("rejected") != std::string::npos);
+    CHECK(!h.w.setAz(5) && h.w.stop() && h.w.park());
+    h.t += 30000;
+    o.clear(); s.handle("{\"c\":\"get\"}", h, o);
+    CHECK(o[0].find("\"wind\":{\"on\":true,\"park\":15,\"lk\":true,\"ws\":20,\"wg\":28.4,\"wd\":250,\"pk\":28.4,\"age\":150,\"src\":\"OWM\",\"hold\":870}") != std::string::npos);
+    o.clear(); s.handle("{\"c\":\"clear\"}", h, o); CHECK(!h.g.locked());
+    o.clear(); s.handle("{\"c\":\"pos\",\"az\":100}", h, o); CHECK(o[0] == "{\"e\":\"ok\",\"c\":\"pos\"}");
+    o.clear(); s.handle("{\"c\":\"wx\"}", h, o); CHECK(o[0].find("err") != std::string::npos);
+    o.clear(); s.handle("{\"c\":\"wx\",\"ws\":-3}", h, o); CHECK(o[0].find("range") != std::string::npos);
+    // Sin proteccion: "wx" no se conoce y "get" no lleva "wind"
+    FakeHost f; ApiSession s2;
+    o.clear(); s2.handle("{\"c\":\"auth\",\"pin\":\"123456\"}", f, o);
+    o.clear(); s2.handle("{\"c\":\"wx\",\"ws\":3}", f, o); CHECK(o[0].find("no wind") != std::string::npos);
+    o.clear(); s2.handle("{\"c\":\"get\"}", f, o); CHECK(o[0].find("wind") == std::string::npos);
+    CHECK(std::string(faultText(F_WIND)) == "WIND");
+}
 
 static void testApi() {
     FakeHost h;
@@ -714,6 +773,7 @@ int main() {
     testTotp();
     testAprs();
     testApi();
+    testWind();
     testCatCiv();
     testCatYaesu();
     testCatKenwood();

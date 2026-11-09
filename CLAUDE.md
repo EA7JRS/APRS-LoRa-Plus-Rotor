@@ -15,7 +15,7 @@ Controlador de rotores compatible con Hamlib, manejado por el tracker APRS LoRa+
 - Regla del ecosistema: todo lo del rotor debe poder controlarse desde la app Android.
 
 ## Estructura
-- `firmware/lib/RotorCore/src/`: núcleo C++ puro, sin Arduino (`rc_rotctld.h`, `rc_serialproto.h`, `rc_control.h`, `rc_aprs.h`, `rc_api.h`). Pruebas: `firmware/test_host` (`make run ARDUINOJSON=…/ArduinoJson/src`; 332 comprobaciones).
+- `firmware/lib/RotorCore/src/`: núcleo C++ puro, sin Arduino (`rc_rotctld.h`, `rc_serialproto.h`, `rc_control.h`, `rc_aprs.h`, `rc_api.h`). Pruebas: `firmware/test_host` (`make run ARDUINOJSON=…/ArduinoJson/src`; 359 comprobaciones).
 - `firmware/src/`: `board` (capa ESP32 / RP2350), `config` (LittleFS `/rotor_conf.json`), `drivers` (directo + pasarela), `services` (puerto serie con protocolo, anfitrión JSON), `net` (WiFi, rotctld 4533, JSON 4534, WebUI 80, OTA `/update`, mDNS), `bt_ble` (NimBLE), `bt_spp`, `lora_aprs` (RadioLib, emisión sin bloquear), `web_page.h` (la WebUI; la Raspberry la usa también).
 - Entornos: `esp32dev`, `esp32s3`, `waveshare_c5_lcd35`, `waveshare_s3_amoled241`, `waveshare_s3_lcd7b`, `pico2w`, `pico2`. Versiones como el tracker: espressif32 8.0.0, NimBLE 2.5.2, RadioLib 7.8.1, ArduinoJson 7.4.3; RP2350 con maxgerhardt/platform-raspberrypi (arduino-pico). `-Werror` solo en `src` (`build_src_flags`).
 - ESP32 de 4 MB: partición `huge_app.csv` (BLE + SPP + WiFi no caben con OTA): sin OTA por la WebUI.
@@ -47,6 +47,9 @@ Controlador de rotores compatible con Hamlib, manejado por el tracker APRS LoRa+
 - Raspberry: `cat.py` (`type` hamlib = rigctld real en 127.0.0.1:4536 + cliente; rigctl; sdrconnect), servidor rigctld 4532 con el mismo control del PTT.
 - App: sección *Radio (CAT)* en la pestaña Rotor; con el tracker en SAT manda `cattrack` y, al cambiar de satélite, modo, split y tono (`satTone` de la descripción del transmisor).
 - Documento: `docs/CAT.md`. Sin probar con emisoras reales.
+
+## Viento (2026-11-09; Manuel: «Rotor: parar con viento»)
+- `rc_wind.h` (`WindGuard`, `WindRotor`: envoltorio de `Drv::rotor()` que rechaza `setPos`/`setAz`/`move` aparcado), `F_WIND` = «WIND». Orden `wx` (ws, wg, wd, age, src) de la app con el tiempo de internet; `wind.on/park/resume/hold` en la configuración; objeto `wind` en el evento `pos`; `caps.wind`; `clear` libera. Raspberry: `wind.py`. Pantalla: «Aparcado por viento (20/28 m/s)» o «Viento 12/20 m/s» en la línea de estado. Pruebas: 359 del núcleo, 184 de la pantalla.
 
 ## Manuales (2026-11-08)
 - `docs/MANUAL_ES.md`, `docs/MANUAL_EN.md` (manual de usuario) y `docs/QUICKSTART_ES.md`, `docs/QUICKSTART_EN.md` (guía rápida). Al cambiar funciones, placas o versión, actualizar los cuatro.

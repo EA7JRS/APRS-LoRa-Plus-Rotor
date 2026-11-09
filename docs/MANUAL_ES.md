@@ -228,6 +228,7 @@ Pestaña **Rotor** de la app APRS LoRa+:
    Los ángulos se calculan desde el GNSS del tracker.
 5. **Radio (CAT)**: frecuencia, paso, modos, A/B, *split*, tono CTCSS, S-meter, PTT y Doppler del satélite del tracker ([apartado 12](#12-emisora-y-receptor-sdr-cat)).
 6. **Calibración** (Point A / Point B / Offset), **configuración** completa (*Read*, *Save and restart*) y *Restart the rotor box*.
+7. **Viento**: con el tiempo de internet de la app activado (*Sensors > Internet weather*, OpenWeatherMap o IQAir) la app manda el viento a la caja; con `wind.on: true` la caja aparca y bloquea el rotor con rachas de `wind.park` m/s o más (ver [apartado 15](#15-seguridad)).
 
 No dejes que el tracker mueva el mismo rotor a la vez por WiFi o SPP: elige una sola vía.
 
@@ -323,6 +324,7 @@ Más detalles en [RASPBERRY_PI.md](RASPBERRY_PI.md).
 - **Cambia el PIN** (`pin`): protege la app, la WebUI y el protocolo JSON. Si la WebUI va a ser accesible fuera de tu red, pon también `net.webPass`.
 - **El rotor se protege solo**: para en los topes (`limitMargin`), da fallo si se atasca (`stallMs`) y lo apaga todo si el sensor deja de leer. Tras un fallo, una orden de posición nueva o *Borrar fallo* lo rearma.
 - **Al arrancar**, los pines quedan al aire un instante: pon resistencias de 10 kΩ de la base a masa (o usa un ULN2003) para que el rotor no se mueva.
+- **Viento** (`wind`): `on` (apagado por defecto), `park` (m/s de racha para aparcar, 15), `resume` (m/s para volver, 10), `hold` (minutos sin rachas fuertes, 15). Mientras está aparcado la pantalla, la WebUI y la app muestran «WIND» y el viento, y el rotor rechaza cualquier movimiento (STOP y Park sí). Sin datos nuevos sigue aparcado; *Borrar fallo* lo libera a mano hasta la siguiente racha fuerte. El dato es de internet (la estación meteorológica más cercana, cada 15 min): no sustituye a un anemómetro en la torre.
 - **PTT de la emisora**: apagado salvo `cat.ptt: true`; solo mientras se mantiene pulsado y con límite de tiempo (`cat.pttMaxS`).
 - **APRS**: lista de indicativos y, mejor, código TOTP. El contenido viaja sin cifrar, como piden las normas de radioaficionado.
 

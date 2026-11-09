@@ -15,6 +15,7 @@ from aprs_lora_plus_rotor import api, aprs, config, kiss, protocols as P  # noqa
 from aprs_lora_plus_rotor import cat as C  # noqa: E402
 from aprs_lora_plus_rotor.hamlib import HamlibRotor  # noqa: E402
 from aprs_lora_plus_rotor.web import load_page  # noqa: E402
+from aprs_lora_plus_rotor.wind import WindGuard, WindRotor  # noqa: E402
 
 
 class FakeRotor(P.Rotor):
@@ -187,6 +188,52 @@ class TestApiConfig(unittest.TestCase):
         self.assertEqual(h.cfg.apply_json('{"pin":"********","name":""}'), "name 1-24")
         self.assertEqual(h.cfg.apply_json('{"pin":"********"}'), "")
         self.assertEqual(h.cfg.data["pin"], "123456")
+
+
+class WindHost(Host):
+    def __init__(self):
+        super().__init__()
+        self.inner = FakeRotor()
+        self.wind = WindGuard({"on": True, "park": 15, "resume": 10, "hold": 15})
+        self.rotor = WindRotor(self.inner, self.wind)
+
+    def pin(self):
+        return ""
+
+    def clear_fault(self):
+        self.wind.release()
+
+
+class TestWind(unittest.TestCase):
+    def test_guard(self):
+        g = WindGuard({"on": True, "park": 15, "resume": 10, "hold": 15})
+        self.assertFalse(g.update(8, 12, 270, 60, "OWM", 0))
+        self.assertTrue(g.update(9, 16.5, 270, 60, "OWM", 1))
+        self.assertFalse(g.update(9, 17, 270, 60, "OWM", 2) or not g.locked)
+        self.assertFalse(g.update(5, 8, 270, 0, "OWM", 2 + 300) or not g.locked)
+        self.assertEqual(g.hold_left_s(2 + 300), 600)
+        g.tick(2 + 900)
+        self.assertFalse(g.locked)
+        self.assertTrue(g.update(16, -1, -1, 0, "", 2 + 960))       # sin racha cuenta el medio
+        g.release()
+        self.assertFalse(g.locked)
+        g.on = False
+        self.assertFalse(g.update(30, 40, -1, 0, "", 2 + 1000) or g.locked)
+
+    def test_api(self):
+        h, s = WindHost(), api.ApiSession()
+        self.assertIn('"wind":true', s.handle('{"c":"info"}', h)[0])
+        self.assertEqual(s.handle('{"c":"wx","ws":20,"wg":28.4,"wd":250,"age":120,"src":"OWM"}', h)[0], '{"e":"ok","c":"wx"}')
+        self.assertTrue(h.inner.parked and h.inner.stopped and h.wind.locked)
+        self.assertIn("rejected", s.handle('{"c":"pos","az":100}', h)[0])
+        self.assertIn("rejected", s.handle('{"c":"move","d":"cw"}', h)[0])
+        w = json.loads(s.handle('{"c":"get"}', h)[0])["wind"]
+        self.assertEqual((w["lk"], w["ws"], w["wg"], w["pk"], w["src"]), (True, 20, 28.4, 28.4, "OWM"))
+        s.handle('{"c":"clear"}', h)
+        self.assertEqual(s.handle('{"c":"pos","az":100}', h)[0], '{"e":"ok","c":"pos"}')
+        self.assertIn("range", s.handle('{"c":"wx","ws":-3}', h)[0])
+        self.assertIn("no wind", api.ApiSession().handle('{"c":"wx","ws":3}', type("H", (Host,), {"pin": lambda self: ""})())[0])
+        self.assertEqual(config.validate({**config.DEFAULTS, "wind": {"on": True, "park": 15, "resume": 20, "hold": 5}})[:4], "wind")
 
 
 class TestHamlibClient(unittest.TestCase):

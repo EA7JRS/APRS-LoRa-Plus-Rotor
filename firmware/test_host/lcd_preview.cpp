@@ -123,6 +123,13 @@ static void run(int W, int H, const std::string& out) {
     c = ui.touch(true, x, y, 7100, s);
     CHECK(c.cmd == Lcd::Cmd::CLEAR_FAULT);
     ui.touch(false, 0, 0, 7200, s);
+    // aparcado por viento: tarjeta roja y toque = liberar
+    s.fault = 6; s.faultText = "WIND"; s.wind = "20/28 m/s";
+    ui.draw(fb, s);
+    writePpm(fb, p + "main_wind.ppm");
+    CHECK(fb.get(L.status.x + 3, L.status.y + L.status.h / 2) == Lcd::hex(0x4a1a1a));
+    { center(L.status, x, y); Lcd::UiCmd cw = ui.touch(true, x, y, 7400, s); CHECK(cw.cmd == Lcd::Cmd::CLEAR_FAULT); ui.touch(false, 0, 0, 7450, s); }
+    s.wind.clear();
     s.fault = 0; s.faultText = "OK";
     s.hasEl = false; s.el = NAN; s.az = 359.9; s.maz = 380; s.taz = 20; s.moving = true;
     ui.draw(fb, s);

@@ -99,6 +99,7 @@ void RotorApiHost::info(JsonObject o) {
     caps["move"] = !(Cfg.driver == 1 && Cfg.serProto == RC::SP_ROT2PROG);
     caps["lcd"] = ROTOR_HAS_LCD != 0;
     caps["cat"] = Cat::engine() != nullptr;
+    caps["wind"] = true;
     o["ip"] = Net::ip();
     o["rotctld"] = Cfg.rotctld ? Cfg.rotctldPort : 0;
     o["rigctld"] = (Cat::engine() && Cfg.rigctld) ? Cfg.rigctldPort : 0;
@@ -134,6 +135,7 @@ const char* RotorApiHost::pin() { return Cfg.pin.c_str(); }
 std::string RotorApiHost::lastAprs() { return LoraAprs::lastResult(); }
 RC::Rig* RotorApiHost::rig() { return Cat::engine(); }
 RC::CatTracker* RotorApiHost::catTracker() { return Cat::engine() ? &Cat::tracker() : nullptr; }
+RC::WindGuard* RotorApiHost::wind() { return &Drv::wind(); }
 bool RotorApiHost::catPttAllowed() { return Cfg.catPtt && Cat::engine() && !Cat::engine()->receiver(); }
 
 // ---------------------------------------------------------------------------------------------------------------------------

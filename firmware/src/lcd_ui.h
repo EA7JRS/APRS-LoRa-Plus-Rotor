@@ -30,6 +30,7 @@ namespace Lcd {
         uint8_t     fault = 0;
         std::string faultText = "OK";
         std::string aprs;                           // última orden APRS
+        std::string wind;                           // tiempo de internet de la app: "12/20 m/s" (medio / racha; vacío = sin datos)
         // Equipo
         std::string ver, name, call, board, chip, drv, ip, wifi;
         int         rotctld = 0, apiPort = 0;
@@ -441,10 +442,17 @@ namespace Lcd {
             }
             const Rect& sr = L.status;
             uint16_t col = FG;
-            if (s.fault) {
+            if (s.fault == 6) {                                        // RC::F_WIND
+                st = "Aparcado por viento" + (s.wind.empty() ? std::string() : " (" + s.wind + ")");
+                if (L.statusLines > 1) st += " · toca para liberar";
+                fb.fillRound(sr.x, sr.y, sr.w, sr.h, (int)(6 * L.k), hex(0x4a1a1a));
+                col = RED;
+            } else if (s.fault) {
                 st = s.faultText + " (toca para borrar)";
                 fb.fillRound(sr.x, sr.y, sr.w, sr.h, (int)(6 * L.k), hex(0x4a1a1a));
                 col = RED;
+            } else if (st.empty() && s.aprs.empty() && !s.wind.empty()) {
+                st = "Viento " + s.wind;
             } else if (st.empty()) {
                 hint = s.aprs.empty();
                 st = hint ? "Mantén pulsada la brújula para apuntar" : ("APRS: " + s.aprs);

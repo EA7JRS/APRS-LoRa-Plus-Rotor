@@ -230,6 +230,7 @@ At `http://APRS-Rotor.local/` (boards) or `http://IP:8080/` (Raspberry Pi). User
    Angles are computed from the tracker's GNSS position.
 5. **Radio (CAT)**: frequency, step, modes, A/B, split, CTCSS tone, S-meter, PTT and the Doppler of the tracker's satellite ([section 12](#12-radio-and-sdr-receiver-cat)).
 6. **Calibration** (Point A / Point B / Offset), full **configuration** (*Read*, *Save and restart*) and *Restart the rotor box*.
+7. **Wind**: with the app's internet weather on (*Sensors > Internet weather*, OpenWeatherMap or IQAir) the app sends the wind to the box; with `wind.on: true` the box parks and locks the rotor on gusts of `wind.park` m/s or more (see [section 15](#15-safety-and-security)).
 
 Do not let the tracker drive the same rotor at the same time over WiFi or SPP: pick only one path.
 
@@ -325,6 +326,7 @@ More in [RASPBERRY_PI.md](RASPBERRY_PI.md) (in Spanish).
 - **Change the PIN** (`pin`): it protects the app, the WebUI and the JSON protocol. If the WebUI will be reachable from outside your network, also set `net.webPass`.
 - **The rotor protects itself**: it stops at the end stops (`limitMargin`), reports a fault on a stall (`stallMs`) and switches everything off if the sensor stops reading. After a fault, a new position command or *Borrar fallo* (clear fault) re-arms it.
 - **At power-up** the pins float for a moment: fit 10 kΩ base-to-ground resistors (or use a ULN2003) so the rotor does not move.
+- **Wind** (`wind`): `on` (off by default), `park` (gust in m/s to park, 15), `resume` (m/s to resume, 10), `hold` (minutes without strong gusts, 15). While parked the screen, WebUI and app show "WIND" and the wind, and the rotor rejects any movement (STOP and Park still work). Without new data it stays parked; *Borrar fallo* (clear fault) releases it by hand until the next strong gust. The data comes from the internet (the nearest weather station, every 15 min): it does not replace an anemometer on the tower.
 - **Radio PTT**: off unless `cat.ptt: true`; only while held and with a time limit (`cat.pttMaxS`).
 - **APRS**: callsign list and, better, a TOTP code. The content travels unencrypted, as amateur radio rules require.
 

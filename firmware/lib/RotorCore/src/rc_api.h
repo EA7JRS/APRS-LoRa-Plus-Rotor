@@ -24,6 +24,7 @@
 #include "rc_common.h"
 #include "rc_rotctld.h"
 #include "rc_cat.h"
+#include "rc_wind.h"
 
 namespace RC {
 
@@ -49,6 +50,7 @@ namespace RC {
         virtual CatTracker* catTracker() { return nullptr; }
         virtual bool        catPttAllowed() { return false; }
         virtual uint32_t    nowMs() { return 0; }
+        virtual WindGuard*  wind() { return nullptr; }                      // proteccion por viento (nullptr = sin ella)
     };
 
     class ApiSession {
@@ -168,6 +170,19 @@ namespace RC {
                 ok(out, c);
                 return;
             }
+            if (c == "wx") {                                    // tiempo de internet de la app: ws / wg m/s, wd grados, age s, src
+                WindGuard* g = h.wind();
+                if (!g) { err(out, c, "no wind"); return; }
+                if (!in["ws"].is<double>() && !in["wg"].is<double>()) { err(out, c, "ws"); return; }
+                const double ws = in["ws"] | 0.0, wg = in["wg"].is<double>() ? in["wg"].as<double>() : -1.0;
+                if (ws < 0 || ws > 150 || wg > 150) { err(out, c, "range"); return; }
+                const long age = in["age"] | 0L;
+                if (g->update(ws, wg, in["wd"] | -1, (uint32_t)(age < 0 ? 0 : age > 86400 ? 86400 : age), in["src"] | "", h.nowMs())) {
+                    r.stop(); r.park();
+                }
+                ok(out, c);
+                return;
+            }
             if (c == "reboot") { ok(out, c); h.reboot(); return; }
             err(out, c, "unknown");
         }
@@ -184,7 +199,27 @@ namespace RC {
             d["st"] = st;
             d["mv"] = (st & ST_MOVING) != 0;
             h.posExtra(d.as<JsonObject>());
+            windInfo(h, d);
             return dump(d);
+        }
+
+        // "wind":{"ws","wg","wd","pk","age","src","lk":aparcado,"hold":s hasta poder liberar,"on":proteccion activa,"park":m/s}
+        static void windInfo(ApiHost& h, JsonDocument& d) {
+            WindGuard* g = h.wind();
+            if (!g || (!g->have() && !g->cfg.on)) return;
+            JsonObject w = d["wind"].to<JsonObject>();
+            w["on"] = g->cfg.on;
+            w["park"] = g->cfg.parkMs;
+            w["lk"] = g->locked();
+            if (!g->have()) return;
+            const uint32_t now = h.nowMs();
+            w["ws"] = round1(g->wind());
+            if (g->gust() >= 0) w["wg"] = round1(g->gust());
+            if (g->dir() >= 0) w["wd"] = g->dir();
+            w["pk"] = round1(g->peak());
+            w["age"] = g->ageS(now);
+            if (g->src()[0]) w["src"] = g->src();
+            if (g->locked()) w["hold"] = g->holdLeftS(now);
         }
 
         // Estado de la emisora: {"e":"cat","l":enlace,"f":Hz,"m":modo,"tf":Hz,"sp":split,"v":"A","ptt":..,"sm":0-15,"tn":CTCSS Hz,"pa":ptt permitido,
@@ -225,6 +260,7 @@ namespace RC {
             d["pin"] = h.pin() && h.pin()[0];
             h.info(d.as<JsonObject>());
             d["cat"] = h.rig() != nullptr;
+            d["wind"] = h.wind() != nullptr;
             out.push_back(dump(d));
         }
 

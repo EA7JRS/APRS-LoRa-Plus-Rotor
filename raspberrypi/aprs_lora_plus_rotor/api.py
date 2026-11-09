@@ -27,6 +27,7 @@ class ApiHost:
 
     rotor = None
     cat = None          # cat.Cat o None
+    wind = None         # wind.WindGuard o None
 
     def info(self) -> dict: return {}
     def pos_extra(self) -> dict: return {}
@@ -48,6 +49,10 @@ def pos_event(h: ApiHost) -> str:
     d["st"] = st
     d["mv"] = bool(st & ST_MOVING)
     d.update(h.pos_extra())
+    if h.wind is not None:
+        w = h.wind.info()
+        if w:
+            d["wind"] = w
     return dumps(d)
 
 
@@ -89,6 +94,7 @@ class ApiSession:
                  "hasEl": r.has_el, "pin": need_pin}
             i.update(h.info())
             i["cat"] = bool(h.cat and h.cat.rig)
+            i["wind"] = h.wind is not None
             out.append(dumps(i))
             return out
         if c == "get":
@@ -186,6 +192,25 @@ class ApiSession:
                 t.update(str(d.get("name", "")), round(_num(d.get("dl")) or 0), round(_num(d.get("ul")) or 0),
                          _num(d.get("rr")) or 0.0)
             ok(c)
+        elif c == "wx":
+            g = h.wind
+            ws, wg = _num(d.get("ws")), _num(d.get("wg"))
+            if g is None:
+                err(c, "no wind")
+            elif ws is None and wg is None:
+                err(c, "ws")
+            elif (ws or 0) < 0 or (ws or 0) > 150 or (wg or 0) > 150:
+                err(c, "range")
+            else:
+                wd = d.get("wd", -1)
+                age = d.get("age", 0)
+                age = int(min(max(age, 0), 86400)) if isinstance(age, (int, float)) else 0
+                src = d.get("src", "")
+                if g.update(ws or 0.0, wg if wg is not None else -1.0, int(wd) if isinstance(wd, (int, float)) else -1,
+                            age, src if isinstance(src, str) else ""):
+                    r.stop()
+                    r.park()
+                ok(c)
         elif c == "reboot":
             ok(c)
             h.reboot()

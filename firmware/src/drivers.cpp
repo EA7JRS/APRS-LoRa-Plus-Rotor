@@ -241,7 +241,17 @@ namespace Drv {
     // =========================================================================================================================
     static uint32_t lastUpdate = 0;
 
+    // Proteccion por viento: todo pasa por el envoltorio, que rechaza movimientos mientras esta aparcado
+    static RC::WindGuard   windG;
+    static RC::WindRotor   windR(windG);
+    RC::WindGuard& wind() { return windG; }
+    void windConfig() {
+        windG.cfg.on = Cfg.windOn; windG.cfg.parkMs = Cfg.windParkMs; windG.cfg.resumeMs = Cfg.windResumeMs; windG.cfg.holdMin = Cfg.windHoldMin;
+    }
+    static RC::Rotor& realRotor() { if (Cfg.driver == 1) return serial; return direct; }
+
     void begin() {
+        windConfig();
         if (Cfg.driver == 1) {
             openSerial();
             return;
@@ -270,6 +280,7 @@ namespace Drv {
     }
 
     void loop() {
+        windG.tick(millis());
         if (Cfg.driver == 1) { serial.poll(); return; }
         if (usingAds) Ads::poll(Cfg.azPins.sensor == 1 ? Cfg.azPins.adsChannel : -1, (Cfg.elEnabled && Cfg.elPins.sensor == 1) ? Cfg.elPins.adsChannel : -1);
         const uint32_t now = millis();
@@ -283,7 +294,7 @@ namespace Drv {
         outPin(Cfg.brakePin, direct.az.out().brakeRelease || (Cfg.elEnabled && direct.el.out().brakeRelease));
     }
 
-    RC::Rotor& rotor() { if (Cfg.driver == 1) return serial; return direct; }
+    RC::Rotor& rotor() { windR.attach(&realRotor()); return windR; }
 
     const char* name() {
         if (Cfg.driver == 1) return RC::serialProtoName(Cfg.serProto);
@@ -291,8 +302,8 @@ namespace Drv {
     }
 
     uint8_t fault() {
-        if (Cfg.driver == 1) return serial.linkOk() ? RC::F_NONE : RC::F_LINK;
-        return direct.fault();
+        const uint8_t f = Cfg.driver == 1 ? (serial.linkOk() ? RC::F_NONE : RC::F_LINK) : direct.fault();
+        return f == RC::F_NONE && windG.locked() ? RC::F_WIND : f;
     }
 
     void raw(JsonObject o) {
@@ -346,5 +357,5 @@ namespace Drv {
         return true;
     }
 
-    void clearFault() { if (Cfg.driver == 0) direct.clearFaults(); }
+    void clearFault() { windG.release(); if (Cfg.driver == 0) direct.clearFaults(); }
 }

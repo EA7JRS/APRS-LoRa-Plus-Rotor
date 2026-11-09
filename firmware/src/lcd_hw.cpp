@@ -369,6 +369,14 @@ namespace LcdHw {
         st.tel = o["tel"].is<double>() ? o["tel"].as<double>() : NAN;
         st.maz = o["maz"].is<double>() ? o["maz"].as<double>() : NAN;
         st.aprs = LoraAprs::lastResult();
+        st.wind.clear();
+        const RC::WindGuard& wg = Drv::wind();
+        if (wg.have()) {
+            char t[64];
+            if (wg.gust() >= 0) snprintf(t, sizeof t, "%.0f/%.0f m/s", wg.wind(), wg.gust());
+            else snprintf(t, sizeof t, "%.0f m/s", wg.wind());
+            st.wind = t;
+        }
         st.ver = ROTOR_VERSION; st.name = Cfg.name; st.call = Cfg.aprs.callsign;
         st.board = ROTOR_BOARD; st.chip = Board::chip(); st.drv = Drv::name();
         st.ip = Net::up() ? Net::ip() : std::string();

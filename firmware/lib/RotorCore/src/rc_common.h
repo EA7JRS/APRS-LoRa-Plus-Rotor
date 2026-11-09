@@ -58,7 +58,7 @@ namespace RC {
     enum { E_OK = 0, E_INVAL = 1, E_NIMPL = 4, E_IO = 6, E_PROTO = 8, E_REJECTED = 9 };
 
     // Fallo grave del rotor (lo pone el control directo o la pasarela serie)
-    enum Fault : uint8_t { F_NONE = 0, F_STALL_AZ, F_STALL_EL, F_SENSOR, F_LINK, F_ESTOP };
+    enum Fault : uint8_t { F_NONE = 0, F_STALL_AZ, F_STALL_EL, F_SENSOR, F_LINK, F_ESTOP, F_WIND };   // F_WIND: aparcado por viento (rc_wind.h)
 
     inline const char* faultText(uint8_t f) {
         switch (f) {
@@ -68,6 +68,7 @@ namespace RC {
             case F_SENSOR:   return "SENSOR";
             case F_LINK:     return "NO LINK";
             case F_ESTOP:    return "E-STOP";
+            case F_WIND:     return "WIND";
         }
         return "?";
     }

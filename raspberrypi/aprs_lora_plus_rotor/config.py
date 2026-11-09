@@ -39,6 +39,8 @@ DEFAULTS: dict = {
             "pttMaxS": 180, "trackStep": 50, "server": True, "serverPort": 4532},
 }
 
+DEFAULTS["wind"] = {"on": False, "park": 15.0, "resume": 10.0, "hold": 15}   # proteccion por viento (wind.py)
+
 SECRETS = [("pin",), ("net", "webPass"), ("aprs", "totp")]
 
 
@@ -87,6 +89,9 @@ def validate(c: dict) -> str:
             return "cat.serverPort"
         if k["type"] == "hamlib" and int(k["internalPort"]) in ports + [int(k["serverPort"])]:
             return "cat.internalPort"
+        w = c["wind"]
+        if not (3 <= float(w["park"]) <= 60 and 0 < float(w["resume"]) <= float(w["park"]) and 0 <= int(w["hold"]) <= 720):
+            return "wind: park 3-60 m/s, 0 < resume <= park, hold 0-720 min"
         a = c["aprs"]
         if not 1 <= len(a["call"]) <= 9:
             return "aprs.call"

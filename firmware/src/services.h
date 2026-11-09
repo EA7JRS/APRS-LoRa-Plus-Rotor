@@ -45,6 +45,7 @@ public:
     RC::CatTracker* catTracker() override;
     bool            catPttAllowed() override;
     uint32_t        nowMs() override { return millis(); }
+    RC::WindGuard*  wind() override;
 };
 extern RotorApiHost ApiHost;
 

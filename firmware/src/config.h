@@ -114,6 +114,12 @@ struct RotorConfig {
     bool        rigctld = true;             // servidor rigctld (Hamlib NET rigctl) si hay CAT
     int         rigctldPort = 4532;
 
+    // Proteccion por viento (tiempo de internet que manda la app; lib/RotorCore/src/rc_wind.h)
+    bool        windOn = false;
+    double      windParkMs = 15.0;          // racha (o viento medio) en m/s para aparcar y bloquear
+    double      windResumeMs = 10.0;        // vuelve a aceptar movimientos por debajo de esto...
+    int         windHoldMin = 15;           // ...y tras estos minutos sin rachas fuertes
+
     // Pantalla tactil (placas con LCD)
     int         lcdBright = 80;             // brillo 10-100 %
     int         lcdDimS = 300;              // segundos sin tocar hasta bajar el brillo al 10 % (0 = nunca)

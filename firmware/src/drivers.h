@@ -10,6 +10,7 @@
 #include <ArduinoJson.h>
 #include <string>
 #include "rc_common.h"
+#include "rc_wind.h"
 
 namespace Drv {
     void        begin();
@@ -22,5 +23,7 @@ namespace Drv {
     bool        setHere(const char* axis, double deg, std::string& err);
     void        clearFault();
     void        allOff();                       // salidas a reposo (fallo, reinicio)
-    uint8_t     fault();
+    uint8_t     fault();                        // F_WIND si esta aparcado por viento (y no hay otro fallo)
+    RC::WindGuard& wind();                      // proteccion por viento (Drv::rotor() ya la respeta)
+    void        windConfig();                   // copia wind.* de la configuracion
 }

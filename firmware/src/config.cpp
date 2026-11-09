@@ -114,6 +114,8 @@ namespace Config {
         ct["proto"] = c.catProto; ct["baud"] = c.catBaud; ct["rx"] = c.catRx; ct["tx"] = c.catTx; ct["civ"] = c.catCiv;
         ct["model"] = c.catModel; ct["pollMs"] = c.catPollMs; ct["ptt"] = c.catPtt; ct["pttMaxS"] = c.catPttMaxS; ct["trackStep"] = c.catTrackStep;
         ct["rigctld"] = c.rigctld; ct["rigctldPort"] = c.rigctldPort; ct["host"] = c.catHost; ct["port"] = c.catPort;
+        JsonObject wd = d["wind"].to<JsonObject>();
+        wd["on"] = c.windOn; wd["park"] = c.windParkMs; wd["resume"] = c.windResumeMs; wd["hold"] = c.windHoldMin;
     #if ROTOR_HAS_LCD
         JsonObject lc = d["lcd"].to<JsonObject>();
         lc["bright"] = c.lcdBright; lc["dimS"] = c.lcdDimS;
@@ -143,6 +145,9 @@ namespace Config {
         if (c.loraChip < 0 || c.loraChip > 4) { err = "lora.chip"; return false; }
         if (c.loraSf < 6 || c.loraSf > 12 || c.loraCr < 5 || c.loraCr > 8) { err = "lora sf / cr"; return false; }
         if (c.aprs.callsign.empty() || c.aprs.callsign.size() > 9) { err = "aprs.call"; return false; }
+        if (!(c.windParkMs >= 3 && c.windParkMs <= 60) || !(c.windResumeMs > 0 && c.windResumeMs <= c.windParkMs) || c.windHoldMin < 0 || c.windHoldMin > 720) {
+            err = "wind: park 3-60 m/s, 0 < resume <= park, hold 0-720 min"; return false;
+        }
         if (c.lcdBright < 10 || c.lcdBright > 100 || c.lcdDimS < 0) { err = "lcd.bright 10-100 / lcd.dimS >= 0"; return false; }
         if (c.catProto < 0 || c.catProto > 6) { err = "cat.proto 0-6"; return false; }
         const bool catNet = RC::catIsNetwork(c.catProto);
@@ -193,6 +198,8 @@ namespace Config {
         getSecret(a, "totp", n.aprs.totpSecret); get(a, "reply", n.aprs.reply); get(a, "beaconMin", n.beaconMin);
         getD(a, "lat", n.lat); getD(a, "lon", n.lon); getS(a, "comment", n.comment);
         get(d, "led", n.led);
+        JsonVariantConst wd = d["wind"];
+        get(wd, "on", n.windOn); getD(wd, "park", n.windParkMs); getD(wd, "resume", n.windResumeMs); get(wd, "hold", n.windHoldMin);
         get(d["lcd"], "bright", n.lcdBright); get(d["lcd"], "dimS", n.lcdDimS);
         JsonVariantConst ct = d["cat"];
         get(ct, "proto", n.catProto); get(ct, "baud", n.catBaud); get(ct, "rx", n.catRx); get(ct, "tx", n.catTx); get(ct, "civ", n.catCiv);
