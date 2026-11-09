@@ -26,7 +26,7 @@ Controlador de rotores compatible con Hamlib, manejado por el tracker APRS LoRa+
 - Plataforma **pioarduino** 55.03.312-1 (Arduino 3.3.12 como espressif32 8.0.0, que no trae el C5), placa `esp32-c5-devkitc1-n8r4` con 16 MB (`default_16MB.csv`). Sin Bluetooth clásico (no SPP) ni LoRa.
 - Expansor CH32V en I2C 0x24 (`exio.cpp`; SDA 27, SCL 26, compartido con FT6336, ADS1115, RTC, IMU, PMU): EXIO0 reset táctil, EXIO1 reset LCD, EXIO5 amplificador, registro 0x05 = brillo. Pines virtuales: **100-115 = EXIOn**, **200 = EXIO_ADC** (`Board::pinOutput`, `digitalOut`, `readAdc`). Por defecto relés en EXIO8-11 (conector J3 pines 6-12), potenciómetro AZ en EXIO_ADC, elevación apagada (necesita ADS1115), pasarela por U0TXD/U0RXD (GPIO11/12, `Serial1`: el C5 tiene dos UART).
 - Pantalla (`lcd_gfx.h`, `lcd_ui.h` sin Arduino; `lcd_hw.cpp` con ST7796 por SPI 40 MHz, MOSI 7, SCLK 6, CS 8, DC 5, CS de la microSD 9 arriba): dos imágenes de 320×480 en PSRAM, solo se mandan las franjas de 16 filas que cambian (3 por vuelta del bucle). Mando (brújula, AZ/EL, CCW/STOP/CW/DOWN/PARK/UP, apuntar manteniendo la brújula 0,5 s), información y Acerca de. `lcd.bright`, `lcd.dimS`; `caps.lcd`.
-- Fuentes (DejaVu, `NOTICE_FONTS.md`) y logo generados por `tools/make_lcd_assets.py` (necesita rsvg-convert). Prueba en PC: `test_host/lcd_preview` (24 comprobaciones; PPM en `lcd_out/`).
+- Fuentes (DejaVu, `NOTICE_FONTS.md`), logo de la cabecera (el icono de la app, PNG de `web_page.h`) y pantalla de arranque (`lcd_splash.h`: la de bienvenida de la app, `tools/assets/welcome_logo.jpg`, 294×400 en 256 colores sobre #131A22, «Rotor» + versión debajo; el brillo sube en 0,7 s, se queda 1,5 s o hasta un toque; ampliada en la LCD-7B) generados por `tools/make_lcd_assets.py`. Prueba en PC: `test_host/lcd_preview` (PPM en `lcd_out/`).
 - Instalador web: ESP32-C5 necesita ESP Web Tools ≥ 10.2 (el tracker pasa a 10.4.0 en el PR #3); cargador en 0x2000.
 - Sin probar en la placa (orientación del táctil, formato de 16 bits del expansor: Waveshare tiene ejemplos con CH32V006 de 16 pines y CH32V003 de 8).
 
@@ -39,7 +39,7 @@ Controlador de rotores compatible con Hamlib, manejado por el tracker APRS LoRa+
 
 ## Waveshare ESP32-S3-Touch-LCD-7B (`waveshare_s3_lcd7b`, 2026-11-08)
 - La placa de APRS LoRa+ Display. Panel RGB 1024×600 (`LCD_PANEL 3`, `esp_lcd_new_rgb_panel`, tiempos y pines del ejemplo `06_LCD` de Waveshare, 30 MHz `LCD_PCLK_HZ`, imagen del panel en PSRAM + bounce buffer; las franjas que cambian van con `esp_lcd_panel_draw_bitmap`), GT911 (0x5D/0x14, INT GPIO4 bajo en el reset), expansor CH32V003 8 pines 0x24 (`EXIO_CHIP 3`: registros de 1 byte, EXIOn = bit n, EXIO1 reset táctil, EXIO2 luz, EXIO3 reset LCD, EXIO5 USB/CAN (`EXIO_USB_SEL_LEVEL` 0), EXIO6 VDD; PWM de la luz invertido, máx. 97 %). Fuente: repositorio `waveshareteam/ESP32-S3-Touch-LCD-7B` (06_LCD, 08_TOUCH, 15_LVGL_SLIDER). **El repositorio Display supone EXIOn = bit n−1 y PWM sin invertir: avisado a Manuel.**
-- Disposición `Layout::big` (la apaisada de 600×450 escalada, fuentes `FontS3/M3/L3` de 29/37/72 px); `lcd_preview` prueba 1024×600 (163 comprobaciones).
+- Disposición `Layout::big` (la apaisada de 600×450 escalada, fuentes `FontS3/M3/L3` de 29/37/72 px); `lcd_preview` prueba 1024×600 y las pantallas de arranque (178 comprobaciones).
 - GPIO libres: Sensor GPIO6 (potenciómetro AZ), I2C 8/9 (ADS1115 y **placa de relés PCF8574**: pines virtuales 120-127, `direct.pcfAddr` 0x20, `Board::i2cBegin`, `DEF_ACTIVE_HIGH 0`), UART del conector 43/44 (pasarela o CAT). Serial por USB nativo. Sin probar en la placa.
 
 ## CAT (2026-11-08; Manuel: «todas» las placas + RSPdx-R2)
@@ -65,7 +65,7 @@ Controlador de rotores compatible con Hamlib, manejado por el tracker APRS LoRa+
 
 ## Versión y publicación (Manuel, 2026-11-07)
 - **Mismo número de versión en todos los repositorios** (tracker, rotor, app, gateway): ahora **5.3.5**. `ROTOR_VERSION` en `firmware/src/config.h`, `__version__` en `raspberrypi/aprs_lora_plus_rotor/__init__.py`, `library.json`.
-- WebUI: cabecera como la del tracker (barra roja, logo, «APRS LoRa+» y debajo «Rotor» + versión).
+- WebUI: cabecera como la del tracker (barra roja, icono de la app Android en PNG incrustado, también como favicon, «APRS LoRa+» y debajo «Rotor» + versión).
 - Instalador web: el del tracker (GitHub Pages de APRS-LoRa-Plus) con tres lanzadores: Tracker, Rotor, Gateway. Release del rotor (`.github/workflows/release.yml`, etiqueta `v` + versión) → `rotor-<placa>.zip` y `web-site-rotor.zip` (`tools/make_web_assets.py`: manifiestos de ESP Web Tools, UF2 de la Pico, `latest.json`, `ota/`); la release del tracker con la misma versión lo descarga (secreto `FLASHER_TOKEN` en APRS-LoRa-Plus porque este repositorio es privado) y lo pone en `rotor/`. Por USB la placa contesta a `APRS-INFO?` con `APRS-LoRa-Plus: device=rotor board=… version=… chip=… ota=…`.
 
 ## Cómo trabajar

@@ -14,6 +14,7 @@
 #include <vector>
 #include "lcd_gfx.h"
 #include "lcd_logo.h"
+#include "lcd_splash.h"
 
 namespace Lcd {
 
@@ -183,6 +184,40 @@ namespace Lcd {
         const uint16_t LINE = hex(0x33475c), GREEN = hex(0x3fb950), WHITE = hex(0xffffff), STOPC = hex(0xd63a3a);
 
         // ------------------------------------------------------------------------------------------------- dibujo
+        // Pantalla de arranque: la de bienvenida de la app (logo sobre #131A22) y debajo "Rotor <versión>".
+        // En las pantallas grandes se amplía (bilineal) hasta llenar el alto.
+        void splash(Fb& fb, const char* ver) {
+            const uint16_t bg = hex(LCD_SPLASH_BG);
+            fb.fill(bg);
+            const int th = L.S->height + 6;
+            double k = (double)(L.H - th - 12) / LCD_SPLASH_H;
+            if (k < 1) k = 1;
+            const int sw = (int)(LCD_SPLASH_W * k), sh = (int)(LCD_SPLASH_H * k);
+            const int x0 = (L.W - sw) / 2, y0 = (L.H - sh - th) / 2;
+            for (int y = 0; y < sh; y++) {
+                if (k == 1) {
+                    const uint8_t* row = LCD_SPLASH + (size_t)y * LCD_SPLASH_W;
+                    for (int x = 0; x < sw; x++) fb.set(x0 + x, y0 + y, LCD_SPLASH_PAL[row[x]]);
+                    continue;
+                }
+                const double fy = (y + 0.5) / k - 0.5;
+                const int iy = fy < 0 ? 0 : (int)fy, iy1 = iy + 1 < LCD_SPLASH_H ? iy + 1 : iy;
+                const int wy = (int)((fy - iy) * 15 + 0.5);
+                for (int x = 0; x < sw; x++) {
+                    const double fx = (x + 0.5) / k - 0.5;
+                    const int ix = fx < 0 ? 0 : (int)fx, ix1 = ix + 1 < LCD_SPLASH_W ? ix + 1 : ix;
+                    const int wx = (int)((fx - ix) * 15 + 0.5);
+                    const uint8_t* r0 = LCD_SPLASH + (size_t)iy * LCD_SPLASH_W;
+                    const uint8_t* r1 = LCD_SPLASH + (size_t)iy1 * LCD_SPLASH_W;
+                    const uint16_t a = blend(LCD_SPLASH_PAL[r0[ix]], LCD_SPLASH_PAL[r0[ix1]], (uint8_t)wx);
+                    const uint16_t b = blend(LCD_SPLASH_PAL[r1[ix]], LCD_SPLASH_PAL[r1[ix1]], (uint8_t)wx);
+                    fb.set(x0 + x, y0 + y, blend(a, b, (uint8_t)wy));
+                }
+            }
+            const std::string sub = std::string("Rotor ") + (ver ? ver : "");
+            fb.text(L.W / 2, y0 + sh + 4, sub.c_str(), *L.S, hex(0x28b5e1), CENTER);
+        }
+
         void draw(Fb& fb, const UiState& s) {
             fb.fill(BG);
             header(fb, s);

@@ -9,7 +9,7 @@ all: test_core lcd_preview
 test_core: test_core.cpp ../lib/RotorCore/src/*.h
 	$(CXX) $(CXXFLAGS) -I../lib/RotorCore/src -I$(ARDUINOJSON) -DARDUINOJSON_ENABLE_STD_STRING=1 -o $@ test_core.cpp
 
-lcd_preview: lcd_preview.cpp ../src/lcd_ui.h ../src/lcd_gfx.h ../src/lcd_fonts.h ../src/lcd_logo.h
+lcd_preview: lcd_preview.cpp ../src/lcd_ui.h ../src/lcd_gfx.h ../src/lcd_fonts.h ../src/lcd_logo.h ../src/lcd_splash.h
 	$(CXX) $(CXXFLAGS) -o $@ lcd_preview.cpp
 
 run: test_core lcd_preview

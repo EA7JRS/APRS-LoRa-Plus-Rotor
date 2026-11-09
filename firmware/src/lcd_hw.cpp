@@ -110,6 +110,12 @@ namespace LcdHw {
     static int          nextBand = -1;            // -1: nada pendiente
     static uint32_t     lastDraw = 0, lastTouch = 0, lastActivity = 0, brightSaveAt = 0;
     static bool         touchOk = false, dimmed = false, swallow = false, firstFrame = true;
+    // Pantalla de arranque (la de bienvenida de la app): se enciende poco a poco y se queda un rato; un toque la quita
+    static const uint32_t SPLASH_FADE_MS = 700, SPLASH_HOLD_MS = 1500;
+    static bool         splashOn = false;
+    static uint32_t     splashT0 = 0, lastFadeMs = 0;
+    static int          fadePct = -1;
+    static bool         splashTouched = false;
 
 #if LCD_PANEL == 2
     // ------------------------------------------------------------------------------------------------ RM690B0 (QSPI)
@@ -431,6 +437,22 @@ namespace LcdHw {
         }
     }
 
+    // Unas pocas franjas cambiadas por vuelta (nextBand = -1 al terminar)
+    static void pushSome() {
+        int sent = 0;
+        while (nextBand < BANDS && sent < 3) {
+            const size_t off = (size_t)nextBand * BAND * W;
+            const int rows = H - nextBand * BAND < BAND ? H - nextBand * BAND : BAND;
+            if (memcmp(draw_ + off, shown_ + off, (size_t)rows * W * 2) != 0) {
+                memcpy(shown_ + off, draw_ + off, (size_t)rows * W * 2);
+                pushRows(nextBand * BAND, rows);
+                sent++;
+            }
+            nextBand++;
+        }
+        if (nextBand >= BANDS) nextBand = -1;
+    }
+
     // ------------------------------------------------------------------------------------------------
     void begin() {
         if (!Exio::ok()) { logf("lcd: sin expansor de E/S\n"); return; }
@@ -458,6 +480,9 @@ namespace LcdHw {
         memset(shown_, 0, (size_t)W * H * 2);
         ok = true;
         lastActivity = millis();
+        ui.splash(fb, ROTOR_VERSION);                    // la primera imagen es la de arranque (con el brillo a 0)
+        splashOn = true;
+        nextBand = 0;
         logf("lcd: %s %dx%d%s\n", LCD_PANEL == 3 ? "RGB" : LCD_PANEL == 2 ? "RM690B0" : "ST7796", W, H,
              touchOk ? (LCD_PANEL == 3 ? " + GT911" : " + FT6336") : "");
     }
@@ -473,7 +498,8 @@ namespace LcdHw {
             const bool down = touchRead(x, y);
             if (down) {
                 lastActivity = now;
-                if (dimmed) { dimmed = false; applyBright(); swallow = true; }   // el primer toque solo enciende
+                if (splashOn) { splashTouched = true; swallow = true; }         // un toque quita la pantalla de arranque
+                else if (dimmed) { dimmed = false; applyBright(); swallow = true; }   // el primer toque solo enciende
             }
             if (swallow) { if (!down) swallow = false; }
             else {
@@ -485,27 +511,32 @@ namespace LcdHw {
         }
 
         // Bajar el brillo sin uso
-        if (!dimmed && Cfg.lcdDimS > 0 && now - lastActivity > (uint32_t)Cfg.lcdDimS * 1000u) { dimmed = true; applyBright(); }
+        if (!dimmed && !splashOn && Cfg.lcdDimS > 0 && now - lastActivity > (uint32_t)Cfg.lcdDimS * 1000u) { dimmed = true; applyBright(); }
         if (brightSaveAt && (int32_t)(now - brightSaveAt) >= 0) { brightSaveAt = 0; Config::save(); }
 
         // Mandar a la pantalla lo que cambió: unas pocas franjas por vuelta para no frenar el control del rotor
         if (nextBand >= 0) {
-            int sent = 0;
-            while (nextBand < BANDS && sent < 3) {
-                const size_t off = (size_t)nextBand * BAND * W;
-                const int rows = H - nextBand * BAND < BAND ? H - nextBand * BAND : BAND;
-                if (memcmp(draw_ + off, shown_ + off, (size_t)rows * W * 2) != 0) {
-                    memcpy(shown_ + off, draw_ + off, (size_t)rows * W * 2);
-                    pushRows(nextBand * BAND, rows);
-                    sent++;
-                }
-                nextBand++;
-            }
-            if (nextBand >= BANDS) {
-                nextBand = -1;
-                if (firstFrame) { firstFrame = false; applyBright(); }
+            pushSome();
+            if (nextBand < 0 && firstFrame) {
+                firstFrame = false;
+                if (splashOn) splashT0 = now; else applyBright();
             }
             return;
+        }
+
+        // Pantalla de arranque: brillo de 0 al configurado en SPLASH_FADE_MS, luego SPLASH_HOLD_MS (o hasta un toque)
+        if (splashOn) {
+            const uint32_t t = now - splashT0;
+            if (t >= SPLASH_FADE_MS + SPLASH_HOLD_MS || splashTouched) {
+                splashOn = false; applyBright(); lastDraw = 0;
+            } else {
+                if (now - lastFadeMs >= 30) {
+                    lastFadeMs = now;
+                    const int pct = t >= SPLASH_FADE_MS ? Cfg.lcdBright : (int)(Cfg.lcdBright * t / SPLASH_FADE_MS);
+                    if (pct != fadePct) { fadePct = pct; setBright(pct); }
+                }
+                return;
+            }
         }
 
         // Dibujar 5 veces por segundo (o enseguida tras un toque)

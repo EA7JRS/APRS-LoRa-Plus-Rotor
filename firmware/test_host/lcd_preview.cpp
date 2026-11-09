@@ -8,6 +8,7 @@
 
 #include <cstdio>
 #include <vector>
+#include <algorithm>
 #include <string>
 #include "../src/lcd_ui.h"
 
@@ -44,6 +45,25 @@ static void run(int W, int H, const std::string& out) {
     s.drv = "direct (relays)"; s.ip = "192.168.1.57"; s.wifi = "Casa (-61 dBm)"; s.rotctld = 4533; s.apiPort = 4534;
     s.ble = true; s.bleConn = true; s.upS = 3 * 3600 + 25 * 60; s.maxAz = 450;
     s.az = 123.4; s.el = 32.5; s.taz = 210.0; s.tel = 45.0; s.maz = 123.4; s.moving = true;
+
+    // ---- pantalla de arranque: el logo cabe entero, fondo #131A22 en las esquinas, texto debajo dentro de la pantalla
+    ui.splash(fb, "5.3.5");
+    writePpm(fb, p + "splash.ppm");
+    const uint16_t sbg = Lcd::hex(LCD_SPLASH_BG);
+    CHECK(fb.get(0, 0) == sbg && fb.get(W - 1, H - 1) == sbg);
+    CHECK(LCD_SPLASH_W <= W && LCD_SPLASH_H + L.S->height + 6 <= H);
+    const double sk = std::max(1.0, (double)(H - L.S->height - 18) / LCD_SPLASH_H);
+    const int sh = (int)(LCD_SPLASH_H * sk);
+    {
+        int lit = 0;
+        for (int yy = 0; yy < H; yy++) for (int xx = 0; xx < W; xx++) if (fb.get(xx, yy) != sbg) lit++;
+        CHECK(lit > LCD_SPLASH_W * LCD_SPLASH_H / 4);
+        CHECK(fb.get(W / 2, (H - sh - L.S->height - 6) / 2 + sh / 2) != sbg);
+        int below = 0;                                            // "Rotor 5.3.5" bajo el logo
+        const int y0 = (H - sh - L.S->height - 6) / 2 + sh + 4;
+        for (int yy = y0; yy < y0 + L.S->height && yy < H; yy++) for (int xx = 0; xx < W; xx++) if (fb.get(xx, yy) != sbg) below++;
+        CHECK(below > 20);
+    }
 
     int x, y;
     // ---- botones: CCW mantenido, soltar = STOP

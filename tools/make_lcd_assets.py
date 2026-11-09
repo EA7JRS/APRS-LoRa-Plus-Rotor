@@ -5,15 +5,17 @@
 # Recursos de la pantalla (placas con LCD):
 #  - firmware/src/lcd_fonts.h: glifos de DejaVu Sans (licencia Bitstream Vera / DejaVu, ver firmware/src/NOTICE_FONTS.md),
 #    4 bits por punto (16 niveles, se mezclan con el fondo), recortados a su caja.
-#  - firmware/src/lcd_logo.h: el logo de la cabecera de la WebUI (SVG de web_page.h) en RGB565 sobre el rojo de la cabecera.
-#    Necesita rsvg-convert (librsvg).
+#  - firmware/src/lcd_logo.h: el logo de la cabecera de la WebUI (el icono de la app Android, PNG dentro de web_page.h) en RGB565
+#    sobre el rojo de la cabecera.
+#  - firmware/src/lcd_splash.h: pantalla de arranque, la de bienvenida de la app Android (tools/assets/welcome_logo.jpg, copia de
+#    app/src/main/res/drawable/welcome_logo.jpg de APRS-LoRa-Plus-Android) en 256 colores (paleta RGB565 + un byte por punto).
 #
 #   python3 tools/make_lcd_assets.py [--dejavu /usr/share/fonts/truetype/dejavu]
 import argparse
+import base64
 import io
 import os
 import re
-import subprocess
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -77,10 +79,9 @@ def rgb565_sw(r, g, b):
 
 def make_logo(out, h):
     page = open("firmware/src/web_page.h", encoding="utf-8").read()
-    svg = re.search(r'<svg class="logo".*?</svg>', page, re.S).group(0)
-    svg = svg.replace('class="logo" ', "")
-    png = subprocess.run(["rsvg-convert", "-h", str(h)], input=svg.encode(), capture_output=True, check=True).stdout
-    img = Image.open(io.BytesIO(png)).convert("RGBA")
+    b64 = re.search(r'<img class="logo" src="data:image/png;base64,([A-Za-z0-9+/=]+)"', page).group(1)
+    img = Image.open(io.BytesIO(base64.b64decode(b64))).convert("RGBA")
+    img = img.resize((h * img.size[0] // img.size[1], h), Image.LANCZOS)
     bg = Image.new("RGBA", img.size, HEADER_RGB + (255,))
     img = Image.alpha_composite(bg, img).convert("RGB")
     w, h = img.size
@@ -106,14 +107,71 @@ def make_logo(out, h):
     print("written", out, w, "x", h)
 
 
+SPLASH_BG = (0x13, 0x1A, 0x22)          # fondo de la pantalla de bienvenida de la app
+
+
+def feather(img, bg, frac=0.16):
+    """Funde los bordes de la imagen con el fondo (la de la app tiene un halo algo mas claro que se veria como un recuadro)."""
+    w, h = img.size
+    m = Image.new("L", (w, h))
+    bw = max(1, int(min(w, h) * frac))
+    px = m.load()
+    for y in range(h):
+        for x in range(w):
+            d = min(x, y, w - 1 - x, h - 1 - y) / bw
+            t = 1.0 if d >= 1 else d * d * (3 - 2 * d)
+            px[x, y] = int(255 * t)
+    return Image.composite(img, Image.new("RGB", (w, h), bg), m)
+
+
+def make_splash(src, out, h):
+    img = Image.open(src).convert("RGB")
+    w = round(img.size[0] * h / img.size[1])
+    img = img.resize((w, h), Image.LANCZOS)
+    img = feather(img, SPLASH_BG)
+    q = img.quantize(colors=256, method=Image.MEDIANCUT, dither=Image.FLOYDSTEINBERG)
+    pal = q.getpalette()[:768]
+    ncol = len(pal) // 3
+    idx = q.tobytes()
+    lines = [
+        "/* Copyright (C) 2026 Manuel - EA7JRS",
+        " *",
+        " * This file is part of APRS LoRa+ Rotor. GPL-3.0-or-later (ver LICENSE).",
+        " * Pantalla de arranque (la de bienvenida de la app APRS LoRa+) generada por tools/make_lcd_assets.py. No editar a mano.",
+        " */",
+        "",
+        "#pragma once",
+        "#include <stdint.h>",
+        "",
+        "static const int LCD_SPLASH_W = %d, LCD_SPLASH_H = %d;" % (w, h),
+        "static const uint32_t LCD_SPLASH_BG = 0x%02x%02x%02x;" % SPLASH_BG,
+        "static const uint16_t LCD_SPLASH_PAL[256] = {   // RGB565, byte alto primero",
+    ]
+    vals = [rgb565_sw(pal[i * 3], pal[i * 3 + 1], pal[i * 3 + 2]) for i in range(ncol)] + [0] * (256 - ncol)
+    for i in range(0, 256, 16):
+        lines.append("    " + ",".join("0x%04x" % v for v in vals[i:i + 16]) + ",")
+    lines.append("};")
+    lines.append("static const uint8_t LCD_SPLASH[] = {   // un byte por punto (indice de LCD_SPLASH_PAL), por filas")
+    for i in range(0, len(idx), 32):
+        lines.append("    " + ",".join(str(b) for b in idx[i:i + 32]) + ",")
+    lines.append("};")
+    with open(out, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+    print("written", out, w, "x", h)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dejavu", default="/usr/share/fonts/truetype/dejavu")
     ap.add_argument("--out", default="firmware/src/lcd_fonts.h")
     ap.add_argument("--logo-out", default="firmware/src/lcd_logo.h")
     ap.add_argument("--logo-h", type=int, default=40)
+    ap.add_argument("--splash-src", default="tools/assets/welcome_logo.jpg")
+    ap.add_argument("--splash-out", default="firmware/src/lcd_splash.h")
+    ap.add_argument("--splash-h", type=int, default=400)      # cabe en 320 x 480 y en 600 x 450 con el texto debajo
     a = ap.parse_args()
     make_logo(a.logo_out, a.logo_h)
+    make_splash(a.splash_src, a.splash_out, a.splash_h)
     out = [
         "/* Copyright (C) 2026 Manuel - EA7JRS",
         " *",
