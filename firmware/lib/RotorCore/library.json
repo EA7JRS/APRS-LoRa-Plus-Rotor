@@ -1,6 +1,6 @@
 {
   "name": "RotorCore",
-  "version": "5.3.6",
+  "version": "5.4.0",
   "description": "APRS LoRa+ Rotor: protocolos de Hamlib (rotctld, GS-232, EasyComm, Rot2Prog), control directo, APRS y protocolo JSON. C++ puro.",
   "license": "GPL-3.0-or-later",
   "authors": [{ "name": "Manuel - EA7JRS" }],
