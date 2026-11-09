@@ -395,16 +395,13 @@ namespace Drv {
     }
 
     uint8_t fault() {
-<<<<<<< HEAD
-        const uint8_t f = Cfg.driver == 1 ? (serial.linkOk() ? RC::F_NONE : RC::F_LINK) : direct.fault();
-        return f == RC::F_NONE && windG.locked() ? RC::F_WIND : f;
-=======
+        uint8_t f;
         if (Cfg.driver == 1) {
-            if (!serial.linkOk()) return RC::F_LINK;
-            return Cfg.serProto == RC::SP_RSBUS ? serial.busFault() : RC::F_NONE;
+            f = !serial.linkOk() ? RC::F_LINK : (Cfg.serProto == RC::SP_RSBUS ? serial.busFault() : RC::F_NONE);
+        } else {
+            f = direct.fault();
         }
-        return direct.fault();
->>>>>>> 0c6be43 (Pasarela al bus RS485 con direcciones (serial.proto 4): un controlador por eje, ERR como fallo, borrar con SETREF:0)
+        return f == RC::F_NONE && windG.locked() ? RC::F_WIND : f;
     }
 
     void raw(JsonObject o) {
@@ -462,12 +459,9 @@ namespace Drv {
         return true;
     }
 
-<<<<<<< HEAD
-    void clearFault() { windG.release(); if (Cfg.driver == 0) direct.clearFaults(); }
-=======
     void clearFault() {
+        windG.release();
         if (Cfg.driver == 0) direct.clearFaults();
         else if (Cfg.serProto == RC::SP_RSBUS) serial.busClear();
     }
->>>>>>> 0c6be43 (Pasarela al bus RS485 con direcciones (serial.proto 4): un controlador por eje, ERR como fallo, borrar con SETREF:0)
 }
