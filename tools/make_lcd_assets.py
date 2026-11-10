@@ -5,6 +5,7 @@
 # Recursos de la pantalla (placas con LCD):
 #  - firmware/src/lcd_fonts.h: glifos de DejaVu Sans (licencia Bitstream Vera / DejaVu, ver firmware/src/NOTICE_FONTS.md),
 #    4 bits por punto (16 niveles, se mezclan con el fondo), recortados a su caja.
+#  - firmware/src/lcd_fonts_smeter.h: las letras del S-meter (las de la app Android, OFL)
 #  - firmware/src/lcd_logo.h: el logo de la cabecera de la WebUI (el icono de la app Android, PNG dentro de web_page.h) en RGB565
 #    sobre el rojo de la cabecera.
 #  - firmware/src/lcd_splash.h: pantalla de arranque, la de bienvenida de la app Android (tools/assets/welcome_logo.jpg, copia de
@@ -166,6 +167,54 @@ def make_splash(src, out, h):
     print("written", out, w, "x", h)
 
 
+# S-meter de la página CAT: las letras de la app Android (Barlow Condensed Medium para la escala, Share Tech Mono para la
+# lectura; OFL, en tools/assets/fonts) a 10 sp y 18 sp por la escala de cada disposición (lcd_ui.h Layout::dp)
+SMETER_FONTS = [
+    ("FontSmL1", "barlow_condensed_medium.ttf", 12, list("0123456789+")),
+    ("FontSmR1", "share_tech_mono.ttf", 22, list("S0123456789+—")),
+    ("FontSmL2", "barlow_condensed_medium.ttf", 14, list("0123456789+")),
+    ("FontSmR2", "share_tech_mono.ttf", 25, list("S0123456789+—")),
+    ("FontSmL3", "barlow_condensed_medium.ttf", 19, list("0123456789+")),
+    ("FontSmR3", "share_tech_mono.ttf", 34, list("S0123456789+—")),
+]
+
+
+def font_block(name, path, size, chars, what):
+    height, ascent, glyphs, data = build(name, path, size, chars)
+    out = ["// %s: %s %d px, %d glifos, %d bytes" % (name, what, size, len(glyphs), len(data)),
+           "static const uint8_t %s_bits[] = {" % name]
+    for i in range(0, len(data), 24):
+        out.append("    " + ",".join("0x%02x" % b for b in data[i:i + 24]) + ",")
+    out.append("};")
+    out.append("static const LcdGlyph %s_glyphs[] = {" % name)
+    for cp, off, w, h, x, y, adv in sorted(glyphs):
+        out.append("    {%d,%d,%d,%d,%d,%d,%d}," % (cp, off, w, h, x, y, adv))
+    out.append("};")
+    out.append("static const LcdFont %s = { %s_glyphs, %d, %s_bits, %d, %d };" % (name, name, len(glyphs), name, height, ascent))
+    out.append("")
+    return out
+
+
+def make_smeter_fonts(out, src="tools/assets/fonts"):
+    lines = [
+        "/* Copyright (C) 2026 Manuel - EA7JRS",
+        " *",
+        " * This file is part of APRS LoRa+ Rotor. GPL-3.0-or-later (ver LICENSE).",
+        " * Glifos del S-meter generados por tools/make_lcd_assets.py a partir de Barlow Condensed y Share Tech Mono",
+        " * (SIL Open Font License 1.1, ver NOTICE_FONTS.md). No editar a mano.",
+        " */",
+        "",
+        "#pragma once",
+        "#include \"lcd_fonts.h\"",
+        "",
+    ]
+    for name, file, size, chars in SMETER_FONTS:
+        lines += font_block(name, os.path.join(src, file), size, chars, file)
+    with open(out, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
+    print("written", out)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dejavu", default="/usr/share/fonts/truetype/dejavu")
@@ -175,7 +224,9 @@ def main():
     ap.add_argument("--splash-src", default="tools/assets/welcome_logo.jpg")
     ap.add_argument("--splash-out", default="firmware/src/lcd_splash.h")
     ap.add_argument("--splash-h", type=int, default=400)      # cabe en 320 x 480 y en 600 x 450 con el texto debajo
+    ap.add_argument("--smeter-out", default="firmware/src/lcd_fonts_smeter.h")
     a = ap.parse_args()
+    make_smeter_fonts(a.smeter_out)
     make_logo(a.logo_out, a.logo_h)
     make_splash(a.splash_src, a.splash_out, a.splash_h)
     out = [

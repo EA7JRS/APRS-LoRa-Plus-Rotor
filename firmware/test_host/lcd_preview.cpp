@@ -235,6 +235,16 @@ int main(int argc, char** argv) {
         CHECK(u.HDR == Lcd::hex(0xb21d1d) && u.BG == Lcd::hex(0x10151c));
         u.setTheme(7);
         CHECK(u.theme == Lcd::THEME_APP && u.ACC == Lcd::hex(0x28B5E1));
+        // S-meter como el de la app: S7 = 7 segmentos con su color, los demás al 15 %, lectura en el amarillo de S7
+        std::vector<uint16_t> b(300 * 40);
+        Lcd::Fb f; f.attach(b.data(), 300, 40); f.fill(u.BG);
+        u.sMeter(f, { 0, 0, 300, 40 }, 7);
+        auto has = [&](uint32_t c) { const uint16_t v = Lcd::hex(c); for (uint16_t p : b) if (p == v) return true; return false; };
+        CHECK(has(Lcd::S_COLORS[0]) && has(Lcd::S_COLORS[6]) && !has(Lcd::S_COLORS[7]) && has(Lcd::mix(0x131A22, Lcd::S_COLORS[7], 0.15))
+              && has(Lcd::mix(0x131A22, Lcd::S_COLORS[14], 0.15)) && !has(Lcd::S_COLORS[14]));
+        f.fill(u.BG); u.sMeter(f, { 0, 0, 300, 40 }, 15);
+        CHECK(has(Lcd::S_COLORS[14]) && has(Lcd::S_COLORS[9]));
+        CHECK(Lcd::mix(0x000000, 0xFFFFFF, 0.15) == 0x262626);
     }
     // Texto
     CHECK(Lcd::Fb::textWidth(FontS, "°") > 0);

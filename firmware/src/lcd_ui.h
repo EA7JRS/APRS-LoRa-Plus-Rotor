@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 #include "lcd_gfx.h"
+#include "lcd_fonts_smeter.h"
 #include "lcd_logo.h"
 #include "lcd_splash.h"
 
@@ -24,18 +25,33 @@ namespace Lcd {
         uint32_t hdr, hdrLine, title, sub, linkOn, linkOff;              // cabecera
         uint32_t btn, btnB, btnText, btnPr, btnPrText, sel, selText;     // botones (normal, pulsado, elegido)
         uint32_t stop, stopPr, dis, faultBg, trackBg, pillMode, pillRx, overlap;
+        uint32_t faint, off;                                             // escala y lectura apagada del S-meter
     };
+    // Colores de los segmentos del S-meter, los de la app Android (Widgets.kt S_COLORS; escala IARU como en las emisoras
+    // Yaesu / Icom actuales): S1-S5 verde claro a azul verdoso, S6-S8 amarillo, S9 naranja, +10 ... +60 dB rojo
+    static const uint32_t S_COLORS[15] = {
+        0x4FC3E0, 0x52D4C0, 0x5BDFA0, 0x72E688, 0x96EA74,
+        0xD4E650, 0xF2DE3E, 0xFFCF33,
+        0xFF9A2E,
+        0xFF5A3C, 0xFF4636, 0xFF3A33, 0xFF3030, 0xFF2A2A, 0xFF2424 };
+    // c sobre bg con opacidad a (como Color.copy(alpha) de Compose)
+    inline uint32_t mix(uint32_t bg, uint32_t c, double a) {
+        auto ch = [&](int sh) { const int b = (bg >> sh) & 255, f = (c >> sh) & 255; return (uint32_t)(b + (f - b) * a + 0.5) << sh; };
+        return ch(16) | ch(8) | ch(0);
+    }
     enum Theme { THEME_APP = 0, THEME_ROTOR = 1 };
     static const Pal PAL_APP = {    // fondo gris azulado, verde y cian del logo; ámbar para lo elegido
         0x131A22, 0x18222D, 0x263443, 0xE8EEF3, 0x9FB0BF, 0x28B5E1, 0xFF6B6B, 0x3CE68A, 0xFFB347, 0x263443,
         0x131A22, 0x263443, 0xE8EEF3, 0x28B5E1, 0x3CE68A, 0xFFB347,
         0x1E2A36, 0x2E3E4F, 0xE8EEF3, 0x28B5E1, 0x131A22, 0xFFB347, 0x131A22,
-        0xD64545, 0xFF6B6B, 0x4A5868, 0x3A1E24, 0x15303D, 0x1E3A4A, 0x1C4030, 0xFFB347 };
+        0xD64545, 0xFF6B6B, 0x4A5868, 0x3A1E24, 0x15303D, 0x1E3A4A, 0x1C4030, 0xFFB347,
+        0x6F8293, 0x4A5D70 };
     static const Pal PAL_ROTOR = {  // la de la WebUI: fondo oscuro, azul, cabecera roja
         0x10151c, 0x19212b, 0x19212b, 0xe6edf3, 0x8b98a5, 0x4aa3ff, 0xff5d5d, 0x3fb950, 0xffd23f, 0x33475c,
         0xb21d1d, 0x7a1414, 0xffffff, 0xf0d0d0, 0xffffff, 0xd88a8a,
         0x263241, 0x263241, 0xffffff, 0x4aa3ff, 0xffffff, 0x2f6fb0, 0xffffff,
-        0xd63a3a, 0xff8080, 0x4a5868, 0x4a1a1a, 0x14324a, 0x26445f, 0x1f4d2b, 0xd29922 };
+        0xd63a3a, 0xff8080, 0x4a5868, 0x4a1a1a, 0x14324a, 0x26445f, 0x1f4d2b, 0xd29922,
+        0x66727f, 0x45505c };
 
     struct UiState {
         // Rotor
@@ -101,6 +117,9 @@ namespace Lcd {
         int           W = 320, H = 480;
         const LcdFont *S = &FontS, *M = &FontM, *L = &FontL;
         double        k = 1;                         // escala de grosores y flechas
+        double        dp = 1.2;                      // puntos por dp de la app (S-meter con las medidas de Widgets.kt)
+        const LcdFont* smL = &FontSmL1;              // escala del S-meter (10 sp) y lectura (18 sp)
+        const LcdFont* smR = &FontSmR1;
         int           hdrH = 48, titleX = 56, titleY = 3, subY = 27, logoX = 10, logoY = 4;
         int           infoX = 292, infoY = 24, infoR = 16, linkX = 262, link1Y = 6, link2Y = 26;
         int           cx = 160, cy = 154, r = 98, tickLabelR = 111;
@@ -120,7 +139,7 @@ namespace Lcd {
         // Botón CAT de la cabecera y página CAT
         Rect          catBtn = { 212, 10, 50, 28 };
         int           linkMode = 0;                  // 0: estado WiFi/BLE junto a la versión; 1: a la izquierda del botón CAT
-        Rect          freqCard = { 8, 54, 304, 106 }, smeter = { 16, 170, 288, 22 }, trackCard = { 8, 202, 304, 50 };
+        Rect          freqCard = { 8, 54, 304, 106 }, smeter = { 16, 163, 288, 37 }, trackCard = { 8, 202, 304, 50 };
         Rect          tuneDown = { 8, 260, 92, 52 }, stepBtn = { 106, 260, 108, 52 }, tuneUp = { 220, 260, 92, 52 };
         Rect          modeBtn[6], trackBtn = { 8, 414, 98, 60 }, vfoBtn = { 112, 414, 96, 60 }, pttBtn = { 214, 414, 98, 60 };
 
@@ -138,7 +157,7 @@ namespace Lcd {
             if (w >= 800) return big(w, h);
             // Apaisada 600 x 450: brújula a la izquierda, lecturas a la derecha, fila de 6 botones abajo
             l.land = true;
-            l.S = &FontS2; l.M = &FontM2; l.L = &FontL2; l.k = 1.4;
+            l.S = &FontS2; l.M = &FontM2; l.L = &FontL2; l.k = 1.4; l.dp = 1.4; l.smL = &FontSmL2; l.smR = &FontSmR2;
             l.hdrH = 56; l.titleX = 58; l.titleY = 0; l.subY = 31; l.logoX = 10; l.logoY = 8;
             l.infoX = 570; l.infoY = 28; l.infoR = 20; l.linkX = 536; l.link1Y = 2; l.link2Y = 28;
             l.cx = 162; l.cy = 207; l.r = 116; l.tickLabelR = 133;
@@ -156,7 +175,7 @@ namespace Lcd {
             l.brMinus = { 336, 368, 72, 72 }; l.brPlus = { 512, 368, 72, 72 };
             l.brTextX = 460; l.brTextY = 392;
             l.catBtn = { 452, 12, 70, 34 }; l.linkMode = 1; l.linkX = 440;
-            l.freqCard = { 8, 62, 584, 138 }; l.smeter = { 16, 206, 360, 24 }; l.trackCard = { 8, 238, 584, 60 };
+            l.freqCard = { 8, 62, 584, 132 }; l.smeter = { 16, 196, 568, 41 }; l.trackCard = { 8, 238, 584, 60 };
             const int bw2 = (288 - 2 * 6) / 3, bh2 = 64, ya = 308, yb = 380;
             l.tuneDown = { 8, ya, bw2, bh2 }; l.stepBtn = { 8 + bw2 + 6, ya, bw2, bh2 }; l.tuneUp = { 8 + 2 * (bw2 + 6), ya, bw2, bh2 };
             l.trackBtn = { 8, yb, bw2, bh2 }; l.vfoBtn = { 8 + bw2 + 6, yb, bw2, bh2 }; l.pttBtn = { 8 + 2 * (bw2 + 6), yb, bw2, bh2 };
@@ -173,7 +192,7 @@ namespace Lcd {
             auto Y = [&](int& v) { v = (int)lround(v * sy); };
             auto R = [&](Rect& r) { const int x2 = (int)lround((r.x + r.w) * sx), y2 = (int)lround((r.y + r.h) * sy); X(r.x); Y(r.y); r.w = x2 - r.x; r.h = y2 - r.y; };
             l.W = w; l.H = h;
-            l.S = &FontS3; l.M = &FontM3; l.L = &FontL3; l.k = 1.4 * sy;
+            l.S = &FontS3; l.M = &FontM3; l.L = &FontL3; l.k = 1.4 * sy; l.dp = 1.4 * sy; l.smL = &FontSmL3; l.smR = &FontSmR3;
             Y(l.hdrH); X(l.titleX); Y(l.titleY); Y(l.subY); X(l.logoX); l.logoY = (l.hdrH - LCD_LOGO_H) / 2;
             X(l.infoX); Y(l.infoY); Y(l.infoR); X(l.linkX); Y(l.link1Y); Y(l.link2Y);
             X(l.cx); Y(l.cy); Y(l.r); Y(l.tickLabelR);
@@ -203,11 +222,13 @@ namespace Lcd {
         uint16_t BG, CARD, CARDB, FG, MUT, ACC, RED, GREEN, YEL, LINE, HDR, HDRL, TITLE, SUB, LINK_ON, LINK_OFF;
         uint16_t BTN, BTNB, BTNT, BTN_ON, BTN_ONT, SEL, SELT, STOPC, STOP_PR, DIS, FAULT_BG, TRACK_BG, PILL_MODE, PILL_RX, OVERLAP;
         const uint16_t WHITE = hex(0xffffff);
+        uint32_t bg888 = 0, fg888 = 0, faint888 = 0, off888 = 0;
         void setTheme(int t) {
             if (t != THEME_ROTOR) t = THEME_APP;
             if (t == theme) return;
             theme = t;
             const Pal& p = t == THEME_ROTOR ? PAL_ROTOR : PAL_APP;
+            bg888 = p.bg; fg888 = p.fg; faint888 = p.faint; off888 = p.off;
             BG = hex(p.bg); CARD = hex(p.card); CARDB = hex(p.cardB); FG = hex(p.fg); MUT = hex(p.mut); ACC = hex(p.acc);
             RED = hex(p.red); GREEN = hex(p.green); YEL = hex(p.yel); LINE = hex(p.line);
             HDR = hex(p.hdr); HDRL = hex(p.hdrLine); TITLE = hex(p.title); SUB = hex(p.sub); LINK_ON = hex(p.linkOn); LINK_OFF = hex(p.linkOff);
@@ -220,6 +241,43 @@ namespace Lcd {
             if (border == fill) { fb.fillRound(x, y, w, h, r, fill); return; }
             fb.fillRound(x, y, w, h, r, border);
             fb.fillRound(x + 1, y + 1, w - 2, h - 2, r > 1 ? r - 1 : r, fill);
+        }
+        // S-meter como SMeterBar de la app: 9 segmentos S y 6 sobre S9 con los colores IARU, los apagados con el 15 % de su
+        // color, marca entre S9 y +10, escala 1 3 5 7 9 / +20 +40 +60 debajo y la lectura («S7», «S9+20») a la derecha.
+        // v: 0-9 = S0-S9, 10-15 = S9+10 ... +60, < 0 sin dato. Medidas en dp de la app por L.dp.
+        void sMeter(Fb& fb, const Rect& sm, int v) {
+            auto D = [&](double x) { return (int)std::lround(x * L.dp); };
+            const int lit = v < 0 ? 0 : (v > 15 ? 15 : v);
+            char lab[12];
+            if (v < 0) snprintf(lab, sizeof lab, "S—");
+            else if (v <= 9) snprintf(lab, sizeof lab, "S%d", v);
+            else snprintf(lab, sizeof lab, "S9+%d", (lit - 9) * 10);
+            const LcdFont& fl = *L.smL; const LcdFont& fr = *L.smR;
+            const int readW = Fb::textWidth(fr, lab);
+            const int colW = sm.w - D(8) - readW;                    // Row con spacedBy(8.dp): barra | lectura
+            const int colH = D(16) + D(1) + fl.height, rowH = colH > fr.height ? colH : fr.height;
+            const int top = sm.y + (sm.h - rowH) / 2, colY = top + (rowH - colH) / 2;
+            const double wsum = colW - D(8), leftW = wsum * 9 / 15, rightW = wsum * 6 / 15;   // 3 + 2 + 3 dp de la marca
+            const int bottom = colY + D(16), gap = D(2), r = D(2);
+            auto seg = [&](int i, double x0, double w, int n, int k) {
+                const double sw = (w - gap * (n - 1)) / n;
+                const int x = (int)std::lround(x0 + k * (sw + gap)), x2 = (int)std::lround(x0 + k * (sw + gap) + sw);
+                const int hgt = i <= 9 ? D(10) : D(13);
+                const uint32_t c = S_COLORS[i - 1];
+                fb.fillRound(x, bottom - hgt, x2 - x, hgt, r, hex(i <= lit ? c : mix(bg888, c, 0.15)));
+            };
+            const double x0 = sm.x, xr = sm.x + leftW + D(8);
+            for (int i = 1; i <= 9; i++) seg(i, x0, leftW, 9, i - 1);
+            fb.fillRound((int)std::lround(x0 + leftW) + D(3), bottom - D(16), D(2), D(16), D(1), hex(mix(bg888, fg888, 0.8)));
+            for (int i = 10; i <= 15; i++) seg(i, xr, rightW, 6, i - 10);
+            const int ly = bottom + D(1);
+            static const char* const LEFT_T[5] = { "1", "3", "5", "7", "9" };
+            for (int j = 0; j < 5; j++)
+                fb.text((int)std::lround(x0 + leftW * (2 * j) / 9), ly, LEFT_T[j], fl, hex(j == 4 ? S_COLORS[8] : faint888));
+            static const char* const RIGHT_T[3] = { "+20", "+40", "+60" };
+            for (int j = 0; j < 3; j++)
+                fb.text((int)std::lround(xr + rightW * (j + 1) / 3), ly, RIGHT_T[j], fl, hex(faint888), RIGHT);
+            fb.text(sm.x + sm.w, top + (rowH - fr.height) / 2, lab, fr, hex(lit == 0 ? off888 : S_COLORS[lit - 1]), RIGHT);
         }
         void card(Fb& fb, const Rect& c, uint16_t fill) { box(fb, c.x, c.y, c.w, c.h, (int)(10 * L.k), fill, CARDB); }
 
@@ -622,19 +680,9 @@ namespace Lcd {
                 const std::string t = "↑ " + fmtFreq(s.txFreq) + (s.txMode.empty() ? "" : " " + s.txMode);
                 fb.text(fc.x + fc.w - 10, py + 2, fit(S, t, fc.x + fc.w - 10 - px).c_str(), S, s.ptt ? RED : FG, RIGHT);
             }
-            // S-meter
-            const Rect& sm = L.smeter;
-            const int segs = 15, gap = 2, sw = (sm.w - 40 * (int)L.k - gap * (segs - 1)) / segs;
-            for (int i = 0; i < segs; i++) {
-                const bool lit = s.smeter >= 0 && i < s.smeter;
-                const uint16_t c = lit ? (i < 9 ? GREEN : (i < 12 ? YEL : RED)) : LINE;
-                fb.fillRect(sm.x + i * (sw + gap), sm.y + (i < 9 ? sm.h / 3 : 0), sw, i < 9 ? sm.h * 2 / 3 : sm.h, c);
-            }
+            // S-meter: el de la app (Widgets.kt SMeterBar)
+            sMeter(fb, L.smeter, s.smeter);
             char t[48];
-            if (s.smeter < 0) snprintf(t, sizeof t, "S-");
-            else if (s.smeter <= 9) snprintf(t, sizeof t, "S%d", s.smeter);
-            else snprintf(t, sizeof t, "+%d", (s.smeter - 9) * 10);
-            fb.text(sm.x + sm.w, sm.y + (sm.h - S.height) / 2, t, S, FG, RIGHT);
             // Seguimiento (satélite / Doppler)
             const Rect& tc = L.trackCard;
             card(fb, tc, s.tracking ? TRACK_BG : CARD);
