@@ -14,10 +14,10 @@ static const char WEB_PAGE[] = R"HTML(<!DOCTYPE html>
 :root{--bg:#10151c;--card:#19212b;--fg:#e6edf3;--mut:#8b98a5;--acc:#4aa3ff;--red:#ff5d5d;--ok:#3fb950}
 *{box-sizing:border-box}body{margin:0;font-family:system-ui,sans-serif;background:var(--bg);color:var(--fg)}
 /* Cabecera como la del tracker APRS LoRa+: logo, "APRS LoRa+" y debajo "Rotor" con la version */
-header{background:#b21d1d;border-bottom:1px solid rgba(0,0,0,.25);height:56px;display:flex;align-items:center;gap:10px;padding:0 16px;position:sticky;top:0;z-index:10}
+header{background:#131a22;border-bottom:2px solid transparent;border-image:linear-gradient(90deg,#3ce68a,#28b5e1) 1;height:56px;display:flex;align-items:center;gap:10px;padding:0 16px;position:sticky;top:0;z-index:10}
 header .logo{height:40px;width:40px;flex-shrink:0;border-radius:8px}
 header .brand{font-weight:600;color:#fff;font-size:1.1rem;display:flex;flex-direction:column;line-height:1.1}
-header .brand-sub{font-weight:400;font-size:.68rem;opacity:.85;letter-spacing:.02em}
+header .brand-sub{font-weight:400;font-size:.68rem;opacity:.95;letter-spacing:.02em;color:#28b5e1}
 header .right{margin-left:auto;color:#fff;opacity:.85;font-size:12px;text-align:right}
 main{max-width:980px;margin:auto;padding:12px;display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
 .c{background:var(--card);border-radius:10px;padding:14px}h3{margin:0 0 10px;font-size:15px;color:var(--mut);font-weight:600}
