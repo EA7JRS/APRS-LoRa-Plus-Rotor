@@ -26,7 +26,7 @@
 #include "rc_cat.h"
 #include "board.h"
 
-#define ROTOR_VERSION "5.4.0"            // el mismo numero que el tracker APRS LoRa+ (todos los repositorios del proyecto van a la par)
+#define ROTOR_VERSION "5.4.1"            // el mismo numero que el tracker APRS LoRa+ (todos los repositorios del proyecto van a la par)
 
 struct AxisPins {
     int  pinA      = -1;    // reles: CW / UP. Puente H: IN1 (PWM)

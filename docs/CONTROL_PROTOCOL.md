@@ -54,7 +54,7 @@ Orden desconocida: `{"e":"err","c":"…","m":"unknown"}`. Línea que no es JSON:
 
 ```json
 {"e":"info","api":1,"lim":{"minAz":0,"maxAz":450,"minEl":0,"maxEl":180},"hasEl":true,"pin":true,
- "dev":"APRS LoRa+ Rotor","ver":"5.4.0","board":"esp32s3","chip":"ESP32-S3","name":"APRS-Rotor",
+ "dev":"APRS LoRa+ Rotor","ver":"5.4.1","board":"esp32s3","chip":"ESP32-S3","name":"APRS-Rotor",
  "drv":"direct (relays)","call":"EA7JRS-12",
  "caps":{"wifi":true,"ble":true,"spp":false,"lora":false,"cal":true,"move":true},
  "ip":"192.168.1.50","rotctld":4533,"heap":187000,"up":3600,"utc":1762500000}
@@ -91,4 +91,4 @@ Control directo: `{"e":"raw","az":2105,"el":1460,"unit":"mV"}` (`mV` ESP32, `adc
 
 ### `cfg`
 
-`{"e":"cfg","i":0,"n":9,"d":"{\"ver\":\"5.4.0\",\"name\":…"}`: se concatenan los `d` en orden. Las contraseñas van incluidas (la orden exige PIN). Para subir: los mismos trozos (≤ 180 caracteres) con `{"c":"cfgset","i":k,"n":N,"d":"…"}` en orden; un trozo fuera de orden responde `order` y hay que empezar de nuevo. Vale una configuración parcial (solo las claves que cambian); `"********"` en un campo secreto lo deja como estaba.
+`{"e":"cfg","i":0,"n":9,"d":"{\"ver\":\"5.4.1\",\"name\":…"}`: se concatenan los `d` en orden. Las contraseñas van incluidas (la orden exige PIN). Para subir: los mismos trozos (≤ 180 caracteres) con `{"c":"cfgset","i":k,"n":N,"d":"…"}` en orden; un trozo fuera de orden responde `order` y hay que empezar de nuevo. Vale una configuración parcial (solo las claves que cambian); `"********"` en un campo secreto lo deja como estaba.

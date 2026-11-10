@@ -1,6 +1,6 @@
 # APRS LoRa+ Rotor — User manual
 
-*Version 5.4.0 · © 2026 Manuel - EA7JRS · GPL-3.0-or-later · [Español](MANUAL_ES.md) · [Quick start](QUICKSTART_EN.md)*
+*Version 5.4.1 · © 2026 Manuel - EA7JRS · GPL-3.0-or-later · [Español](MANUAL_ES.md) · [Quick start](QUICKSTART_EN.md)*
 
 The WebUI and the touch screen are in Spanish; their labels are given here as they appear, with the English meaning in brackets.
 
