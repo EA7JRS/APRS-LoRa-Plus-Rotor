@@ -1,6 +1,6 @@
 # APRS LoRa+ Rotor
 
-[![Donate · PayPal.me](https://img.shields.io/badge/Donate-PayPal.me%2FEA7JRS-0070E0?logo=paypal&logoColor=white)](https://paypal.me/EA7JRS)
+[![Donate · PayPal.me](https://img.shields.io/badge/Donate-paypal.me%2Fea7jrs-0070E0?logo=paypal&logoColor=white)](https://paypal.me/ea7jrs)
 
 Controlador de rotores de antena **compatible con Hamlib** para el ecosistema **APRS LoRa+**: lo manejan el [tracker APRS LoRa+](https://github.com/EA7JRS/APRS-LoRa-Plus), la app Android APRS LoRa+ y cualquier programa con Hamlib (GPredict, Look4Sat, PstRotator…).
 

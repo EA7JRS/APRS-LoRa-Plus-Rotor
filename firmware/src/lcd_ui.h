@@ -751,7 +751,7 @@ namespace Lcd {
             para("APRS LoRa+ Rotor " + s.ver, FG);
             para("© 2026 Manuel - EA7JRS", FG);
             para("github.com/EA7JRS/APRS-LoRa-Plus", ACC);
-            para(L.land ? "paypal.me/EA7JRS" : "Donativos: paypal.me/EA7JRS", ACC);   // apaisada: en una linea, cabe en la tarjeta
+            para(L.land ? "paypal.me/ea7jrs" : "Donativos: paypal.me/ea7jrs", ACC);   // apaisada: en una linea, cabe en la tarjeta
             para("GPL-3.0-or-later", MUT);                                               // fuentes DejaVu: NOTICE_FONTS.md
 
             // Brillo
