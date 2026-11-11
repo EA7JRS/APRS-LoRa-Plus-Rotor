@@ -750,7 +750,7 @@ namespace Lcd {
             auto para = [&](const std::string& txt, uint16_t c) { for (const std::string& l : wrap(S, txt, aw)) { fb.text(ac.x + 8, ay, l.c_str(), S, c); ay += lh; } };
             para("APRS LoRa+ Rotor " + s.ver, FG);
             para("© 2026 Manuel - EA7JRS", FG);
-            para("github.com/EA7JRS/APRS-LoRa-Plus", ACC);
+            para("ea7jrs.github.io/APRS-LoRa-Plus", ACC);
             para(L.land ? "paypal.me/ea7jrs" : "Donativos: paypal.me/ea7jrs", ACC);   // apaisada: en una linea, cabe en la tarjeta
             para("GPL-3.0-or-later", MUT);                                               // fuentes DejaVu: NOTICE_FONTS.md
 
