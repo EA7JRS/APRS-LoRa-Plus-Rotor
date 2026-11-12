@@ -39,7 +39,7 @@ Controlador de rotores de antena **compatible con Hamlib** para el ecosistema **
 
 ## Versión
 
-Todos los repositorios del proyecto llevan **el mismo número de versión**: el rotor es la **5.4.1**, como el tracker APRS LoRa+ y la app Android. Se publican juntos.
+Todos los repositorios del proyecto llevan **el mismo número de versión**: el rotor es la **5.4.2**, como el tracker APRS LoRa+ y la app Android. Se publican juntos.
 
 ## Instalar
 

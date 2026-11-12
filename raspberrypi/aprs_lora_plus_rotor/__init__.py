@@ -2,4 +2,4 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """APRS LoRa+ Rotor para Raspberry Pi: rotctld de Hamlib + puente con el tracker APRS LoRa+ y la app Android."""
 
-__version__ = "5.4.1"   # el mismo numero que el tracker APRS LoRa+
+__version__ = "5.4.2"   # el mismo numero que el tracker APRS LoRa+
