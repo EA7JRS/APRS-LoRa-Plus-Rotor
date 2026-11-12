@@ -1,6 +1,6 @@
 # APRS LoRa+ Rotor — Quick start guide
 
-*Version 5.4.3 · © 2026 Manuel - EA7JRS · [Español](QUICKSTART_ES.md) · Full manual: [MANUAL_EN.md](MANUAL_EN.md)*
+*Version 5.4.4 · © 2026 Manuel - EA7JRS · [Español](QUICKSTART_ES.md) · Full manual: [MANUAL_EN.md](MANUAL_EN.md)*
 
 Hamlib-compatible antenna rotor controller. It is driven by the APRS LoRa+ tracker, the APRS LoRa+ Android app, its own touch screen (Waveshare boards) and any Hamlib program (GPredict, Look4Sat, PstRotator…).
 
