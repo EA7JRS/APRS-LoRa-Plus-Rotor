@@ -51,6 +51,7 @@ const t=document.getElementById('csm');t.textContent=v<0?'S—':(v<=9?'S'+v:'S9+
 <div class="row"><button data-m="ccw">⟲ CCW</button><button data-m="cw">CW ⟳</button><button data-m="up">▲ UP</button><button data-m="down">▼ DOWN</button></div>
 <div class="row"><button class="stop" onclick="cmd({c:'stop'})">STOP</button></div>
 <div class="row"><button onclick="cmd({c:'park'})">Park</button><button onclick="cmd({c:'clear'})">Borrar fallo</button></div>
+<div class="row"><button onclick="cmd({c:'track',t:'sun'})">☀ Seguir el sol</button><button onclick="cmd({c:'track',t:'moon'})">☾ Seguir la luna</button><button onclick="cmd({c:'track',t:'off'})">Dejar de seguir</button></div>
 <p class="mut">Mantén pulsado CW / CCW / UP / DOWN para mover a mano.</p></div>
 
 <div class="c" id="catc" style="display:none"><h3>CAT · emisora <span class="mut" id="crig"></span></h3>
@@ -103,7 +104,7 @@ line(pos.taz!=null?pos.taz%360:null,'#4aa3ff',3);line(pos.az,'#ff5d5d',5)}
 async function poll(){try{const r=await api([{c:'get'}]);pos=r[0];$('az').textContent=pos.az.toFixed(1);
 if(pos.el!=null){$('el').textContent=pos.el.toFixed(1)}else $('elbox').style.display='none';
 $('tgt').textContent=pos.taz!=null?('→ '+pos.taz.toFixed(1)+(pos.tel!=null?' / '+pos.tel.toFixed(1):'')):'';
-$('st').innerHTML=(pos.mv?'moviendo · ':'')+'<span class="f '+(pos.f=='OK'?'okc':'bad')+'">'+pos.f+'</span>'+(pos.maz!=null&&pos.maz>=360?' · solape':'')+(pos.wind&&pos.wind.ws!=null?' · viento '+pos.wind.ws+(pos.wind.wg!=null?'/'+pos.wind.wg:'')+' m/s'+(pos.wind.lk?' (aparcado)':''):'');
+$('st').innerHTML=(pos.mv?'moviendo · ':'')+'<span class="f '+(pos.f=='OK'?'okc':'bad')+'">'+pos.f+'</span>'+(pos.maz!=null&&pos.maz>=360?' · solape':'')+(pos.wind&&pos.wind.ws!=null?' · viento '+pos.wind.ws+(pos.wind.wg!=null?'/'+pos.wind.wg:'')+' m/s'+(pos.wind.bf!=null?' F'+pos.wind.bf:'')+(pos.wind.lk?' (aparcado)':''):'')+(pos.trk?' · '+(pos.trk.t=='sun'?'☀ sol ':'☾ luna ')+(pos.trk.below?'bajo el horizonte ('+pos.trk.el.toFixed(0)+'°)':pos.trk.az.toFixed(1)+' / '+pos.trk.el.toFixed(1)):'');
 $('aprs').textContent=pos.aprs?('APRS: '+pos.aprs):'';draw()}catch(e){$('st').textContent='sin conexión'}}
 async function raw(){try{const r=await api([{c:'raw'}]);$('raz').textContent=r[0].az!=null?r[0].az.toFixed(0):'-';$('rel').textContent=r[0].el!=null?r[0].el.toFixed(0):'-';$('ru').textContent=r[0].unit||''}catch(e){}}
 async function loadCfg(){const r=await api([{c:'cfgget'}]);$('cfg').value=JSON.stringify(JSON.parse(r.map(x=>x.d).join('')),null,1)}

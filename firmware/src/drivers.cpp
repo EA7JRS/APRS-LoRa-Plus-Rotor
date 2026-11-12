@@ -11,6 +11,8 @@
 #include "rc_control.h"
 #include "rc_serialproto.h"
 #include "exio.h"
+#include "lan.h"
+#include <time.h>
 
 namespace Drv {
 
@@ -337,15 +339,31 @@ namespace Drv {
     // Proteccion por viento: todo pasa por el envoltorio, que rechaza movimientos mientras esta aparcado
     static RC::WindGuard   windG;
     static RC::WindRotor   windR(windG);
-    static RC::HeadingRotor headR;                          // por fuera: tracker -> rumbo -> viento -> rotor
+    static RC::HeadingRotor headR;                          // clientes -> sol / luna -> rumbo -> viento -> rotor
+    static RC::SkyRotor    skyR;
     RC::WindGuard& wind() { return windG; }
     RC::HeadingRotor& heading() { return headR; }
+    RC::SkyRotor& sky() { return skyR; }
+
+    bool skyStart(int target, std::string& err) {
+        rotor();                                            // engancha la cadena
+        double la, lo;
+        const bool havePos = Lan::position(la, lo);
+        const time_t t = time(nullptr);
+        if (target != RC::SKY_OFF && !havePos) { err = "no station position (aprs.lat / lon or lan.pos)"; return false; }
+        if (target != RC::SKY_OFF && t < 1704067200) { err = "no time (GPS or NTP)"; return false; }
+        skyR.start(target, la, lo, havePos, (int64_t)t, millis());
+        return true;
+    }
     void setAnemoLocal(bool lanMeasured) { windG.local = Cfg.anemoPin >= 0 || lanMeasured; }
     void windConfig() {
         windG.cfg.on = Cfg.windOn; windG.cfg.parkMs = Cfg.windParkMs; windG.cfg.resumeMs = Cfg.windResumeMs; windG.cfg.holdMin = Cfg.windHoldMin;
         windG.local = Cfg.anemoPin >= 0;
         headR.enabled = Cfg.headComp;
         headR.stepDeg = Cfg.headStep;
+        skyR.stepDeg = Cfg.skyStep;
+        skyR.lowEl = Cfg.skyMinEl;
+        skyR.refraction = Cfg.skyRefr;
     }
 
     // Anemómetro de cazoletas: la interrupción cuenta los cierres de la ampolla (con filtro de rebotes) y cada segundo el
@@ -412,6 +430,11 @@ namespace Drv {
     void loop() {
         windG.tick(millis());
         anemoLoop(millis());
+        if (skyR.tracking()) {                              // la estacion puede moverse (posicion de la red): se pone al dia
+            double la, lo;
+            if (Lan::position(la, lo)) skyR.setStation(la, lo);
+            skyR.tick((int64_t)time(nullptr), millis());
+        }
         if (Cfg.driver == 1) { serial.poll(); return; }
         if (usingAds) Ads::poll(Cfg.azPins.sensor == 1 ? Cfg.azPins.adsChannel : -1, (Cfg.elEnabled && Cfg.elPins.sensor == 1) ? Cfg.elPins.adsChannel : -1);
         const uint32_t now = millis();
@@ -425,7 +448,7 @@ namespace Drv {
         outPin(Cfg.brakePin, direct.az.out().brakeRelease || (Cfg.elEnabled && direct.el.out().brakeRelease));
     }
 
-    RC::Rotor& rotor() { windR.attach(&realRotor()); headR.attach(&windR); return headR; }
+    RC::Rotor& rotor() { windR.attach(&realRotor()); headR.attach(&windR); skyR.attach(&headR); return skyR; }
 
     const char* name() {
         if (Cfg.driver == 1) return RC::serialProtoName(Cfg.serProto);

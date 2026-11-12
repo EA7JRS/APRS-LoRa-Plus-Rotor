@@ -18,6 +18,7 @@
 #include "rc_wind.h"
 #include "rc_heading.h"
 #include "rc_anemo.h"
+#include "rc_sky.h"
 
 using namespace RC;
 
@@ -393,7 +394,7 @@ static void testWind() {
     CHECK(!h.w.setAz(5) && h.w.stop() && h.w.park());
     h.t += 30000;
     o.clear(); s.handle("{\"c\":\"get\"}", h, o);
-    CHECK(o[0].find("\"wind\":{\"on\":true,\"park\":15,\"lk\":true,\"ws\":20,\"wg\":28.4,\"wd\":250,\"pk\":28.4,\"age\":150,\"src\":\"OWM\",\"hold\":870}") != std::string::npos);
+    CHECK(o[0].find("\"wind\":{\"on\":true,\"park\":15,\"lk\":true,\"ws\":20,\"wg\":28.4,\"wd\":250,\"pk\":28.4,\"bf\":8,\"age\":150,\"src\":\"OWM\",\"hold\":870}") != std::string::npos);
     o.clear(); s.handle("{\"c\":\"clear\"}", h, o); CHECK(!h.g.locked());
     o.clear(); s.handle("{\"c\":\"pos\",\"az\":100}", h, o); CHECK(o[0] == "{\"e\":\"ok\",\"c\":\"pos\"}");
     o.clear(); s.handle("{\"c\":\"wx\"}", h, o); CHECK(o[0].find("err") != std::string::npos);
@@ -860,6 +861,67 @@ static void testRigctlClient() {
     CHECK(e.setMode("dig")); out.clear(); e.tick(2500, out); CHECK(out == "M PKTUSB 0\n");
 }
 
+// Seguir el sol y la luna (formulas del nucleo del plotter: Meeus)
+struct SkyHost : FakeHost {
+    SkyRotor sk;
+    int64_t unixS = 1794490200;                              // 2026-11-12 13:30 UTC
+    uint32_t t = 5000;
+    SkyHost() { sk.attach(&r); }
+    Rotor& rotor() override { return sk; }
+    SkyRotor* sky() override { return &sk; }
+    uint32_t nowMs() override { return t; }
+    const char* pin() override { return ""; }
+    bool skyStart(int target, std::string& e) override {
+        if (!sk.start(target, 36.53, -6.29, true, unixS, t)) { e = "no position/time"; return false; }
+        return true;
+    }
+};
+
+static void testSky() {
+    double az, el;
+    // Mismos valores que las pruebas del plotter (PyEphem), sin refraccion
+    CHECK(skyPosition(SKY_SUN, 36.53, -6.29, 1794490200, false, az, el)); NEAR(el, 32.434, 0.02); NEAR(az, 202.895, 0.02);
+    CHECK(skyPosition(SKY_MOON, 36.53, -6.29, 1794490200, false, az, el)); NEAR(el, 22.708, 0.03); NEAR(az, 162.424, 0.03);
+    double el2;
+    CHECK(skyPosition(SKY_MOON, 36.53, -6.29, 1794490200, true, az, el2) && el2 > el && el2 - el < 0.05);
+    CHECK(!skyPosition(SKY_OFF, 0, 0, 0, false, az, el));
+    CHECK(skyParse("sun") == SKY_SUN && skyParse("moon") == SKY_MOON && skyParse("off") == SKY_OFF && skyParse("x") == -1);
+
+    FakeRotor f; f.az = 0; f.el = 0;
+    SkyRotor s; s.attach(&f);
+    CHECK(!s.start(SKY_SUN, 0, 0, false, 1794490200, 0));            // sin posicion
+    CHECK(!s.start(SKY_SUN, 36.53, -6.29, true, 0, 0));              // sin hora
+    CHECK(s.start(SKY_SUN, 36.53, -6.29, true, 1794490200, 1000) && s.tracking() && s.aims() == 1);
+    NEAR(f.az, 202.895, 0.03); NEAR(f.el, 32.434 + plotter::refractionDeg(32.434), 0.03);
+    // El sol se mueve ~0,25 grados por minuto: a los 2 s no vuelve a apuntar; a los 4 min si
+    s.tick(1794490202, 3000); CHECK(s.aims() == 1);
+    s.tick(1794490200 + 240, 243000); CHECK(s.aims() == 2);
+    // Una orden de un cliente deja de seguir
+    CHECK(s.setPos(10, 10) && !s.tracking() && f.az == 10);
+    // Luna por debajo del horizonte (21:00 UTC: -17 grados): espera sin mover
+    f.az = 50;
+    CHECK(s.start(SKY_MOON, 36.53, -6.29, true, 1794517200, 400000) && s.below() && f.az == 50 && s.aims() == 2);
+    s.lowEl = -20; s.tick(1794517200, 403000); CHECK(!s.below() && s.aims() == 3 && f.el == 0);   // el rotor no baja de 0
+    CHECK(s.stop() && !s.tracking());
+    // Sin elevacion: solo acimut
+    FakeRotor f2; f2.el2 = false; f2.el = 7; SkyRotor s2; s2.attach(&f2);
+    CHECK(s2.start(SKY_SUN, 36.53, -6.29, true, 1794490200, 0) && f2.el == 7); NEAR(f2.az, 202.9, 0.05);
+    // Por la API: track, evento pos con "trk", info con "sky", y una orden de mover lo para
+    SkyHost h; ApiSession a;
+    std::vector<std::string> o;
+    a.handle("{\"c\":\"info\"}", h, o); CHECK(o[0].find("\"sky\":true") != std::string::npos);
+    o.clear(); a.handle("{\"c\":\"track\",\"t\":\"moon\"}", h, o); CHECK(o[0] == "{\"e\":\"ok\",\"c\":\"track\"}" && h.sk.target() == SKY_MOON);
+    o.clear(); a.handle("{\"c\":\"get\"}", h, o); CHECK(o[0].find("\"trk\":{\"t\":\"moon\",\"az\":162.4,\"el\":22.") != std::string::npos && o[0].find("\"below\":false") != std::string::npos);
+    o.clear(); a.handle("{\"c\":\"track\",\"t\":\"mars\"}", h, o); CHECK(o[0].find("err") != std::string::npos);
+    o.clear(); a.handle("{\"c\":\"move\",\"d\":\"cw\"}", h, o); CHECK(!h.sk.tracking());
+    o.clear(); a.handle("{\"c\":\"get\"}", h, o); CHECK(o[0].find("trk") == std::string::npos);
+    o.clear(); a.handle("{\"c\":\"track\",\"t\":\"sun\"}", h, o); CHECK(h.sk.target() == SKY_SUN);
+    o.clear(); a.handle("{\"c\":\"track\",\"t\":\"off\"}", h, o); CHECK(!h.sk.tracking());
+    FakeHost fh; ApiSession a2;
+    o.clear(); a2.handle("{\"c\":\"auth\",\"pin\":\"123456\"}", fh, o);
+    o.clear(); a2.handle("{\"c\":\"track\",\"t\":\"sun\"}", fh, o); CHECK(o[0].find("no sky") != std::string::npos);
+}
+
 int main() {
     testRotctld();
     testGs232();
@@ -872,6 +934,7 @@ int main() {
     testApi();
     testWind();
     testHeading();
+    testSky();
     testAnemo();
     testCatCiv();
     testCatYaesu();

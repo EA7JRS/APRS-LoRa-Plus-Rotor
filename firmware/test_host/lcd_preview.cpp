@@ -131,6 +131,11 @@ static void run(int W, int H, const std::string& out, int theme = Lcd::THEME_APP
     { center(L.status, x, y); Lcd::UiCmd cw = ui.touch(true, x, y, 7400, s); CHECK(cw.cmd == Lcd::Cmd::CLEAR_FAULT); ui.touch(false, 0, 0, 7450, s); }
     s.wind.clear();
     s.fault = 0; s.faultText = "OK";
+    // siguiendo la luna: estado en el color de acento
+    s.sky = "Siguiendo la luna 162,4° / 22,7°"; s.taz = 162.4; s.tel = 22.7;
+    ui.draw(fb, s);
+    writePpm(fb, p + "main_sky.ppm");
+    s.sky.clear();
     s.hasEl = false; s.el = NAN; s.az = 359.9; s.maz = 380; s.taz = 20; s.moving = true;
     ui.draw(fb, s);
     writePpm(fb, p + "main_az_only.ppm");

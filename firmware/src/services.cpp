@@ -102,6 +102,7 @@ void RotorApiHost::info(JsonObject o) {
     caps["cat"] = Cat::engine() != nullptr;
     caps["wind"] = true;
     caps["lan"] = ROTOR_HAS_LAN != 0;                   // red local (src/lan.cpp): viento, posicion y rumbo
+    caps["sky"] = true;                                 // seguir el sol o la luna (orden "track")
     o["ip"] = Net::ip();
     o["rotctld"] = Cfg.rotctld ? Cfg.rotctldPort : 0;
     o["rigctld"] = (Cat::engine() && Cfg.rigctld) ? Cfg.rigctldPort : 0;
@@ -140,6 +141,8 @@ std::string RotorApiHost::lastAprs() { return LoraAprs::lastResult(); }
 RC::Rig* RotorApiHost::rig() { return Cat::engine(); }
 RC::CatTracker* RotorApiHost::catTracker() { return Cat::engine() ? &Cat::tracker() : nullptr; }
 RC::WindGuard* RotorApiHost::wind() { return &Drv::wind(); }
+RC::SkyRotor* RotorApiHost::sky() { return &Drv::sky(); }
+bool RotorApiHost::skyStart(int target, std::string& err) { return Drv::skyStart(target, err); }
 bool RotorApiHost::catPttAllowed() { return Cfg.catPtt && Cat::engine() && !Cat::engine()->receiver(); }
 
 // ---------------------------------------------------------------------------------------------------------------------------

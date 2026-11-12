@@ -137,6 +137,12 @@ struct RotorConfig {
     bool        headComp = false;           // rotor en un barco o un coche: acimut verdadero con el rumbo de la red (rc_heading.h)
     double      headStep = 3.0;             // grados de cambio de rumbo para volver a apuntar
     double      headVar = 0.0;              // declinacion (grados, E positiva) para un compas que solo da rumbo magnetico (HDG / HDM)
+    bool        headVarAuto = true;         // declinacion del Modelo Magnetico Mundial (WMM) en la posicion de la estacion; headVar sin posicion
+
+    // Seguir el sol o la luna (orden "track", lib/RotorCore/src/rc_sky.h)
+    double      skyStep = 1.0;              // grados de cambio para volver a apuntar
+    double      skyMinEl = 0.0;             // por debajo de esta elevacion espera
+    bool        skyRefr = true;             // con la refraccion media (lo que ve la antena)
 
     // Pantalla tactil (placas con LCD)
     int         lcdBright = 80;             // brillo 10-100 %

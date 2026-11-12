@@ -25,6 +25,8 @@
 #include "rc_rotctld.h"
 #include "rc_cat.h"
 #include "rc_wind.h"
+#include "rc_sky.h"
+#include "wind.h"          // plotter_core: beaufort()
 
 namespace RC {
 
@@ -51,6 +53,9 @@ namespace RC {
         virtual bool        catPttAllowed() { return false; }
         virtual uint32_t    nowMs() { return 0; }
         virtual WindGuard*  wind() { return nullptr; }                      // proteccion por viento (nullptr = sin ella)
+        virtual SkyRotor*   sky() { return nullptr; }                       // seguir el sol o la luna (nullptr = sin ello)
+        // Empieza a seguir (SKY_SUN / SKY_MOON) o para (SKY_OFF); el anfitrion pone la posicion de la estacion y la hora
+        virtual bool        skyStart(int target, std::string& err) { (void)target; err = "no sky"; return false; }
     };
 
     class ApiSession {
@@ -184,6 +189,13 @@ namespace RC {
                 ok(out, c);
                 return;
             }
+            if (c == "track") {                                 // {"c":"track","t":"sun"|"moon"|"off"}
+                const int t = skyParse(in["t"] | "");
+                if (t < 0) { err(out, c, "t"); return; }
+                std::string e;
+                if (h.skyStart(t, e)) ok(out, c); else err(out, c, e.c_str());
+                return;
+            }
             if (c == "reboot") { ok(out, c); h.reboot(); return; }
             err(out, c, "unknown");
         }
@@ -201,6 +213,7 @@ namespace RC {
             d["mv"] = (st & ST_MOVING) != 0;
             h.posExtra(d.as<JsonObject>());
             windInfo(h, d);
+            skyInfo(h, d);
             return dump(d);
         }
 
@@ -218,10 +231,22 @@ namespace RC {
             if (g->gust() >= 0) w["wg"] = round1(g->gust());
             if (g->dir() >= 0) w["wd"] = g->dir();
             w["pk"] = round1(g->peak());
+            w["bf"] = plotter::beaufort(g->wind() / 0.514444);  // fuerza Beaufort con el viento medio (m/s -> nudos)
             w["age"] = g->ageS(now);
             if (g->src()[0]) w["src"] = g->src();
             if (g->local) w["local"] = true;
             if (g->locked()) w["hold"] = g->holdLeftS(now);
+        }
+
+        // "trk":{"t":"sun"|"moon","az","el":posicion del astro,"below":bajo lowEl (esperando)}; sin seguir, nada
+        static void skyInfo(ApiHost& h, JsonDocument& d) {
+            SkyRotor* s = h.sky();
+            if (!s || !s->tracking()) return;
+            JsonObject t = d["trk"].to<JsonObject>();
+            t["t"] = skyName(s->target());
+            t["az"] = round1(s->az());
+            t["el"] = round1(s->el());
+            t["below"] = s->below();
         }
 
         // Estado de la emisora: {"e":"cat","l":enlace,"f":Hz,"m":modo,"tf":Hz,"sp":split,"v":"A","ptt":..,"sm":0-15,"tn":CTCSS Hz,"pa":ptt permitido,
@@ -263,6 +288,7 @@ namespace RC {
             h.info(d.as<JsonObject>());
             d["cat"] = h.rig() != nullptr;
             d["wind"] = h.wind() != nullptr;
+            d["sky"] = h.sky() != nullptr;
             out.push_back(dump(d));
         }
 

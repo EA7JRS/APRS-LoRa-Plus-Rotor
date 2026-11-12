@@ -46,6 +46,8 @@ public:
     bool            catPttAllowed() override;
     uint32_t        nowMs() override { return millis(); }
     RC::WindGuard*  wind() override;
+    RC::SkyRotor*   sky() override;
+    bool            skyStart(int target, std::string& err) override;
 };
 extern RotorApiHost ApiHost;
 
