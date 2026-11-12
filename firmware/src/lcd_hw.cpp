@@ -21,6 +21,7 @@
 #include "rc_common.h"
 #include "rc_serialproto.h"
 #include "cat.h"
+#include "wind.h"          // plotter_core: beaufort()
 
 // Pantallas: 1 = ST7796 por SPI, 320 x 480 vertical (ESP32-C5-Touch-LCD-3.5)
 //            2 = RM690B0 AMOLED por QSPI, 600 x 450 apaisada (ESP32-S3-Touch-AMOLED-2.41)
@@ -373,9 +374,20 @@ namespace LcdHw {
         const RC::WindGuard& wg = Drv::wind();
         if (wg.have()) {
             char t[64];
-            if (wg.gust() >= 0) snprintf(t, sizeof t, "%.0f/%.0f m/s", wg.wind(), wg.gust());
-            else snprintf(t, sizeof t, "%.0f m/s", wg.wind());
+            const int bf = plotter::beaufort(wg.wind() / 0.514444);
+            if (wg.gust() >= 0) snprintf(t, sizeof t, "%.0f/%.0f m/s F%d", wg.wind(), wg.gust(), bf);
+            else snprintf(t, sizeof t, "%.0f m/s F%d", wg.wind(), bf);
             st.wind = t;
+        }
+        st.sky.clear();
+        const RC::SkyRotor& sk = Drv::sky();
+        if (sk.tracking()) {
+            char t[64];
+            const char* who = sk.target() == RC::SKY_SUN ? "Sol" : "Luna";
+            if (sk.below()) snprintf(t, sizeof t, "%s bajo el horizonte (%.0f°): esperando", who, sk.el());
+            else snprintf(t, sizeof t, "Siguiendo %s %.1f° / %.1f°", sk.target() == RC::SKY_SUN ? "el sol" : "la luna", sk.az(), sk.el());
+            for (char* p = t; *p; p++) if (*p == '.') *p = ',';
+            st.sky = t;
         }
         st.ver = ROTOR_VERSION; st.name = Cfg.name; st.call = Cfg.aprs.callsign;
         st.board = ROTOR_BOARD; st.chip = Board::chip(); st.drv = Drv::name();

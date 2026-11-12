@@ -68,6 +68,7 @@ In the WebUI, **Calibración**: take the rotor to one end (e.g. 0°), type the d
 - **Wind (optional)**: with `wind.on: true` and the app's internet weather on, the box parks the rotor on gusts of `wind.park` m/s (15) or more. With a cup anemometer on the box (`wind.anemoPin`, `wind.kmhPerHz`), it uses that one instead of the internet data.
 - **APRS messages over LoRa**: send `P 123 45` to the rotor's callsign (boards with a LoRa module).
 - **Local network (optional)**: `lan` group: wind from the 4″ instrument or Signal K, position from gpsd or the phone and, on a boat or a car, true azimuth using the heading (`lan.heading`). The time comes from the network GPS or from `ntp.roa.es` (Spain's official time). See the [manual, section 19](MANUAL_EN.md#19-local-network-heading-and-time).
+- **Sun and moon**: WebUI > *Mando* > *Seguir el sol* / *Seguir la luna* (sun noise, moonbounce), with `aprs.lat` / `aprs.lon` and the time. See [section 20](MANUAL_EN.md#20-sun-moon-declination-and-beaufort).
 - **Radio or SDR (CAT, optional)**: radio on `cat.rx` / `cat.tx` (3.3 V; MAX3232 for RS-232), `cat.proto` (1 Icom, 2 Yaesu, 3 FT-817/857/897, 4 Kenwood/Elecraft, 5 SDRconnect for the RSPdx-R2, 6 SDR++/gqrx), `cat.baud`, `cat.civ` (Icom). Drive it with the **CAT** button on the screen, the WebUI, the app (*Radio (CAT)*, with satellite Doppler) or over rigctld on port 4532. PTT off unless `cat.ptt: true`. See [CAT.md](CAT.md).
 
 ## Troubleshooting

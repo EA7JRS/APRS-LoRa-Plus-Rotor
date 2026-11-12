@@ -18,6 +18,8 @@
 #include "store.h"
 #include "stream.h"
 #include "tsync.h"
+#include "astro.h"
+#include "wmm.h"
 
 using namespace plotter;
 
@@ -98,6 +100,16 @@ namespace Lan {
         }
     }
 
+    // Declinacion para un compas magnetico: la del WMM en la posicion de la estacion (lan.magAuto) o lan.magVar
+    double declination() {
+        double la, lo;
+        const time_t t = time(nullptr);
+        if (!Cfg.headVarAuto || !position(la, lo) || t < 1704067200) return Cfg.headVar;
+        int y, m, d; double h;
+        plotter::unixToUtc((long long)t, y, m, d, h);
+        return plotter::magneticDeclination(la, lo, plotter::decimalYear(y, m, d, h));
+    }
+
     bool position(double& lat, double& lon) {
         const uint32_t now = millis();
         if (on && Cfg.lanPos && store.get(Key::Lat, now, lat) && store.get(Key::Lon, now, lon)) return true;
@@ -139,7 +151,7 @@ namespace Lan {
         RC::HeadingRotor& h = Drv::heading();
         double hdg;                                             // verdadero (HDT, VHW, Signal K) o magnetico + declinacion (HDG / HDM)
         if (store.get(Key::Heading, now, hdg)) h.setHeading(hdg, now);
-        else if (store.get(Key::HeadingMag, now, hdg)) h.setHeading(hdg + Cfg.headVar, now);
+        else if (store.get(Key::HeadingMag, now, hdg)) h.setHeading(hdg + declination(), now);
         else h.tick(now);
         wind(now);
     }
@@ -172,6 +184,7 @@ namespace Lan {
         const uint32_t now = millis();
         JsonObject d = o["hdg"].to<JsonObject>();
         d["on"] = Cfg.headComp;                                 // compensando (el acimut del evento es verdadero)
+        d["dec"] = round(declination() * 10) / 10;              // declinacion que se suma al rumbo magnetico
         if (!h.have()) return;
         d["v"] = round(h.heading() * 10) / 10;
         d["age"] = h.ageS(now);
@@ -185,6 +198,7 @@ namespace Lan {
     void begin() {}
     void loop() {}
     bool position(double& lat, double& lon) { lat = Cfg.lat; lon = Cfg.lon; return Cfg.lat != 0 || Cfg.lon != 0; }
+    double declination() { return Cfg.headVar; }
     void info(JsonObject) {}
     void posExtra(JsonObject) {}
 }

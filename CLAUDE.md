@@ -62,6 +62,11 @@ Controlador de rotores compatible con Hamlib, manejado por el tracker APRS LoRa+
 - Raspberry: `lan.py` (mismo comportamiento, solo biblioteca estándar; MWV T también cuenta como viento real), `heading.py`, `config["lan"]`, `WindGuard.local`; `install.sh` pone NTPsec (`raspberrypi/ntpsec.conf`: `nts1.roa.es` NTS, `hora.roa.es`, `minuto.roa.es`, pool y refclock SHM 0 / 1 de gpsd; `NO_NTP=1` lo salta). 21 pruebas Python.
 - Manuales: apartado 19 en `MANUAL_ES/EN`, línea en las guías rápidas, `CONFIG.md` (`lan`), `CONTROL_PROTOCOL.md`. Sin probar en placas ni con redes reales.
 
+## Sol, luna, declinación y Beaufort (2026-11-12, rama `formulas`; Manuel: «Todas», las fórmulas del plotter donde hagan falta)
+- `rc_sky.h` (`SkyRotor`, por fuera de todo: clientes -> sol / luna -> rumbo -> viento -> rotor; orden `track` `t` sun / moon / off, `trk` en `pos`, `info.sky`, `caps.sky`; cualquier pos / stop / park / move lo para), con `astro.h` de `lib/plotter_core` (sol y luna de Meeus, luna topocéntrica, refracción). Configuración `sky.step` 1, `sky.minEl` 0, `sky.refraction` true. Posición `Lan::position`, hora `time()`.
+- Declinación del WMM2025 (`wmm.h` del plotter) para HDG / HDM: `lan.magAuto` (true; si no, `lan.magVar`), `hdg.dec` en `pos`. Beaufort `wind.bf` y en la pantalla («F6»).
+- La Pico ya no ignora `plotter_core` (lo necesita `rc_api.h`). `test_host/Makefile` compila `astro`, `geo`, `wind` y `wmm` del plotter: 445 comprobaciones. Raspberry: `astro.py`, `wmm.py` (coeficientes dentro), `sky.py`, `track` en `api.py`; 23 pruebas. Manuales: apartado 20.
+
 ## Manuales (2026-11-08)
 - `docs/MANUAL_ES.md`, `docs/MANUAL_EN.md` (manual de usuario) y `docs/QUICKSTART_ES.md`, `docs/QUICKSTART_EN.md` (guía rápida). Al cambiar funciones, placas o versión, actualizar los cuatro.
 

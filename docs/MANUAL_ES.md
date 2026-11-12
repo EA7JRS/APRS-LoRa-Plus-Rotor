@@ -23,6 +23,7 @@
 17. [Problemas frecuentes](#17-problemas-frecuentes)
 18. [Referencia](#18-referencia)
 19. [Red local, rumbo y hora](#19-red-local-rumbo-y-hora)
+20. [Sol, luna, declinación y Beaufort](#20-sol-luna-declinación-y-beaufort)
 
 ---
 
@@ -382,6 +383,16 @@ Para qué sirve:
 
 1. **Viento** (`lan.wind`, de serie sí, con `wind.on`): el mayor de viento aparente y real que lleguen por la red (MWV, Signal K) o el de OpenWeatherMap va a la protección por viento. El medido manda sobre el tiempo de la app (`wx` se contesta `ok` y no se usa); el anemómetro de la caja, sobre todo.
 2. **Posición** (`lan.pos`, de serie sí): la de gpsd, el NMEA o Signal K sustituye a `aprs.lat` / `aprs.lon` en la baliza APRS y en la consulta del tiempo.
-3. **Rumbo** (`lan.heading`, de serie no): con el rotor en un barco o un coche, el acimut que se pide y el que se da son **verdaderos**. La caja resta el rumbo del barco (HDT, VHW o `navigation.headingTrue`; con un compás magnético HDG / HDM, más `lan.magVar`) y vuelve a apuntar cuando el rumbo cambia `lan.headStep` grados (3) o más. Parar, aparcar o mover a mano dejan de seguir. Sin rumbo nuevo sigue con el último (`hdg.old` en el evento `pos`). El reposo (`parkAz`) sigue siendo respecto a la proa.
+3. **Rumbo** (`lan.heading`, de serie no): con el rotor en un barco o un coche, el acimut que se pide y el que se da son **verdaderos**. La caja resta el rumbo del barco (HDT, VHW o `navigation.headingTrue`; con un compás magnético HDG / HDM, más la declinación: apartado 20) y vuelve a apuntar cuando el rumbo cambia `lan.headStep` grados (3) o más. Parar, aparcar o mover a mano dejan de seguir. Sin rumbo nuevo sigue con el último (`hdg.old` en el evento `pos`). El reposo (`parkAz`) sigue siendo respecto a la proa.
 
 **Hora**: el reloj de la caja se pone con la hora del GPS que llegue por la red (RMC / ZDA de gpsd, del móvil o del plotter) y, sin GPS, con NTP: `wifi.ntp` es de serie `ntp.roa.es`, la hora oficial de España (Real Instituto y Observatorio de la Armada), con `hora.roa.es` y `pool.ntp.org` de reserva. Mientras la del GPS esté al día (6 h), NTP no la sustituye. El evento `info` dice de dónde viene (`clock`). En la Raspberry, `install.sh` pone **NTPsec** con `nts1.roa.es` (hora firmada con NTS), `hora.roa.es`, `minuto.roa.es`, `pool.ntp.org` y el GPS de gpsd si lo hay (con PPS, del orden del microsegundo); `NO_NTP=1` lo deja como estaba. `ntpq -p` enseña los servidores.
+
+## 20. Sol, luna, declinación y Beaufort
+
+Las fórmulas son las del plotter (`firmware/lib/plotter_core`: `astro`, `wmm`, `wind`; en la Raspberry, `astro.py`, `wmm.py`), las mismas en todos los equipos APRS LoRa+.
+
+**Seguir el sol o la luna**, para medir la antena con el ruido solar o para el rebote lunar (EME): WebUI > *Mando* > **Seguir el sol** / **Seguir la luna** / **Dejar de seguir**, la app (*Rotor*) o la orden `{"c":"track","t":"sun"}` (`moon`, `off`). La caja calcula la posición cada 2 s con la de la estación (`aprs.lat` / `aprs.lon`, o la de la red con `lan.pos`) y la hora (GPS o NTP), y apunta cuando el astro se ha movido `sky.step` grados (1) o más; la luna lleva el paralaje (hasta 1°) y, con `sky.refraction` (de serie sí), las dos llevan la refracción media, que es lo que ve la antena. Por debajo de `sky.minEl` (0°) espera sin moverse y vuelve a apuntar al salir. Cualquier orden de mover, parar o aparcar (de la app, rotctld, APRS, la pantalla) deja de seguir; también aparcar por viento. Precisión: unos 0,03°. Sin posición o sin hora contesta `err` y lo dice. La pantalla táctil muestra «Siguiendo la luna 162,4° / 22,7°» o «Luna bajo el horizonte (−17°): esperando»; el evento `pos` lleva `trk`.
+
+**Declinación magnética**: con un compás que solo da rumbo magnético (HDG / HDM), la caja suma la declinación del **Modelo Magnético Mundial** (WMM2025, de NOAA y el British Geological Survey, válido hasta 2030) en la posición de la estación (`lan.magAuto`, de serie sí). Sin posición, o con `lan.magAuto` en `false`, usa `lan.magVar`. El evento `pos` lleva la que se aplica en `hdg.dec`.
+
+**Fuerza Beaufort**: junto al viento en la pantalla («12/20 m/s F6»), en la WebUI y en el evento `pos` (`wind.bf`, con el viento medio).

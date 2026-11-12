@@ -20,6 +20,8 @@ import time
 import urllib.parse
 import urllib.request
 
+from . import wmm
+
 log = logging.getLogger("rotor.lan")
 
 KN_MS = 1852.0 / 3600.0
@@ -241,12 +243,19 @@ class Lan:
         la, lo = float(self.station.get("lat", 0)), float(self.station.get("lon", 0))
         return (la, lo) if la or lo else None
 
+    def declination(self, now: float | None = None) -> float:
+        """Para un compas magnetico: la del WMM en la posicion de la estacion (lan.magAuto) o lan.magVar."""
+        p = self.position(now)
+        if not self.cfg.get("magAuto", True) or p is None or time.time() < 1704067200:
+            return float(self.cfg["magVar"])
+        return wmm.declination(p[0], p[1])
+
     def apply(self, now: float | None = None):
         """Cada segundo: rumbo al rotor y viento a la proteccion."""
         now = time.monotonic() if now is None else now
         h = self.store.get("hdg", now)
         if h is None and self.store.get("hdgMag", now) is not None:
-            h = self.store.get("hdgMag", now) + float(self.cfg["magVar"])
+            h = self.store.get("hdgMag", now) + self.declination(now)
         if h is not None:
             self.heading.set_heading(h, now)
         else:

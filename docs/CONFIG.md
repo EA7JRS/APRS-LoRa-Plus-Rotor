@@ -109,7 +109,18 @@ Cada eje:
 | `pos` | true | la posición de la red sustituye a `aprs.lat` / `aprs.lon` |
 | `heading` | false | rotor en un barco o un coche: acimut verdadero con el rumbo de la red |
 | `headStep` | 3 | grados de cambio de rumbo para volver a apuntar (0,5-45) |
-| `magVar` | 0 | declinación (grados, E positiva) si solo llega rumbo magnético (HDG / HDM) |
+| `magVar` | 0 | declinación (grados, E positiva) si solo llega rumbo magnético (HDG / HDM) y no hay posición o `magAuto` es `false` |
+| `magAuto` | true | declinación del Modelo Magnético Mundial (WMM2025) en la posición de la estación |
+
+## `sky`
+
+Seguir el sol o la luna (orden `track`).
+
+| Clave | Por defecto | |
+|---|---|---|
+| `step` | 1 | grados que tiene que moverse el astro para volver a apuntar (0,1-20) |
+| `minEl` | 0 | por debajo de esta elevación espera (-5 a 60) |
+| `refraction` | true | suma la refracción media (lo que ve la antena) |
 
 ## `aprs`
 

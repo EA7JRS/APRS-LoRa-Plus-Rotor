@@ -65,7 +65,8 @@ namespace Lcd {
         uint8_t     fault = 0;
         std::string faultText = "OK";
         std::string aprs;                           // última orden APRS
-        std::string wind;                           // tiempo de internet de la app: "12/20 m/s" (medio / racha; vacío = sin datos)
+        std::string wind;                           // tiempo de internet de la app: "12/20 m/s F6" (medio / racha, Beaufort; vacío = sin datos)
+        std::string sky;                            // siguiendo el sol o la luna: "Sol 202,9° / 32,4°" (vacío = no)
         // Equipo
         std::string ver, name, call, board, chip, drv, ip, wifi;
         int         rotctld = 0, apiPort = 0;
@@ -548,6 +549,9 @@ namespace Lcd {
                 st = s.faultText + " (toca para borrar)";
                 fb.fillRound(sr.x, sr.y, sr.w, sr.h, (int)(6 * L.k), FAULT_BG);
                 col = RED;
+            } else if (!s.sky.empty() && !aiming(frameMs_)) {
+                st = s.sky + (s.moving ? " · moviendo" : "");
+                col = ACC;
             } else if (st.empty() && s.aprs.empty() && !s.wind.empty()) {
                 st = "Viento " + s.wind;
             } else if (st.empty()) {

@@ -46,6 +46,7 @@ from .web import WebServer
 from .heading import HeadingRotor
 from .lan import Lan
 from .wind import WindGuard, WindRotor
+from .sky import SkyRotor
 
 log = logging.getLogger("rotor")
 
@@ -57,9 +58,11 @@ class Daemon(ApiHost):
         self.proc = RotctldProcess(d["hamlib"])
         self.wind = WindGuard(d["wind"])
         hamlib = HamlibRotor(d["hamlib"], (float(d["park"]["az"]), float(d["park"]["el"])))
-        # tracker / app / Hamlib -> rumbo (barco o coche) -> viento -> rotctld de Hamlib
+        # tracker / app / Hamlib -> sol / luna -> rumbo (barco o coche) -> viento -> rotctld de Hamlib
         self.heading = HeadingRotor(WindRotor(hamlib, self.wind), bool(d["lan"]["heading"]), float(d["lan"]["headStep"]))
-        self.rotor = self.heading
+        sk = d["sky"]
+        self.sky = SkyRotor(self.heading, float(sk["step"]), float(sk["minEl"]), bool(sk["refraction"]))
+        self.rotor = self.sky
         self.lan = Lan(d["lan"], d["aprs"], self.wind, self.heading)
         self.lan.on_park = lambda: (self.rotor.stop(), self.rotor.park())
         a = d["aprs"]
@@ -78,7 +81,7 @@ class Daemon(ApiHost):
                 "name": d["name"], "drv": f"hamlib {d['hamlib']['model']}", "call": d["aprs"]["call"],
                 "caps": {"wifi": True, "ble": bool(d["bt"]["ble"]), "spp": bool(d["bt"]["spp"]),
                          "lora": bool(d["aprs"]["enabled"]), "cal": False, "move": True, "cat": bool(self.cat),
-                         "wind": True, "lan": True},
+                         "wind": True, "lan": True, "sky": True},
                 "ip": _ip(), "rotctld": d["net"]["rotctldPort"] if d["net"]["rotctld"] else 0,
                 "up": int(time.monotonic() - self.started), "utc": int(time.time()),
                 "hamlib": self.proc.last_error or "ok",
@@ -100,8 +103,22 @@ class Daemon(ApiHost):
             e["aprs"] = self.aprs.last_result
         h = self.heading.info_event(bool(self.cfg.data["lan"]["heading"]))
         if h:
+            h["dec"] = round(self.lan.declination(), 1)        # declinacion que se suma al rumbo magnetico
             e["hdg"] = h
         return e
+
+    def sky_start(self, target: int) -> str:
+        return self.sky.start(target, self.lan.position())
+
+    async def sky_loop(self):
+        """Seguir el sol o la luna: la posicion de la estacion puede venir de la red (barco, coche)."""
+        while True:
+            if self.sky.tracking:
+                p = self.lan.position()
+                if p:
+                    self.sky.lat, self.sky.lon = p
+                self.sky.tick()
+            await asyncio.sleep(1.0)
 
     def config_json(self) -> str:
         return self.cfg.to_json(True)
@@ -265,6 +282,7 @@ class Daemon(ApiHost):
         self.proc.start()
         asyncio.create_task(self.rotor.run())
         asyncio.create_task(self.lan.run())
+        asyncio.create_task(self.sky_loop())
         net = d["net"]
         servers = []
         if net["rotctld"]:

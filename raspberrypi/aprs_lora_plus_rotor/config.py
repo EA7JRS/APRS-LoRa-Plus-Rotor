@@ -43,7 +43,8 @@ DEFAULTS["wind"] = {"on": False, "park": 15.0, "resume": 10.0, "hold": 15}   # p
 # Red local (lan.py): servidor TCP kind 0 ninguno, 1 NMEA 0183, 2 gpsd, 3 Signal K (host vacio = puerta de enlace); udp = NMEA por
 # UDP (0 = no); OpenWeatherMap; wind / pos: usar su viento y su posicion; heading: acimut verdadero con el rumbo (heading.py)
 DEFAULTS["lan"] = {"kind": 0, "host": "", "port": 10110, "udp": 0, "owmKey": "", "wind": True, "pos": True,
-                   "heading": False, "headStep": 3.0, "magVar": 0.0}
+                   "heading": False, "headStep": 3.0, "magVar": 0.0, "magAuto": True}
+DEFAULTS["sky"] = {"step": 1.0, "minEl": 0.0, "refraction": True}   # seguir el sol o la luna (orden "track")
 
 SECRETS = [("pin",), ("net", "webPass"), ("aprs", "totp"), ("lan", "owmKey")]
 
@@ -103,6 +104,9 @@ def validate(c: dict) -> str:
             return "lan.udp"
         if not 0.5 <= float(ln["headStep"]) <= 45 or not -90 <= float(ln["magVar"]) <= 90:
             return "lan.headStep 0.5-45 / lan.magVar -90..90"
+        sk = c["sky"]
+        if not 0.1 <= float(sk["step"]) <= 20 or not -5 <= float(sk["minEl"]) <= 60:
+            return "sky.step 0.1-20 / sky.minEl -5..60"
         a = c["aprs"]
         if not 1 <= len(a["call"]) <= 9:
             return "aprs.call"

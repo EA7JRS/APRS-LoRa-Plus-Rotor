@@ -18,6 +18,7 @@ namespace Lan {
     void begin();
     void loop();
     bool position(double& lat, double& lon);    // de la red (lan.pos) o la de aprs.lat / lon; false si no hay ninguna
+    double declination();                       // WMM en la posicion de la estacion (lan.magAuto) o lan.magVar
     void info(JsonObject o);                    // "lan" del evento info
     void posExtra(JsonObject o);                // "hdg" del evento pos
 }
