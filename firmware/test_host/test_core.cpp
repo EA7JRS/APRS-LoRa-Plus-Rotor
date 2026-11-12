@@ -16,6 +16,7 @@
 #include "rc_cat.h"
 #include "rc_rigctld.h"
 #include "rc_wind.h"
+#include "rc_heading.h"
 #include "rc_anemo.h"
 
 using namespace RC;
@@ -409,6 +410,48 @@ static void testWind() {
     CHECK(o[0] == "{\"e\":\"ok\",\"c\":\"wx\"}" && !h2.g.locked() && !h2.g.have());
     h2.g.update(4, 6, -1, 0, "anemo", h2.t);
     o.clear(); s3.handle("{\"c\":\"get\"}", h2, o); CHECK(o[0].find("\"src\":\"anemo\",\"local\":true") != std::string::npos);
+}
+
+// Rotor en un barco: acimut verdadero <-> respecto a la proa, y volver a apuntar al girar
+static void testHeading() {
+    FakeRotor f; f.az = 0; f.maxA = 450;
+    HeadingRotor h; h.attach(&f);
+    double a, e;
+    CHECK(h.setPos(100, 30) && f.az == 100);                 // apagado: tal cual
+    h.enabled = true;
+    CHECK(h.setPos(120, 30) && f.az == 120 && !h.active());  // sin rumbo aun: tal cual
+    h.setHeading(90, 1000);
+    CHECK(h.active() && h.minAz() == 0 && h.maxAz() == 360);
+    h.getPos(a, e); NEAR(a, 210, 1e-9);                       // rotor a 120 de la proa con proa 090 = 210 verdadero
+    CHECK(h.setPos(45, 10)); NEAR(f.az, 315, 1e-9); NEAR(f.el, 10, 1e-9);   // 45 - 90 = -45 -> 315
+    h.getPos(a, e); NEAR(a, 45, 1e-9);
+    // Gira el barco 2 grados: no se mueve; 5 grados: vuelve a apuntar (no antes de 1 s)
+    h.setHeading(92, 1500); NEAR(f.az, 315, 1e-9);
+    h.setHeading(95, 1800); NEAR(f.az, 315, 1e-9);           // aun no ha pasado 1 s
+    h.setHeading(95, 2100); NEAR(f.az, 310, 1e-9);
+    // Solapamiento (0-450): de las vueltas posibles, la mas cercana a donde esta
+    f.az = 400; h.setHeading(0, 3000);
+    CHECK(h.setAz(30)); NEAR(f.az, 390, 1e-9);                // 30 o 390: 390 esta a 10 grados
+    f.az = 10; CHECK(h.setAz(30)); NEAR(f.az, 30, 1e-9);
+    // Parar, aparcar o mover a mano dejan de seguir el rumbo
+    CHECK(h.stop() && !h.hasTarget());
+    const double before = f.az;
+    h.setHeading(60, 9000); NEAR(f.az, before, 1e-9);
+    CHECK(h.setPos(90, 0)); NEAR(f.az, 30, 1e-9);
+    CHECK(h.move(MOVE_LEFT, 50) && !h.hasTarget());
+    // Rumbo viejo: sigue con el ultimo y lo dice
+    CHECK(!h.stale(15000) && h.stale(20001) && h.ageS(20001) == 11);
+    // Detras de WindRotor: aparcado por viento rechaza y deja de seguir
+    WindGuard g; g.cfg.on = true; g.cfg.parkMs = 15;
+    WindRotor w{g}; w.attach(&f);
+    HeadingRotor h2; h2.enabled = true; h2.attach(&w); h2.setHeading(10, 0);
+    CHECK(h2.setPos(100, 0)); NEAR(f.az, 90, 1e-9);
+    g.update(20, 25, -1, 0, "lan", 100);
+    CHECK(!h2.setPos(200, 0) && !h2.hasTarget());
+    // Rotor de 0-360 sin solapamiento: 350 - 10 = 340
+    FakeRotor f3; f3.maxA = 360; HeadingRotor h3; h3.enabled = true; h3.attach(&f3); h3.setHeading(10, 0);
+    CHECK(h3.setAz(350)); NEAR(f3.az, 340, 1e-9);
+    NEAR(angDiff(350, 10), 20, 1e-9); NEAR(norm360(-725), 355, 1e-9);
 }
 
 // Anemómetro de cazoletas: impulsos -> viento, medio, racha
@@ -828,6 +871,7 @@ int main() {
     testAprs();
     testApi();
     testWind();
+    testHeading();
     testAnemo();
     testCatCiv();
     testCatYaesu();

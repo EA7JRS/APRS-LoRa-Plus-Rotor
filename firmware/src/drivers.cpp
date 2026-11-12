@@ -337,10 +337,15 @@ namespace Drv {
     // Proteccion por viento: todo pasa por el envoltorio, que rechaza movimientos mientras esta aparcado
     static RC::WindGuard   windG;
     static RC::WindRotor   windR(windG);
+    static RC::HeadingRotor headR;                          // por fuera: tracker -> rumbo -> viento -> rotor
     RC::WindGuard& wind() { return windG; }
+    RC::HeadingRotor& heading() { return headR; }
+    void setAnemoLocal(bool lanMeasured) { windG.local = Cfg.anemoPin >= 0 || lanMeasured; }
     void windConfig() {
         windG.cfg.on = Cfg.windOn; windG.cfg.parkMs = Cfg.windParkMs; windG.cfg.resumeMs = Cfg.windResumeMs; windG.cfg.holdMin = Cfg.windHoldMin;
         windG.local = Cfg.anemoPin >= 0;
+        headR.enabled = Cfg.headComp;
+        headR.stepDeg = Cfg.headStep;
     }
 
     // Anemómetro de cazoletas: la interrupción cuenta los cierres de la ampolla (con filtro de rebotes) y cada segundo el
@@ -420,7 +425,7 @@ namespace Drv {
         outPin(Cfg.brakePin, direct.az.out().brakeRelease || (Cfg.elEnabled && direct.el.out().brakeRelease));
     }
 
-    RC::Rotor& rotor() { windR.attach(&realRotor()); return windR; }
+    RC::Rotor& rotor() { windR.attach(&realRotor()); headR.attach(&windR); return headR; }
 
     const char* name() {
         if (Cfg.driver == 1) return RC::serialProtoName(Cfg.serProto);

@@ -10,6 +10,7 @@
 #include "config.h"
 #include "board.h"
 #include "drivers.h"
+#include "lan.h"
 #include "rc_aprs.h"
 
 namespace LoraAprs {
@@ -101,11 +102,12 @@ namespace LoraAprs {
         const std::string st = RC::AprsControl::statusLine(r, Drv::fault() ? RC::faultText(Drv::fault()) : "OK");
         std::string f = Cfg.aprs.callsign + ">" + Cfg.aprs.tocall;
         if (!Cfg.aprs.path.empty()) f += "," + Cfg.aprs.path;
-        if (Cfg.lat != 0 || Cfg.lon != 0) {
+        double lat, lon;                                    // la de la red local (gpsd, NMEA, Signal K) o la configurada
+        if (Lan::position(lat, lon)) {
             char p[40];
-            const double la = fabs(Cfg.lat), lo = fabs(Cfg.lon);
-            snprintf(p, sizeof(p), ":!%02d%05.2f%c/%03d%05.2f%cr", (int)la, (la - (int)la) * 60.0, Cfg.lat >= 0 ? 'N' : 'S',
-                     (int)lo, (lo - (int)lo) * 60.0, Cfg.lon >= 0 ? 'E' : 'W');
+            const double la = fabs(lat), lo = fabs(lon);
+            snprintf(p, sizeof(p), ":!%02d%05.2f%c/%03d%05.2f%cr", (int)la, (la - (int)la) * 60.0, lat >= 0 ? 'N' : 'S',
+                     (int)lo, (lo - (int)lo) * 60.0, lon >= 0 ? 'E' : 'W');
             f += p;
             f += st + " " + Cfg.comment;
         } else {

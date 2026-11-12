@@ -12,6 +12,7 @@
 #include "net.h"
 #include "bt.h"
 #include "cat.h"
+#include "lan.h"
 #if ROTOR_ESP32
     #include <esp_ota_ops.h>
 #endif
@@ -100,16 +101,19 @@ void RotorApiHost::info(JsonObject o) {
     caps["lcd"] = ROTOR_HAS_LCD != 0;
     caps["cat"] = Cat::engine() != nullptr;
     caps["wind"] = true;
+    caps["lan"] = ROTOR_HAS_LAN != 0;                   // red local (src/lan.cpp): viento, posicion y rumbo
     o["ip"] = Net::ip();
     o["rotctld"] = Cfg.rotctld ? Cfg.rotctldPort : 0;
     o["rigctld"] = (Cat::engine() && Cfg.rigctld) ? Cfg.rigctldPort : 0;
     o["heap"] = Board::freeHeap();
     o["up"] = millis() / 1000;
     o["utc"] = (unsigned long long)Board::utc();
+    Lan::info(o);
 }
 
 void RotorApiHost::posExtra(JsonObject o) {
     Drv::posExtra(o);
+    Lan::posExtra(o);
     const std::string a = LoraAprs::lastResult();
     if (!a.empty()) o["aprs"] = a;
 }

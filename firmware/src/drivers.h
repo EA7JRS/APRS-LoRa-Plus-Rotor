@@ -12,6 +12,7 @@
 #include "rc_common.h"
 #include "rc_wind.h"
 #include "rc_anemo.h"
+#include "rc_heading.h"
 
 namespace Drv {
     void        begin();
@@ -27,4 +28,6 @@ namespace Drv {
     uint8_t     fault();                        // F_WIND si esta aparcado por viento (y no hay otro fallo)
     RC::WindGuard& wind();                      // proteccion por viento (Drv::rotor() ya la respeta)
     void        windConfig();                   // copia wind.* de la configuracion
+    RC::HeadingRotor& heading();                // compensacion del rumbo (rotor en un barco o un coche; src/lan.cpp le da el rumbo)
+    void        setAnemoLocal(bool lanMeasured); // viento medido por la red: el tiempo de la app ("wx") deja de contar
 }

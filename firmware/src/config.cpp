@@ -118,6 +118,10 @@ namespace Config {
         JsonObject wd = d["wind"].to<JsonObject>();
         wd["on"] = c.windOn; wd["park"] = c.windParkMs; wd["resume"] = c.windResumeMs; wd["hold"] = c.windHoldMin;
         wd["anemoPin"] = c.anemoPin; wd["kmhPerHz"] = c.anemoKmhHz; wd["pullup"] = c.anemoPullup;
+        JsonObject ln = d["lan"].to<JsonObject>();
+        ln["kind"] = c.lanKind; ln["host"] = c.lanHost; ln["port"] = c.lanPort; ln["udp"] = c.lanUdp;
+        ln["owmKey"] = secrets ? c.owmKey : (c.owmKey.empty() ? std::string() : std::string(MASK));
+        ln["wind"] = c.lanWind; ln["pos"] = c.lanPos; ln["heading"] = c.headComp; ln["headStep"] = c.headStep;
     #if ROTOR_HAS_LCD
         JsonObject lc = d["lcd"].to<JsonObject>();
         lc["bright"] = c.lcdBright; lc["dimS"] = c.lcdDimS; lc["theme"] = c.lcdTheme;
@@ -157,6 +161,10 @@ namespace Config {
         }
         if (c.anemoPin >= 100 || c.anemoPin < -1) { err = "wind.anemoPin (GPIO de la placa, no del expansor)"; return false; }
         if (!(c.anemoKmhHz > 0.1 && c.anemoKmhHz < 50)) { err = "wind.kmhPerHz 0.1-50"; return false; }
+        if (c.lanKind < 0 || c.lanKind > 3 || c.lanPort <= 0 || c.lanPort > 65535 || c.lanUdp < 0 || c.lanUdp > 65535) { err = "lan.kind 0-3 / port / udp"; return false; }
+        if (c.lanHost.size() > 39 || c.owmKey.size() > 39) { err = "lan.host / lan.owmKey (39)"; return false; }
+        if (c.lanUdp && (c.lanUdp == c.rotctldPort || c.lanUdp == c.apiPort)) { err = "lan.udp"; return false; }
+        if (!(c.headStep >= 0.5 && c.headStep <= 45)) { err = "lan.headStep 0.5-45"; return false; }
         if (c.lcdBright < 10 || c.lcdBright > 100 || c.lcdDimS < 0) { err = "lcd.bright 10-100 / lcd.dimS >= 0"; return false; }
         if (c.lcdTheme < 0 || c.lcdTheme > 1) { err = "lcd.theme 0 (app) / 1 (rotor)"; return false; }
         if (c.catProto < 0 || c.catProto > 6) { err = "cat.proto 0-6"; return false; }
@@ -212,6 +220,10 @@ namespace Config {
         JsonVariantConst wd = d["wind"];
         get(wd, "on", n.windOn); getD(wd, "park", n.windParkMs); getD(wd, "resume", n.windResumeMs); get(wd, "hold", n.windHoldMin);
         get(wd, "anemoPin", n.anemoPin); getD(wd, "kmhPerHz", n.anemoKmhHz); get(wd, "pullup", n.anemoPullup);
+        JsonVariantConst ln = d["lan"];
+        get(ln, "kind", n.lanKind); getS(ln, "host", n.lanHost); get(ln, "port", n.lanPort); get(ln, "udp", n.lanUdp);
+        getSecret(ln, "owmKey", n.owmKey); get(ln, "wind", n.lanWind); get(ln, "pos", n.lanPos);
+        get(ln, "heading", n.headComp); getD(ln, "headStep", n.headStep);
         get(d["lcd"], "bright", n.lcdBright); get(d["lcd"], "dimS", n.lcdDimS); get(d["lcd"], "theme", n.lcdTheme);
         JsonVariantConst ct = d["cat"];
         get(ct, "proto", n.catProto); get(ct, "baud", n.catBaud); get(ct, "rx", n.catRx); get(ct, "tx", n.catTx); get(ct, "civ", n.catCiv);

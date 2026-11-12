@@ -29,6 +29,7 @@
 #include "lora_aprs.h"
 #include "lcd_hw.h"
 #include "cat.h"
+#include "lan.h"
 
 static ProtoPort usb;
 static uint32_t  ledT = 0;
@@ -50,6 +51,7 @@ void setup() {
     logf("\nAPRS LoRa+ Rotor %s (%s, %s) - mando: %s\n", ROTOR_VERSION, ROTOR_BOARD, Board::chip(), Drv::name());
     Cat::begin();                                      // antes de la red: el servidor rigctld depende de él
     Net::begin();
+    Lan::begin();                                      // red local: viento, posicion y rumbo (despues de la WiFi)
     Bt::begin();
     LoraAprs::begin();
     LcdHw::begin();
@@ -59,6 +61,7 @@ void loop() {
     Drv::loop();
     usb.poll(Serial, Drv::rotor());                     // con usb.proto 5 (registro) solo atiende la pregunta del instalador web
     Net::loop();
+    Lan::loop();
     Bt::loop();
     LoraAprs::loop();
     Cat::loop();

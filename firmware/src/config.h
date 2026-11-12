@@ -126,6 +126,17 @@ struct RotorConfig {
     double      anemoKmhHz = 2.4;           // km/h por impulso por segundo (Misol / Fine Offset 2,4; Davis 6410 3,62)
     bool        anemoPullup = true;         // resistencia interna a 3V3
 
+    // Red local (src/lan.cpp, librerias lib/aprs_links y lib/plotter_core del plotter): datos del barco o de la estacion por la WiFi
+    int         lanKind = 0;                // servidor TCP: 0 ninguno, 1 NMEA 0183, 2 gpsd, 3 Signal K
+    std::string lanHost;                    // vacio = el equipo que da la WiFi (el movil con la app, servidor NMEA en el 10110)
+    int         lanPort = 10110;            // 10110 NMEA, 2947 gpsd, 8375 Signal K
+    int         lanUdp = 0;                 // escucha NMEA por UDP (instrumento de viento: 10110); 0 = no
+    std::string owmKey;                     // OpenWeatherMap: viento de internet sin la app (en lan.pos o en aprs.lat / lon)
+    bool        lanWind = true;             // viento de la red (MWV, Signal K) o de OpenWeatherMap para la proteccion por viento
+    bool        lanPos = true;              // posicion de la red como posicion de la estacion (baliza APRS, tiempo de internet)
+    bool        headComp = false;           // rotor en un barco o un coche: acimut verdadero con el rumbo de la red (rc_heading.h)
+    double      headStep = 3.0;             // grados de cambio de rumbo para volver a apuntar
+
     // Pantalla tactil (placas con LCD)
     int         lcdBright = 80;             // brillo 10-100 %
     int         lcdTheme = 0;               // paleta de la pantalla: 0 = la de la app Android, 1 = la de la WebUI (cabecera roja)

@@ -26,6 +26,14 @@
 #ifndef ROTOR_HAS_WIFI
     #define ROTOR_HAS_WIFI 0
 #endif
+#ifndef ROTOR_ESP32
+    #define ROTOR_ESP32 0
+#endif
+#ifndef ROTOR_RP2
+    #define ROTOR_RP2 0
+#endif
+// Red local de lib/aprs_links (src/lan.cpp): solo en los ESP32 con WiFi
+#define ROTOR_HAS_LAN (ROTOR_ESP32 && ROTOR_HAS_WIFI)
 #ifndef ROTOR_HAS_BLE
     #define ROTOR_HAS_BLE 0
 #endif
