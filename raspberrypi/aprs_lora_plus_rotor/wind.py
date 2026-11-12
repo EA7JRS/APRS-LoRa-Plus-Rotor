@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import time
 
+from .astro import beaufort
+
 
 class WindGuard:
     def __init__(self, cfg: dict | None = None):
@@ -95,6 +97,7 @@ class WindGuard:
         if self.dir >= 0:
             w["wd"] = self.dir
         w["pk"] = round(self.peak, 1)
+        w["bf"] = beaufort(self.wind / 0.514444)        # fuerza Beaufort con el viento medio
         w["age"] = self.age_s(now)
         if self.src:
             w["src"] = self.src

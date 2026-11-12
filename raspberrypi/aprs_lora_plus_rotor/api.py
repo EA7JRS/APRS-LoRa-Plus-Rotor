@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import time
 
+from . import sky
 from .protocols import ST_BUSY, ST_MOVING, parse_move_dir
 
 API_VERSION = 1
@@ -28,6 +29,9 @@ class ApiHost:
     rotor = None
     cat = None          # cat.Cat o None
     wind = None         # wind.WindGuard o None
+    sky = None          # sky.SkyRotor o None
+
+    def sky_start(self, target: int) -> str: return "no sky"
 
     def info(self) -> dict: return {}
     def pos_extra(self) -> dict: return {}
@@ -53,6 +57,10 @@ def pos_event(h: ApiHost) -> str:
         w = h.wind.info()
         if w:
             d["wind"] = w
+    if h.sky is not None:
+        t = h.sky.info_event()
+        if t:
+            d["trk"] = t
     return dumps(d)
 
 
@@ -95,6 +103,7 @@ class ApiSession:
             i.update(h.info())
             i["cat"] = bool(h.cat and h.cat.rig)
             i["wind"] = h.wind is not None
+            i["sky"] = h.sky is not None
             out.append(dumps(i))
             return out
         if c == "get":
@@ -213,6 +222,16 @@ class ApiSession:
                     r.stop()
                     r.park()
                 ok(c)
+        elif c == "track":                              # {"c":"track","t":"sun"|"moon"|"off"}
+            t = sky.parse(d.get("t"))
+            if t < 0:
+                err(c, "t")
+            else:
+                e = h.sky_start(t)
+                if e:
+                    err(c, e)
+                else:
+                    ok(c)
         elif c == "reboot":
             ok(c)
             h.reboot()

@@ -18,6 +18,7 @@ from aprs_lora_plus_rotor.web import load_page  # noqa: E402
 from aprs_lora_plus_rotor.wind import WindGuard, WindRotor  # noqa: E402
 from aprs_lora_plus_rotor import lan as L  # noqa: E402
 from aprs_lora_plus_rotor.heading import HeadingRotor, ang_diff  # noqa: E402
+from aprs_lora_plus_rotor import astro, sky, wmm  # noqa: E402
 
 
 class FakeRotor(P.Rotor):
@@ -280,6 +281,63 @@ class TestHeading(unittest.TestCase):
         self.assertIsNone(h2.target)
 
 
+class TestSky(unittest.TestCase):
+    def test_formulas(self):
+        # Mismos valores que el plotter (pygeomag y PyEphem)
+        for lat, lon, alt, year, dec, inc in ((36.53, -6.29, 0, 2026.86, -0.0318, 49.8584), (89, -121, 28, 2025.0, -99.7746, 88.4666),
+                                              (-80, 240, 48, 2027.5, 68.2187, -72.0065), (0, 0, 0, 2026.0, -3.8929, -30.1940)):
+            f = wmm.DEFAULT.field(lat, lon, alt, year)
+            self.assertAlmostEqual(f["D"], dec, delta=0.002)
+            self.assertAlmostEqual(f["I"], inc, delta=0.002)
+        self.assertAlmostEqual(wmm.decimal_year(1767225600), 2026.0)
+        cof = "    2030.0  WMM-2030  12/01/2029\n" + "".join(f"{n} {m} {'-30000' if n == 1 and m == 0 else '0'} 0 0 0\n"
+                                                         for n in range(1, 13) for m in range(n + 1)) + "999999\n"
+        w = wmm.Wmm.load_cof(cof)
+        self.assertEqual((w.epoch, w.valid_until, w.name), (2030.0, 2035.0, "WMM-2030"))
+        self.assertAlmostEqual(w.declination(0, 0, 2030), 0.0, 6)
+        with self.assertRaises(ValueError):
+            wmm.Wmm.load_cof("2030.0 X\n1 0 1 0 0 0\n")
+        t = 1794490200                                           # 2026-11-12 13:30 UTC, Rota
+        az, el = astro.sun_position(t, 36.53, -6.29)
+        self.assertAlmostEqual(el, 32.434, delta=0.02); self.assertAlmostEqual(az, 202.895, delta=0.02)
+        az, el, dist = astro.moon_position(t, 36.53, -6.29)
+        self.assertAlmostEqual(el, 22.708, delta=0.03); self.assertAlmostEqual(az, 162.424, delta=0.03)
+        self.assertTrue(400000 < dist < 410000)
+        self.assertAlmostEqual(astro.refraction(0), 0.48, delta=0.03)
+        self.assertEqual([astro.beaufort(k) for k in (0, 0.5, 3.4, 10, 38.9, 70)], [0, 1, 1, 3, 8, 12])
+
+    def test_tracking(self):
+        f = FakeRotor()
+        s = sky.SkyRotor(f)
+        t = 1794490200
+        self.assertIn("position", s.start(sky.SUN, None, t, 0))
+        self.assertIn("time", s.start(sky.SUN, (36.53, -6.29), 0, 0))
+        self.assertEqual(s.start(sky.SUN, (36.53, -6.29), t, 10), "")
+        self.assertTrue(s.tracking and s.aims == 1)
+        self.assertAlmostEqual(f.az, 202.895, delta=0.03)
+        s.tick(t + 2, 12.5); self.assertEqual(s.aims, 1)        # el sol apenas se ha movido
+        s.tick(t + 240, 20); self.assertEqual(s.aims, 2)
+        self.assertTrue(s.set_pos(10, 10) is not False and not s.tracking)
+        f.az = 50.0
+        self.assertEqual(s.start(sky.MOON, (36.53, -6.29), 1794517200, 100), "")
+        self.assertTrue(s.below and f.az == 50.0)                # la luna esta bajo el horizonte: espera
+        self.assertEqual(s.info_event()["t"], "moon")
+        s.stop(); self.assertIsNone(s.info_event())
+        self.assertEqual((sky.parse("sun"), sky.parse("moon"), sky.parse("off"), sky.parse("x"), sky.parse(3)), (1, 2, 0, -1, -1))
+        # Por la API
+        h = WindHost()
+        h.sky = sky.SkyRotor(h.rotor)
+        h.rotor = h.sky
+        h.sky_start = lambda tg: h.sky.start(tg, (36.53, -6.29), t)
+        ses = api.ApiSession()
+        self.assertIn('"sky":true', ses.handle('{"c":"info"}', h)[0])
+        self.assertEqual(ses.handle('{"c":"track","t":"moon"}', h)[0], '{"e":"ok","c":"track"}')
+        self.assertIn('"trk":{"t":"moon","az":162.4', ses.handle('{"c":"get"}', h)[0])
+        self.assertIn('"err"', ses.handle('{"c":"track","t":"mars"}', h)[0])
+        ses.handle('{"c":"stop"}', h)
+        self.assertNotIn("trk", ses.handle('{"c":"get"}', h)[0])
+
+
 class TestLan(unittest.TestCase):
     def test_nmea(self):
         st = L.Store()
@@ -336,9 +394,14 @@ class TestLan(unittest.TestCase):
         self.assertEqual(api.ApiSession().handle('{"c":"wx","ws":1}', api_host)[0], '{"e":"ok","c":"wx"}')
         st.set("hdgMag", 100.0, now=22)
         cfg["magVar"] = -1.5
+        cfg["magAuto"] = False
         h.enabled = True
         lan.apply(22)
         self.assertAlmostEqual(h.heading, 98.5)
+        cfg["magAuto"] = True                                    # declinacion del WMM en la posicion de la red
+        lan.apply(22)
+        self.assertAlmostEqual(h.heading, (100.0 + wmm.declination(40.0, -3.0)) % 360, 6)
+        self.assertGreater(wmm.declination(40.0, -3.0), 0)       # centro de la Peninsula, 2026: ligeramente al este
         self.assertEqual(config.validate({**config.DEFAULTS, "lan": dict(cfg, kind=5)})[:8], "lan.kind")
         c = config.Config(os.path.join(tempfile.mkdtemp(), "c.json"))
         c.data["lan"]["owmKey"] = "secret"

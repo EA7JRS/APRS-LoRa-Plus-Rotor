@@ -25,6 +25,7 @@ The WebUI and the touch screen are in Spanish; their labels are given here as th
 17. [Troubleshooting](#17-troubleshooting)
 18. [Reference](#18-reference)
 19. [Local network, heading and time](#19-local-network-heading-and-time)
+20. [Sun, moon, declination and Beaufort](#20-sun-moon-declination-and-beaufort)
 
 ---
 
@@ -384,6 +385,16 @@ What it is for:
 
 1. **Wind** (`lan.wind`, on by default, with `wind.on`): the higher of apparent and true wind arriving over the network (MWV, Signal K) or the OpenWeatherMap wind goes to the wind protection. Measured wind takes precedence over the app's weather (`wx` is answered `ok` and ignored); the box's own anemometer takes precedence over everything.
 2. **Position** (`lan.pos`, on by default): the gpsd, NMEA or Signal K position replaces `aprs.lat` / `aprs.lon` in the APRS beacon and the weather request.
-3. **Heading** (`lan.heading`, off by default): with the rotor on a boat or a car, the azimuth requested and reported is **true**. The box subtracts the boat's heading (HDT, VHW or `navigation.headingTrue`; with a magnetic compass HDG / HDM, plus `lan.magVar`) and re-aims when the heading changes by `lan.headStep` degrees (3) or more. Stopping, parking or moving by hand stops following. With no new heading it keeps the last one (`hdg.old` in the `pos` event). The park position (`parkAz`) is still relative to the bow.
+3. **Heading** (`lan.heading`, off by default): with the rotor on a boat or a car, the azimuth requested and reported is **true**. The box subtracts the boat's heading (HDT, VHW or `navigation.headingTrue`; with a magnetic compass HDG / HDM, plus the declination: section 20) and re-aims when the heading changes by `lan.headStep` degrees (3) or more. Stopping, parking or moving by hand stops following. With no new heading it keeps the last one (`hdg.old` in the `pos` event). The park position (`parkAz`) is still relative to the bow.
 
 **Time**: the box clock is set from the GPS time arriving over the network (RMC / ZDA from gpsd, the phone or the plotter) and, without GPS, from NTP: `wifi.ntp` defaults to `ntp.roa.es`, Spain's official time (Real Instituto y Observatorio de la Armada), with `hora.roa.es` and `pool.ntp.org` as backups. While the GPS time is current (6 h), NTP does not replace it. The `info` event says where it came from (`clock`). On the Raspberry Pi, `install.sh` sets up **NTPsec** with `nts1.roa.es` (time signed with NTS), `hora.roa.es`, `minuto.roa.es`, `pool.ntp.org` and the gpsd GPS if present (with PPS, around a microsecond); `NO_NTP=1` leaves it untouched. `ntpq -p` shows the servers.
+
+## 20. Sun, moon, declination and Beaufort
+
+The formulas are the plotter's (`firmware/lib/plotter_core`: `astro`, `wmm`, `wind`; on the Raspberry Pi, `astro.py`, `wmm.py`), the same in every APRS LoRa+ device.
+
+**Tracking the sun or the moon**, to measure the antenna with sun noise or for moonbounce (EME): WebUI > *Mando* > **Seguir el sol** («track the sun») / **Seguir la luna** («track the moon») / **Dejar de seguir** («stop tracking»), the app (*Rotor*) or the command `{"c":"track","t":"sun"}` (`moon`, `off`). The box computes the position every 2 s from the station position (`aprs.lat` / `aprs.lon`, or the network one with `lan.pos`) and the time (GPS or NTP), and aims when the body has moved `sky.step` degrees (1) or more; the moon includes the parallax (up to 1°) and, with `sky.refraction` (on by default), both include the mean refraction, which is what the antenna sees. Below `sky.minEl` (0°) it waits without moving and aims again when it rises. Any move, stop or park command (from the app, rotctld, APRS, the screen) stops tracking; so does parking for wind. Accuracy: about 0.03°. With no position or no time it answers `err` and says so. The touch screen shows «Siguiendo la luna 162,4° / 22,7°» («tracking the moon») or «Luna bajo el horizonte (−17°): esperando» («moon below the horizon: waiting»); the `pos` event carries `trk`.
+
+**Magnetic declination**: with a compass that only gives a magnetic heading (HDG / HDM), the box adds the declination from the **World Magnetic Model** (WMM2025, by NOAA and the British Geological Survey, valid until 2030) at the station position (`lan.magAuto`, on by default). Without a position, or with `lan.magAuto` set to `false`, it uses `lan.magVar`. The `pos` event reports the one applied in `hdg.dec`.
+
+**Beaufort force**: next to the wind on the screen («12/20 m/s F6»), in the WebUI and in the `pos` event (`wind.bf`, from the mean wind).
