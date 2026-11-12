@@ -344,6 +344,7 @@ def main(argv=None):
     ap.add_argument("--print-default", action="store_true", help="muestra la configuracion por defecto y sale")
     a = ap.parse_args(argv)
     logging.basicConfig(level=logging.DEBUG if a.verbose else logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+    print("[INFO][Main] APRS LoRa+ (c) 2026 Manuel - EA7JRS", flush=True)   # la misma linea en todos los equipos APRS LoRa+
     cfg = Config(a.config)
     if a.print_default:
         print(cfg.to_json(True))

@@ -49,6 +49,7 @@ void setup() {
     usb.setProto(Cfg.usbProto);
     if (Cfg.led >= 0) pinMode(Cfg.led, OUTPUT);
     logf("\nAPRS LoRa+ Rotor %s (%s, %s) - mando: %s\n", ROTOR_VERSION, ROTOR_BOARD, Board::chip(), Drv::name());
+    logf("[INFO][Main] APRS LoRa+ (c) 2026 Manuel - EA7JRS\n");          // la misma linea en todos los equipos APRS LoRa+
     Cat::begin();                                      // antes de la red: el servidor rigctld depende de él
     Net::begin();
     Lan::begin();                                      // red local: viento, posicion y rumbo (despues de la WiFi)
