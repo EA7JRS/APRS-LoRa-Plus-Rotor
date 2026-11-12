@@ -83,7 +83,7 @@ Controlador de rotores compatible con Hamlib, manejado por el tracker APRS LoRa+
 - Tracker: PR #3 (rama `rotor-follow`): `\dump_state` corregido, fuentes 4 (última estación oída) y 5 (baliza CW con locator) y estimación de estaciones en movimiento; app con lo mismo (a4fa810). Transporte LoRa APRS desde el tracker descartado (su radio escucha lo que sigue).
 
 ## Versión y publicación (Manuel, 2026-11-07)
-- **Mismo número de versión en todos los repositorios** (tracker, rotor, app, gateway): ahora **5.4.2** (2026-11-12; el gateway sigue en espera). `ROTOR_VERSION` en `firmware/src/config.h`, `__version__` en `raspberrypi/aprs_lora_plus_rotor/__init__.py`, `library.json`.
+- **Mismo número de versión en todos los repositorios** (tracker, rotor, app, gateway): ahora **5.4.3** (2026-11-12; la 5.4.2 no se publicó; el gateway sigue en espera). `ROTOR_VERSION` en `firmware/src/config.h`, `__version__` en `raspberrypi/aprs_lora_plus_rotor/__init__.py`, `library.json`.
 - WebUI: cabecera como la del tracker (barra roja, icono de la app Android en PNG incrustado, también como favicon, «APRS LoRa+» y debajo «Rotor» + versión).
 - Instalador web: el del tracker (GitHub Pages de APRS-LoRa-Plus) con tres lanzadores: Tracker, Rotor, Gateway. Release del rotor (`.github/workflows/release.yml`, etiqueta `v` + versión) → `rotor-<placa>.zip` y `web-site-rotor.zip` (`tools/make_web_assets.py`: manifiestos de ESP Web Tools, UF2 de la Pico, `latest.json`, `ota/`); la release del tracker con la misma versión lo descarga (secreto `FLASHER_TOKEN` en APRS-LoRa-Plus porque este repositorio es privado) y lo pone en `rotor/`. Por USB la placa contesta a `APRS-INFO?` con `APRS-LoRa-Plus: device=rotor board=… version=… chip=… ota=…`.
 
