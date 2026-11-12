@@ -25,7 +25,7 @@ cd APRS-LoRa-Plus-Rotor/raspberrypi
 sudo ./install.sh              # Zero 2 W como GS-232B por USB para el PC: sudo ./install.sh --gadget
 ```
 
-Instala `libhamlib-utils`, `python3-dbus-next` y `bluez`, copia el programa a `/opt/aprs-lora-plus-rotor`, crea `/etc/aprs-lora-plus-rotor/config.json` y arranca el servicio `aprs-lora-plus-rotor`.
+Instala `libhamlib-utils`, `python3-dbus-next`, `bluez` y **NTPsec** (hora: `nts1.roa.es` con NTS, `hora.roa.es`, `minuto.roa.es` del Real Instituto y Observatorio de la Armada, `pool.ntp.org` y el GPS / PPS de gpsd si lo hay; `raspberrypi/ntpsec.conf`, el original queda en `/etc/ntpsec/ntp.conf.orig`; `NO_NTP=1 sudo ./install.sh` no lo toca), copia el programa a `/opt/aprs-lora-plus-rotor`, crea `/etc/aprs-lora-plus-rotor/config.json` y arranca el servicio `aprs-lora-plus-rotor`.
 
 Elige el modelo de tu controlador (`rotctl -l | less`) y edítalo en la WebUI (`http://IP:8080`, usuario `admin`, contraseña = PIN) o en el fichero:
 

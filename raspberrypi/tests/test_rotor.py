@@ -16,6 +16,8 @@ from aprs_lora_plus_rotor import cat as C  # noqa: E402
 from aprs_lora_plus_rotor.hamlib import HamlibRotor  # noqa: E402
 from aprs_lora_plus_rotor.web import load_page  # noqa: E402
 from aprs_lora_plus_rotor.wind import WindGuard, WindRotor  # noqa: E402
+from aprs_lora_plus_rotor import lan as L  # noqa: E402
+from aprs_lora_plus_rotor.heading import HeadingRotor, ang_diff  # noqa: E402
 
 
 class FakeRotor(P.Rotor):
@@ -235,6 +237,112 @@ class TestWind(unittest.TestCase):
         self.assertIn("no wind", api.ApiSession().handle('{"c":"wx","ws":3}', type("H", (Host,), {"pin": lambda self: ""})())[0])
         self.assertEqual(config.validate({**config.DEFAULTS, "wind": {"on": True, "park": 15, "resume": 20, "hold": 5}})[:4], "wind")
 
+
+
+def _nmea(body: str) -> str:
+    c = 0
+    for ch in body:
+        c ^= ord(ch)
+    return f"${body}*{c:02X}"
+
+
+class TestHeading(unittest.TestCase):
+    def test_compensation(self):
+        f = FakeRotor()
+        f.az = 0.0
+        h = HeadingRotor(f, enabled=True)
+        self.assertTrue(h.set_pos(120, 30) and f.az == 120)     # sin rumbo: tal cual
+        h.set_heading(90, 1000)
+        self.assertEqual((h.min_az, h.max_az), (0.0, 360.0))
+        self.assertAlmostEqual(h.get_pos()[0], 210)
+        self.assertTrue(h.set_pos(45, 10))
+        self.assertAlmostEqual(f.az, 315)
+        h.set_heading(92, 1000.5)
+        self.assertAlmostEqual(f.az, 315)                        # 2 grados: no
+        h.set_heading(95, 1000.8)
+        self.assertAlmostEqual(f.az, 315)                        # aun no ha pasado 1 s
+        h.set_heading(95, 1001.2)
+        self.assertAlmostEqual(f.az, 310)
+        f.az = 400.0
+        h.set_heading(0, 1010)
+        self.assertTrue(h.set_az(30))
+        self.assertAlmostEqual(f.az, 390)                        # solapamiento: la vuelta mas cercana
+        self.assertTrue(h.stop() and h.target is None)
+        self.assertTrue(h.stale(1021) and not h.stale(1009))
+        self.assertEqual(h.info_event(True, 1012), {"on": True, "v": 0.0, "age": 2})
+        self.assertAlmostEqual(ang_diff(350, 10), 20)
+        # detras: aparcado por viento rechaza y deja de seguir
+        g = WindGuard({"on": True, "park": 15, "resume": 10, "hold": 15})
+        h2 = HeadingRotor(WindRotor(f, g), enabled=True)
+        h2.set_heading(10, 0)
+        g.update(20, 25, -1, 0, "lan")
+        self.assertFalse(h2.set_pos(200, 0))
+        self.assertIsNone(h2.target)
+
+
+class TestLan(unittest.TestCase):
+    def test_nmea(self):
+        st = L.Store()
+        self.assertTrue(L.feed_nmea(_nmea("GPRMC,123519,A,3631.84,N,00617.02,W,5.2,247.0,121126,,"), st, 100))
+        self.assertAlmostEqual(st.get("lat", 100), 36.530667, 5)
+        self.assertAlmostEqual(st.get("lon", 100), -6.283667, 5)
+        self.assertTrue(L.feed_nmea(_nmea("IIHDT,123.4,T"), st, 100))
+        self.assertAlmostEqual(st.get("hdg", 100), 123.4)
+        self.assertTrue(L.feed_nmea(_nmea("WIMWV,035.0,R,12.0,N,A"), st, 100))
+        self.assertAlmostEqual(st.get("aws", 100), 12.0)
+        self.assertTrue(L.feed_nmea(_nmea("WIMWV,270,T,10.0,M,A"), st, 100))
+        self.assertAlmostEqual(st.get("tws", 100), 10.0 / L.KN_MS)
+        self.assertFalse(L.feed_nmea(_nmea("WIMWV,035.0,R,12.0,N,V"), st, 100))     # dato no valido
+        self.assertFalse(L.feed_nmea("$IIHDT,123.4,T*00", st, 100))                  # suma mal
+        self.assertTrue(L.feed_nmea("\\s:catcher,c:1700000000*5A\\" + _nmea("IIHDG,100.0,,,,"), st, 100))
+        self.assertAlmostEqual(st.get("hdgMag", 100), 100.0)
+        self.assertIsNone(st.get("hdg", 111))                    # pasados 10 s ya no vale
+
+    def test_signalk(self):
+        st = L.Store()
+        self.assertEqual(L.feed_signalk('{"name":"signalk-server","self":"vessels.urn:mrn:imo:mmsi:224000000"}', st), 0)
+        d = {"context": "vessels.urn:mrn:imo:mmsi:224000000", "updates": [{"values": [
+            {"path": "navigation.position", "value": {"latitude": 36.5, "longitude": -6.3}},
+            {"path": "navigation.headingTrue", "value": 1.5707963},
+            {"path": "environment.wind.speedApparent", "value": 7.5}]}]}
+        self.assertEqual(L.feed_signalk(json.dumps(d), st), 3)
+        self.assertAlmostEqual(st.get("hdg"), 90.0, 3)
+        self.assertAlmostEqual(st.get("aws") * L.KN_MS, 7.5)
+        d["context"] = "vessels.urn:mrn:imo:mmsi:999999999"      # otro barco
+        self.assertEqual(L.feed_signalk(json.dumps(d), st), 0)
+        self.assertEqual(L.feed_signalk("no json", st), 0)
+
+    def test_owm_and_apply(self):
+        st = L.Store()
+        self.assertTrue(L.feed_owm({"wind": {"speed": 9.0, "deg": 250, "gust": 18.0}}, st, 0))
+        self.assertIn("lat=36.5000", L.owm_url("k", 36.5, -6.3))
+        g = WindGuard({"on": True, "park": 15, "resume": 10, "hold": 15})
+        f = FakeRotor()
+        h = HeadingRotor(f)
+        cfg = dict(config.DEFAULTS["lan"], owmKey="k")
+        lan = L.Lan(cfg, {"lat": 36.5, "lon": -6.3}, g, h)
+        lan.store = st
+        parked = []
+        lan.on_park = lambda: parked.append(1)
+        lan.apply(10)
+        self.assertTrue(g.locked and parked and g.src == "owm" and not g.local)    # racha de 18 m/s de internet
+        self.assertEqual(lan.position(10), (36.5, -6.3))         # sin posicion de la red: la configurada
+        st.set("lat", 40.0, now=20); st.set("lon", -3.0, now=20); st.set("aws", 10.0, now=20)
+        lan.apply(21)
+        self.assertTrue(g.local and g.src == "lan")              # medido: la app ya no cuenta
+        self.assertEqual(lan.position(21), (40.0, -3.0))
+        api_host = WindHost()
+        api_host.wind = g
+        self.assertEqual(api.ApiSession().handle('{"c":"wx","ws":1}', api_host)[0], '{"e":"ok","c":"wx"}')
+        st.set("hdgMag", 100.0, now=22)
+        cfg["magVar"] = -1.5
+        h.enabled = True
+        lan.apply(22)
+        self.assertAlmostEqual(h.heading, 98.5)
+        self.assertEqual(config.validate({**config.DEFAULTS, "lan": dict(cfg, kind=5)})[:8], "lan.kind")
+        c = config.Config(os.path.join(tempfile.mkdtemp(), "c.json"))
+        c.data["lan"]["owmKey"] = "secret"
+        self.assertNotIn("secret", c.to_json(False))
 
 class TestHamlibClient(unittest.TestCase):
     """HamlibRotor contra un rotctld simulado (nuestro propio servidor con un rotor de pruebas)."""

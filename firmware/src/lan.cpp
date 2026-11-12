@@ -17,6 +17,7 @@
 #include "sk_link.h"
 #include "store.h"
 #include "stream.h"
+#include "tsync.h"
 
 using namespace plotter;
 
@@ -82,6 +83,7 @@ namespace Lan {
                     if (!lb.push((char)buf[i])) continue;
                     (pass ? udpLines : tcpLines)++;
                     lastMs = now;
+                    tsync::offerNmea(lb.line());                       // hora del GPS (gpsd, el movil, el plotter...)
                     rd.feed(lb.line(), Source::Tcp, now, store);     // el AIS no se usa aqui
                 }
             }
@@ -135,12 +137,19 @@ namespace Lan {
         double la, lo;
         if (position(la, lo)) net::setPosition(la, lo);         // para pedir el tiempo de ese punto
         RC::HeadingRotor& h = Drv::heading();
-        double hdg;
-        if (store.get(Key::Heading, now, hdg)) h.setHeading(hdg, now); else h.tick(now);
+        double hdg;                                             // verdadero (HDT, VHW, Signal K) o magnetico + declinacion (HDG / HDM)
+        if (store.get(Key::Heading, now, hdg)) h.setHeading(hdg, now);
+        else if (store.get(Key::HeadingMag, now, hdg)) h.setHeading(hdg + Cfg.headVar, now);
+        else h.tick(now);
         wind(now);
     }
 
     void info(JsonObject o) {
+        const tsync::Status ts = tsync::status();                 // reloj: quien lo puso (GPS de la red o NTP)
+        JsonObject tm = o["clock"].to<JsonObject>();
+        tm["src"] = plotter::timeSourceName(ts.source);
+        if (ts.source != plotter::TimeSource::None) tm["age"] = ts.ageS;
+        if (ts.ntp) tm["ntp"] = ts.ntpServer;
         if (!on) return;
         const net::Status& s = net::status();
         JsonObject l = o["lan"].to<JsonObject>();

@@ -4,6 +4,7 @@
 #
 #   sudo ./install.sh            instala o actualiza y arranca el servicio
 #   sudo ./install.sh --gadget   ademas activa el USB "gadget" serie de la Zero 2 W (/dev/ttyGS0): el PC ve un GS-232B por USB
+#   NO_NTP=1 sudo ./install.sh   sin tocar la hora del sistema (de serie pone NTPsec con la hora del ROA y el GPS de gpsd)
 set -e
 
 if [ "$(id -u)" != "0" ]; then echo "Ejecuta con sudo"; exit 1; fi
@@ -14,6 +15,14 @@ CONF=/etc/aprs-lora-plus-rotor
 echo "== Paquetes (Hamlib, D-Bus para Bluetooth)"
 apt-get update
 apt-get install -y libhamlib-utils python3 python3-dbus-next bluez
+
+if [ -z "$NO_NTP" ]; then
+    echo "== Hora: NTPsec con ntp.roa.es (hora oficial de Espana) y el GPS de gpsd si lo hay"
+    apt-get install -y ntpsec
+    [ -f /etc/ntpsec/ntp.conf ] && [ ! -f /etc/ntpsec/ntp.conf.orig ] && cp /etc/ntpsec/ntp.conf /etc/ntpsec/ntp.conf.orig
+    install -m 644 "$HERE/ntpsec.conf" /etc/ntpsec/ntp.conf
+    systemctl restart ntpsec || true
+fi
 
 echo "== Programa en $DEST"
 mkdir -p "$DEST"
@@ -49,3 +58,4 @@ IP=$(hostname -I | awk '{print $1}')
 echo
 echo "Listo. WebUI: http://$IP:8080  (usuario admin, contraseña = PIN 123456 hasta que lo cambies)"
 echo "rotctld (Hamlib NET rotctl, modelo 2): $IP:4533   ·   modelos de Hamlib: rotctl -l"
+[ -z "$NO_NTP" ] && echo "Hora: ntpq -p (servidores del ROA; GPS y PPS si gpsd los da)"

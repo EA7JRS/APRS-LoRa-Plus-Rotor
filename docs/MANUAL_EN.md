@@ -24,6 +24,7 @@ The WebUI and the touch screen are in Spanish; their labels are given here as th
 16. [Updates and LED](#16-updates-and-led)
 17. [Troubleshooting](#17-troubleshooting)
 18. [Reference](#18-reference)
+19. [Local network, heading and time](#19-local-network-heading-and-time)
 
 ---
 
@@ -370,3 +371,19 @@ More in [RASPBERRY_PI.md](RASPBERRY_PI.md) (in Spanish).
 Documents (in Spanish): [CONFIG.md](CONFIG.md) (all options) · [CAT.md](CAT.md) (radios and SDR) · [HARDWARE.md](HARDWARE.md) (wiring) · [CONTROL_PROTOCOL.md](CONTROL_PROTOCOL.md) (JSON protocol) · [APRS_CONTROL.md](APRS_CONTROL.md) · [INTEGRATION.md](INTEGRATION.md) · [RASPBERRY_PI.md](RASPBERRY_PI.md) · [WAVESHARE_C5_LCD35.md](WAVESHARE_C5_LCD35.md) · [WAVESHARE_S3_AMOLED241.md](WAVESHARE_S3_AMOLED241.md) · [WAVESHARE_S3_LCD7B.md](WAVESHARE_S3_LCD7B.md).
 
 **About**: APRS LoRa+ Rotor · © 2026 Manuel - EA7JRS · GPL-3.0-or-later · https://github.com/EA7JRS/APRS-LoRa-Plus. Protocol formats taken from Hamlib; screen font: DejaVu Sans.
+
+## 19. Local network, heading and time
+
+The box uses the same connectivity as the plotter and APRS LoRa+ Display (`firmware/lib/aprs_links` and `firmware/lib/plotter_core`, copied from the plotter with `tools/sync_links.sh`). It runs over the box's WiFi, as a client or with its own access point; the Pico does not have it. On the Raspberry Pi it is `lan.py`. It is set up in the `lan` group (WebUI, app > *Rotor* > configuration, [CONFIG.md](CONFIG.md)):
+
+- **TCP server** (`lan.kind`): 1 NMEA 0183 (`lan.port` 10110), 2 gpsd (2947), 3 Signal K (8375). With `lan.host` empty it connects to the device providing the WiFi: the phone with the app and its NMEA server on.
+- **UDP** (`lan.udp`): NMEA broadcast on the network, for example the 4″ wind instrument (10110).
+- **OpenWeatherMap** (`lan.owmKey`): internet weather without the app, at the network position or at `aprs.lat` / `aprs.lon`.
+
+What it is for:
+
+1. **Wind** (`lan.wind`, on by default, with `wind.on`): the higher of apparent and true wind arriving over the network (MWV, Signal K) or the OpenWeatherMap wind goes to the wind protection. Measured wind takes precedence over the app's weather (`wx` is answered `ok` and ignored); the box's own anemometer takes precedence over everything.
+2. **Position** (`lan.pos`, on by default): the gpsd, NMEA or Signal K position replaces `aprs.lat` / `aprs.lon` in the APRS beacon and the weather request.
+3. **Heading** (`lan.heading`, off by default): with the rotor on a boat or a car, the azimuth requested and reported is **true**. The box subtracts the boat's heading (HDT, VHW or `navigation.headingTrue`; with a magnetic compass HDG / HDM, plus `lan.magVar`) and re-aims when the heading changes by `lan.headStep` degrees (3) or more. Stopping, parking or moving by hand stops following. With no new heading it keeps the last one (`hdg.old` in the `pos` event). The park position (`parkAz`) is still relative to the bow.
+
+**Time**: the box clock is set from the GPS time arriving over the network (RMC / ZDA from gpsd, the phone or the plotter) and, without GPS, from NTP: `wifi.ntp` defaults to `ntp.roa.es`, Spain's official time (Real Instituto y Observatorio de la Armada), with `hora.roa.es` and `pool.ntp.org` as backups. While the GPS time is current (6 h), NTP does not replace it. The `info` event says where it came from (`clock`). On the Raspberry Pi, `install.sh` sets up **NTPsec** with `nts1.roa.es` (time signed with NTS), `hora.roa.es`, `minuto.roa.es`, `pool.ntp.org` and the gpsd GPS if present (with PPS, around a microsecond); `NO_NTP=1` leaves it untouched. `ntpq -p` shows the servers.

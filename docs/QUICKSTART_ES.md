@@ -66,6 +66,7 @@ En la WebUI, **Calibración**: lleva el rotor a un extremo (por ejemplo 0°), es
 - **PC por USB**: la placa se presenta como un GS-232B (`rotctl -m 603 -r /dev/ttyUSB0`).
 - **Pantalla táctil**: mantén pulsado un botón para mover; mantén la brújula medio segundo, arrastra y suelta para apuntar.
 - **Viento (opcional)**: con `wind.on: true` y el tiempo de internet de la app activado, la caja aparca el rotor con rachas de `wind.park` m/s (15) o más. Con un anemómetro de cazoletas en la caja (`wind.anemoPin`, `wind.kmhPerHz`), usa el suyo en vez del de internet.
+- **Red local (opcional)**: grupo `lan`: viento del instrumento de 4″ o de Signal K, posición de gpsd o del móvil y, en un barco o un coche, acimut verdadero con el rumbo (`lan.heading`). La hora sale del GPS de la red o de `ntp.roa.es` (hora oficial de España). Ver el [manual, apartado 19](MANUAL_ES.md#19-red-local-rumbo-y-hora).
 - **Mensajes APRS por LoRa**: manda `P 123 45` al indicativo del rotor (placas con módulo LoRa).
 - **Emisora o SDR (CAT, opcional)**: emisora a `cat.rx` / `cat.tx` (3,3 V; MAX3232 si es RS-232), `cat.proto` (1 Icom, 2 Yaesu, 3 FT-817/857/897, 4 Kenwood/Elecraft, 5 SDRconnect para el RSPdx-R2, 6 SDR++/gqrx), `cat.baud`, `cat.civ` (Icom). Se maneja con el botón **CAT** de la pantalla, la WebUI, la app (*Radio (CAT)*, con Doppler de satélites) o por rigctld en el puerto 4532. PTT apagado salvo `cat.ptt: true`. Ver [CAT.md](CAT.md).
 

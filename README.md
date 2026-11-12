@@ -33,6 +33,8 @@ Controlador de rotores de antena **compatible con Hamlib** para el ecosistema **
 | Pantalla táctil (mando local) | — | — | ✔ (vertical) | ✔ (apaisada) | ✔ (7", apaisada) | — | — | — |
 | USB como controlador de Hamlib | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | USB gadget (Zero 2 W) |
 | CAT de emisora / SDR (CI-V, Yaesu, Kenwood, SDRconnect, rigctl) + rigctld 4532 | ✔ | ✔ | ✔ (UART compartida con la pasarela) | ✔ | ✔ (UART compartida con la pasarela) | ✔ | UART | ✔ (rigctld de Hamlib: todas las emisoras) |
+| Red local: viento, posición y rumbo (gpsd, NMEA, Signal K, UDP, OpenWeatherMap) | ✔ | ✔ | ✔ | ✔ | ✔ | — | — | ✔ (`lan.py`) |
+| Hora: GPS de la red y NTP `ntp.roa.es` (ROA) | ✔ | ✔ | ✔ | ✔ | ✔ | NTP | — | NTPsec (NTS del ROA, GPS / PPS de gpsd) |
 | Actualización por la WebUI | placas de 8 MB | ✔ | ✔ | ✔ | ✔ | ✔ | — | `git pull` + `install.sh` |
 
 ## Versión

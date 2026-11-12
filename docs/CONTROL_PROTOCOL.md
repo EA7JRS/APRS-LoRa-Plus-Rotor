@@ -62,6 +62,8 @@ Orden desconocida: `{"e":"err","c":"…","m":"unknown"}`. Línea que no es JSON:
 
 Con CAT configurado: `"cat":true`, `caps.cat` y `"rigctld":4532` (0 = apagado). Con protección por viento (desde la 5.4.0): `"wind":true` y `caps.wind`.
 
+Red local (ESP32 y Raspberry Pi, `caps.lan`): `"clock":{"src":"GPS","age":120,"ntp":"ntp.roa.es"}` (quién puso la hora: `GPS`, `NTP` o `-`; solo ESP32) y, con algo configurado en `lan`, `"lan":{"kind":3,"wifi":true,"tcp":true,"lines":5210,"sk":18000,"udp":120,"age":0,"wxOk":3,"wxFail":0,"wxAge":400,"lat":36.53,"lon":-6.28}`.
+
 `board` es el entorno de PlatformIO (`esp32dev`, `esp32s3`, `waveshare_c5_lcd35`, `waveshare_s3_amoled241`, `waveshare_s3_lcd7b`, `pico2w`, `pico2`) o `raspberrypi`. En la Raspberry `drv` es `hamlib <modelo>` y se añade `hamlib` (estado del rotctld).
 
 ### `pos`
@@ -74,6 +76,7 @@ Con CAT configurado: `"cat":true`, `caps.cat` y `"rigctld":4532` (0 = apagado). 
 - `st`: banderas de estado de Hamlib (`rot_status_t`): 1 BUSY, 2 MOVING, 4 MOVING_AZ, 8 MOVING_LEFT, 16 MOVING_RIGHT, 32 MOVING_EL, 64 MOVING_UP, 128 MOVING_DOWN, 256 LIMIT_UP, 512 LIMIT_DOWN, 1024 LIMIT_LEFT, 2048 LIMIT_RIGHT, 4096 OVERLAP_UP, 16384 OVERLAP_LEFT, 65536 OVERLAP_RIGHT.
 - `f`: `OK`, `STALL AZ`, `STALL EL`, `SENSOR`, `NO LINK` (pasarela serie o rotctld sin respuesta), `WIND` (aparcado por viento).
 - `wind` (con `wind.on` o tras recibir `wx`): `{"on":true,"park":15,"lk":true,"ws":20,"wg":28.4,"wd":250,"pk":28.4,"age":150,"src":"OWM","hold":870}`: `lk` = aparcado, `pk` = el mayor de medio y racha, `age` = segundos de la observación, `hold` = segundos que faltan como mínimo para liberar. Con anemómetro: `"src":"anemo","local":true`, y `raw` lleva `anemoHz` y `anemoPulses` para calibrarlo.
+- `hdg` (con `lan.heading` o si llega rumbo por la red): `{"on":true,"v":123.4,"age":1}`; `on` = el acimut del evento es verdadero (compensado con el rumbo), `old` = sin rumbo nuevo hace más de 10 s. Con viento medido por la red, `wind` lleva `"src":"lan"` o `"signalk"` y `"local":true`; con el de OpenWeatherMap de la caja, `"src":"owm"`.
 - `maz`: acimut mecánico (control directo; > 360 = en el solape). `taz` / `tel`: objetivo. `aprs`: última orden APRS.
 
 ### `cat`

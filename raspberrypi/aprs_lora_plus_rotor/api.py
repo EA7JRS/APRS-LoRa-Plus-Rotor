@@ -197,6 +197,8 @@ class ApiSession:
             ws, wg = _num(d.get("ws")), _num(d.get("wg"))
             if g is None:
                 err(c, "no wind")
+            elif getattr(g, "local", False):
+                ok(c)                                   # manda el viento medido (red local)
             elif ws is None and wg is None:
                 err(c, "ws")
             elif (ws or 0) < 0 or (ws or 0) > 150 or (wg or 0) > 150:

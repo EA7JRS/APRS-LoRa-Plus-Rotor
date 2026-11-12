@@ -40,8 +40,12 @@ DEFAULTS: dict = {
 }
 
 DEFAULTS["wind"] = {"on": False, "park": 15.0, "resume": 10.0, "hold": 15}   # proteccion por viento (wind.py)
+# Red local (lan.py): servidor TCP kind 0 ninguno, 1 NMEA 0183, 2 gpsd, 3 Signal K (host vacio = puerta de enlace); udp = NMEA por
+# UDP (0 = no); OpenWeatherMap; wind / pos: usar su viento y su posicion; heading: acimut verdadero con el rumbo (heading.py)
+DEFAULTS["lan"] = {"kind": 0, "host": "", "port": 10110, "udp": 0, "owmKey": "", "wind": True, "pos": True,
+                   "heading": False, "headStep": 3.0, "magVar": 0.0}
 
-SECRETS = [("pin",), ("net", "webPass"), ("aprs", "totp")]
+SECRETS = [("pin",), ("net", "webPass"), ("aprs", "totp"), ("lan", "owmKey")]
 
 
 def _merge(base: dict, new: dict) -> dict:
@@ -92,6 +96,13 @@ def validate(c: dict) -> str:
         w = c["wind"]
         if not (3 <= float(w["park"]) <= 60 and 0 < float(w["resume"]) <= float(w["park"]) and 0 <= int(w["hold"]) <= 720):
             return "wind: park 3-60 m/s, 0 < resume <= park, hold 0-720 min"
+        ln = c["lan"]
+        if int(ln["kind"]) not in range(4) or not 1 <= int(ln["port"]) <= 65535 or not 0 <= int(ln["udp"]) <= 65535:
+            return "lan.kind 0-3 / port / udp"
+        if int(ln["udp"]) and int(ln["udp"]) in ports:
+            return "lan.udp"
+        if not 0.5 <= float(ln["headStep"]) <= 45 or not -90 <= float(ln["magVar"]) <= 90:
+            return "lan.headStep 0.5-45 / lan.magVar -90..90"
         a = c["aprs"]
         if not 1 <= len(a["call"]) <= 9:
             return "aprs.call"

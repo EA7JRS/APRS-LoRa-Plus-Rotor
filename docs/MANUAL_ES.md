@@ -22,6 +22,7 @@
 16. [Actualizaciones y LED](#16-actualizaciones-y-led)
 17. [Problemas frecuentes](#17-problemas-frecuentes)
 18. [Referencia](#18-referencia)
+19. [Red local, rumbo y hora](#19-red-local-rumbo-y-hora)
 
 ---
 
@@ -368,3 +369,19 @@ Más detalles en [RASPBERRY_PI.md](RASPBERRY_PI.md).
 Documentos: [CONFIG.md](CONFIG.md) (todas las opciones) · [CAT.md](CAT.md) (emisoras y SDR) · [HARDWARE.md](HARDWARE.md) (conexiones) · [CONTROL_PROTOCOL.md](CONTROL_PROTOCOL.md) (protocolo JSON) · [APRS_CONTROL.md](APRS_CONTROL.md) · [INTEGRATION.md](INTEGRATION.md) · [RASPBERRY_PI.md](RASPBERRY_PI.md) · [WAVESHARE_C5_LCD35.md](WAVESHARE_C5_LCD35.md) · [WAVESHARE_S3_AMOLED241.md](WAVESHARE_S3_AMOLED241.md) · [WAVESHARE_S3_LCD7B.md](WAVESHARE_S3_LCD7B.md).
 
 **Acerca de**: APRS LoRa+ Rotor · © 2026 Manuel - EA7JRS · GPL-3.0-or-later · https://github.com/EA7JRS/APRS-LoRa-Plus. Formatos de protocolo tomados de Hamlib; letras de la pantalla: DejaVu Sans.
+
+## 19. Red local, rumbo y hora
+
+La caja usa la misma conectividad que el plotter y APRS LoRa+ Display (`firmware/lib/aprs_links` y `firmware/lib/plotter_core`, copiadas del plotter con `tools/sync_links.sh`). Va con la WiFi de la caja, como cliente o con su punto de acceso; en la Pico no está. En la Raspberry la hace `lan.py`. Se configura en el grupo `lan` (WebUI, app > *Rotor* > configuración, [CONFIG.md](CONFIG.md)):
+
+- **Servidor TCP** (`lan.kind`): 1 NMEA 0183 (`lan.port` 10110), 2 gpsd (2947), 3 Signal K (8375). Con `lan.host` vacío se conecta al equipo que da la WiFi: el móvil con la app y su servidor NMEA encendido.
+- **UDP** (`lan.udp`): NMEA que se difunde en la red, por ejemplo el instrumento de viento de 4″ (10110).
+- **OpenWeatherMap** (`lan.owmKey`): el tiempo de internet sin la app, en la posición de la red o en `aprs.lat` / `aprs.lon`.
+
+Para qué sirve:
+
+1. **Viento** (`lan.wind`, de serie sí, con `wind.on`): el mayor de viento aparente y real que lleguen por la red (MWV, Signal K) o el de OpenWeatherMap va a la protección por viento. El medido manda sobre el tiempo de la app (`wx` se contesta `ok` y no se usa); el anemómetro de la caja, sobre todo.
+2. **Posición** (`lan.pos`, de serie sí): la de gpsd, el NMEA o Signal K sustituye a `aprs.lat` / `aprs.lon` en la baliza APRS y en la consulta del tiempo.
+3. **Rumbo** (`lan.heading`, de serie no): con el rotor en un barco o un coche, el acimut que se pide y el que se da son **verdaderos**. La caja resta el rumbo del barco (HDT, VHW o `navigation.headingTrue`; con un compás magnético HDG / HDM, más `lan.magVar`) y vuelve a apuntar cuando el rumbo cambia `lan.headStep` grados (3) o más. Parar, aparcar o mover a mano dejan de seguir. Sin rumbo nuevo sigue con el último (`hdg.old` en el evento `pos`). El reposo (`parkAz`) sigue siendo respecto a la proa.
+
+**Hora**: el reloj de la caja se pone con la hora del GPS que llegue por la red (RMC / ZDA de gpsd, del móvil o del plotter) y, sin GPS, con NTP: `wifi.ntp` es de serie `ntp.roa.es`, la hora oficial de España (Real Instituto y Observatorio de la Armada), con `hora.roa.es` y `pool.ntp.org` de reserva. Mientras la del GPS esté al día (6 h), NTP no la sustituye. El evento `info` dice de dónde viene (`clock`). En la Raspberry, `install.sh` pone **NTPsec** con `nts1.roa.es` (hora firmada con NTS), `hora.roa.es`, `minuto.roa.es`, `pool.ntp.org` y el GPS de gpsd si lo hay (con PPS, del orden del microsegundo); `NO_NTP=1` lo deja como estaba. `ntpq -p` enseña los servidores.

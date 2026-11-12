@@ -43,6 +43,8 @@ from .kiss import KissDecoder, ax25_to_tnc2, kiss_encode, tnc2_to_ax25
 from .protocols import RotctlSession, make_server
 from .serialport import SerialPort
 from .web import WebServer
+from .heading import HeadingRotor
+from .lan import Lan
 from .wind import WindGuard, WindRotor
 
 log = logging.getLogger("rotor")
@@ -54,7 +56,12 @@ class Daemon(ApiHost):
         d = cfg.data
         self.proc = RotctldProcess(d["hamlib"])
         self.wind = WindGuard(d["wind"])
-        self.rotor = WindRotor(HamlibRotor(d["hamlib"], (float(d["park"]["az"]), float(d["park"]["el"]))), self.wind)
+        hamlib = HamlibRotor(d["hamlib"], (float(d["park"]["az"]), float(d["park"]["el"])))
+        # tracker / app / Hamlib -> rumbo (barco o coche) -> viento -> rotctld de Hamlib
+        self.heading = HeadingRotor(WindRotor(hamlib, self.wind), bool(d["lan"]["heading"]), float(d["lan"]["headStep"]))
+        self.rotor = self.heading
+        self.lan = Lan(d["lan"], d["aprs"], self.wind, self.heading)
+        self.lan.on_park = lambda: (self.rotor.stop(), self.rotor.park())
         a = d["aprs"]
         self.aprs = AprsControl(AprsConfig(a["call"].upper(), a["tocall"], a["path"], a["allow"], a["totp"], bool(a["reply"])))
         self.kiss_writer = None
@@ -71,12 +78,13 @@ class Daemon(ApiHost):
                 "name": d["name"], "drv": f"hamlib {d['hamlib']['model']}", "call": d["aprs"]["call"],
                 "caps": {"wifi": True, "ble": bool(d["bt"]["ble"]), "spp": bool(d["bt"]["spp"]),
                          "lora": bool(d["aprs"]["enabled"]), "cal": False, "move": True, "cat": bool(self.cat),
-                         "wind": True},
+                         "wind": True, "lan": True},
                 "ip": _ip(), "rotctld": d["net"]["rotctldPort"] if d["net"]["rotctld"] else 0,
                 "up": int(time.monotonic() - self.started), "utc": int(time.time()),
                 "hamlib": self.proc.last_error or "ok",
                 "rigctld": d["cat"]["serverPort"] if self.cat and d["cat"]["server"] else 0,
-                **({"rig": self.cat.proc.last_error or "ok"} if self.cat and self.cat.proc else {})}
+                **({"rig": self.cat.proc.last_error or "ok"} if self.cat and self.cat.proc else {}),
+                **({"lan": self.lan.info()} if self.lan.info() else {})}
 
     def pos_extra(self) -> dict:
         r = self.rotor
@@ -90,6 +98,9 @@ class Daemon(ApiHost):
             e["tel"] = round(r.tel, 1)
         if self.aprs.last_result:
             e["aprs"] = self.aprs.last_result
+        h = self.heading.info_event(bool(self.cfg.data["lan"]["heading"]))
+        if h:
+            e["hdg"] = h
         return e
 
     def config_json(self) -> str:
@@ -238,7 +249,7 @@ class Daemon(ApiHost):
         while True:
             st = status_line(self.rotor, "OK" if self.rotor.link_ok else "NO LINK")
             base = a["call"].upper() + ">" + a["tocall"] + (("," + a["path"]) if a["path"] else "")
-            lat, lon = float(a["lat"]), float(a["lon"])
+            lat, lon = self.lan.position() or (0.0, 0.0)          # la de la red local (lan.pos) o la configurada
             if lat or lon:
                 la, lo = abs(lat), abs(lon)
                 pos = (f"!{int(la):02d}{(la - int(la)) * 60:05.2f}{'N' if lat >= 0 else 'S'}/"
@@ -253,6 +264,7 @@ class Daemon(ApiHost):
         d = self.cfg.data
         self.proc.start()
         asyncio.create_task(self.rotor.run())
+        asyncio.create_task(self.lan.run())
         net = d["net"]
         servers = []
         if net["rotctld"]:

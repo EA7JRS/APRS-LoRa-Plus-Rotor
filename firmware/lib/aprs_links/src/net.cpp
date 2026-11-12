@@ -17,6 +17,7 @@
 
 #include "gnss.h"
 #include "signalk.h"
+#include "tsync.h"
 #endif
 
 namespace net {
@@ -110,6 +111,7 @@ static void task(void*) {
             vTaskDelay(pdMS_TO_TICKS(250));
             continue;
         }
+        if (!st.wifi && c.ownWifi) tsync::startNtp(c.ntp);          // hora de internet, al conectar (sin GPS, es la que vale)
         if (!st.wifi || now - lastInfo > 5000) {
             lastInfo = now;
             snprintf(st.ip, sizeof(st.ip), "%s", (apUp && WiFi.status() != WL_CONNECTED ? WiFi.softAPIP() : WiFi.localIP()).toString().c_str());

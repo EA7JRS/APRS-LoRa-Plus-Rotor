@@ -9,7 +9,7 @@ Se edita entera desde la WebUI (*Configuración*) o la app (`cfgget` / `cfgset`)
 | `wifi.mode` | 2 | 0 apagada, 1 cliente (si en 30 s no entra, abre el punto de acceso de rescate), 2 punto de acceso |
 | `wifi.ssid` / `pass` | — | red de casa |
 | `wifi.apPass` | `aprsrotor` | contraseña del punto de acceso (≥ 8) |
-| `wifi.ntp` | `pool.ntp.org` | hora (necesaria para el código TOTP de APRS) |
+| `wifi.ntp` | `ntp.roa.es` | NTP (hora oficial de España, ROA; de reserva `hora.roa.es` y `pool.ntp.org`). Necesaria para el código TOTP de APRS. La hora del GPS de la red (`lan`) manda sobre NTP |
 | `net.rotctld` / `rotctldPort` | sí / 4533 | servidor rotctld (Hamlib NET rotctl) |
 | `net.apiPort` | 4534 | protocolo JSON por TCP |
 | `net.webUser` / `webPass` | `admin` / vacío (= PIN) | WebUI y actualización por `/update` |
@@ -95,6 +95,21 @@ Cada eje:
 | `anemoPin` | -1 | pin del anemómetro de cazoletas (ampolla reed a masa); -1 = se usa el tiempo de internet de la app. Un GPIO de la placa (no del expansor) que admita interrupciones |
 | `kmhPerHz` | 2.4 | km/h por impulso por segundo (Misol / Fine Offset 2,4; Davis 6410 3,62) |
 | `pullup` | true | resistencia interna a 3V3 (con cable largo, mejor una externa de 4,7 k) |
+
+## `lan` (red local: viento, posición, rumbo; ESP32 y Raspberry Pi)
+
+| Clave | Por defecto | |
+|---|---|---|
+| `kind` | 0 | servidor TCP: 0 ninguno, 1 NMEA 0183, 2 gpsd, 3 Signal K |
+| `host` | "" | dirección del servidor; vacío = el equipo que da la WiFi (el móvil con la app) |
+| `port` | 10110 | 10110 NMEA, 2947 gpsd, 8375 Signal K |
+| `udp` | 0 | escucha NMEA por UDP (el instrumento de viento: 10110); 0 = no |
+| `owmKey` | "" | clave de OpenWeatherMap: viento de internet sin la app (secreto: `********` en la WebUI) |
+| `wind` | true | el viento de la red o de OpenWeatherMap va a la protección por viento (`wind.on`) |
+| `pos` | true | la posición de la red sustituye a `aprs.lat` / `aprs.lon` |
+| `heading` | false | rotor en un barco o un coche: acimut verdadero con el rumbo de la red |
+| `headStep` | 3 | grados de cambio de rumbo para volver a apuntar (0,5-45) |
+| `magVar` | 0 | declinación (grados, E positiva) si solo llega rumbo magnético (HDG / HDM) |
 
 ## `aprs`
 

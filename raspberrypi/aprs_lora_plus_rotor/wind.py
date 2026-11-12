@@ -16,6 +16,8 @@ class WindGuard:
         self.park_ms = 15.0
         self.resume_ms = 10.0
         self.hold_min = 15
+        self.anemo = False      # anemómetro propio (la Raspberry aun no lo tiene)
+        self.local = False      # viento medido (anemómetro o red local, lan.py): el tiempo de la app ("wx") no se usa
         if cfg:
             self.configure(cfg)
         self.have = False
@@ -96,6 +98,8 @@ class WindGuard:
         w["age"] = self.age_s(now)
         if self.src:
             w["src"] = self.src
+        if self.local:
+            w["local"] = True
         if self.locked:
             w["hold"] = self.hold_left_s(now)
         return w

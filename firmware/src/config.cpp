@@ -121,7 +121,7 @@ namespace Config {
         JsonObject ln = d["lan"].to<JsonObject>();
         ln["kind"] = c.lanKind; ln["host"] = c.lanHost; ln["port"] = c.lanPort; ln["udp"] = c.lanUdp;
         ln["owmKey"] = secrets ? c.owmKey : (c.owmKey.empty() ? std::string() : std::string(MASK));
-        ln["wind"] = c.lanWind; ln["pos"] = c.lanPos; ln["heading"] = c.headComp; ln["headStep"] = c.headStep;
+        ln["wind"] = c.lanWind; ln["pos"] = c.lanPos; ln["heading"] = c.headComp; ln["headStep"] = c.headStep; ln["magVar"] = c.headVar;
     #if ROTOR_HAS_LCD
         JsonObject lc = d["lcd"].to<JsonObject>();
         lc["bright"] = c.lcdBright; lc["dimS"] = c.lcdDimS; lc["theme"] = c.lcdTheme;
@@ -165,6 +165,7 @@ namespace Config {
         if (c.lanHost.size() > 39 || c.owmKey.size() > 39) { err = "lan.host / lan.owmKey (39)"; return false; }
         if (c.lanUdp && (c.lanUdp == c.rotctldPort || c.lanUdp == c.apiPort)) { err = "lan.udp"; return false; }
         if (!(c.headStep >= 0.5 && c.headStep <= 45)) { err = "lan.headStep 0.5-45"; return false; }
+        if (!(c.headVar >= -90 && c.headVar <= 90)) { err = "lan.magVar -90..90"; return false; }
         if (c.lcdBright < 10 || c.lcdBright > 100 || c.lcdDimS < 0) { err = "lcd.bright 10-100 / lcd.dimS >= 0"; return false; }
         if (c.lcdTheme < 0 || c.lcdTheme > 1) { err = "lcd.theme 0 (app) / 1 (rotor)"; return false; }
         if (c.catProto < 0 || c.catProto > 6) { err = "cat.proto 0-6"; return false; }
@@ -223,7 +224,7 @@ namespace Config {
         JsonVariantConst ln = d["lan"];
         get(ln, "kind", n.lanKind); getS(ln, "host", n.lanHost); get(ln, "port", n.lanPort); get(ln, "udp", n.lanUdp);
         getSecret(ln, "owmKey", n.owmKey); get(ln, "wind", n.lanWind); get(ln, "pos", n.lanPos);
-        get(ln, "heading", n.headComp); getD(ln, "headStep", n.headStep);
+        get(ln, "heading", n.headComp); getD(ln, "headStep", n.headStep); getD(ln, "magVar", n.headVar);
         get(d["lcd"], "bright", n.lcdBright); get(d["lcd"], "dimS", n.lcdDimS); get(d["lcd"], "theme", n.lcdTheme);
         JsonVariantConst ct = d["cat"];
         get(ct, "proto", n.catProto); get(ct, "baud", n.catBaud); get(ct, "rx", n.catRx); get(ct, "tx", n.catTx); get(ct, "civ", n.catCiv);

@@ -50,7 +50,7 @@ struct RotorConfig {
     int         apiPort = 4534;             // protocolo JSON por TCP (app por WiFi)
     std::string webUser = "admin";
     std::string webPass;                    // vacio = el PIN
-    std::string ntp = "pool.ntp.org";
+    std::string ntp = "ntp.roa.es";         // hora oficial de Espana (ROA); de reserva hora.roa.es y pool.ntp.org. La del GPS manda
 
     // Puertos serie del lado del ordenador
     int         usbProto = 1;               // USB: 0 GS-232A, 1 GS-232B, 2 EasyComm II, 3 Rot2Prog, 4 rotctld (texto), 5 registro (log)
@@ -136,6 +136,7 @@ struct RotorConfig {
     bool        lanPos = true;              // posicion de la red como posicion de la estacion (baliza APRS, tiempo de internet)
     bool        headComp = false;           // rotor en un barco o un coche: acimut verdadero con el rumbo de la red (rc_heading.h)
     double      headStep = 3.0;             // grados de cambio de rumbo para volver a apuntar
+    double      headVar = 0.0;              // declinacion (grados, E positiva) para un compas que solo da rumbo magnetico (HDG / HDM)
 
     // Pantalla tactil (placas con LCD)
     int         lcdBright = 80;             // brillo 10-100 %

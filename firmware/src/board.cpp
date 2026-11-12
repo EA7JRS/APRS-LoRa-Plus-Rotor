@@ -4,6 +4,9 @@
  */
 
 #include "board.h"
+#if ROTOR_ESP32 && ROTOR_HAS_WIFI
+    #include "tsync.h"
+#endif
 #include "exio.h"
 #include "config.h"
 #include <Wire.h>
@@ -189,9 +192,9 @@ namespace Board {
     #if ROTOR_HAS_WIFI
         if (!server || !server[0]) return;
         #if ROTOR_ESP32
-            configTime(0, 0, server);
+            tsync::startNtp(server);            // lib/aprs_links: el servidor, hora.roa.es y pool.ntp.org; el GPS de la red manda
         #else
-            NTP.begin(server);
+            NTP.begin(server, "pool.ntp.org");
         #endif
     #else
         (void)server;
