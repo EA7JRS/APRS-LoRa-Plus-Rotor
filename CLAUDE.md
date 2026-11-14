@@ -42,6 +42,9 @@ Controlador de rotores compatible con Hamlib, manejado por el tracker APRS LoRa+
 - Disposición `Layout::big` (la apaisada de 600×450 escalada, fuentes `FontS3/M3/L3` de 29/37/72 px); `lcd_preview` prueba 1024×600 y las pantallas de arranque (178 comprobaciones).
 - GPIO libres: Sensor GPIO6 (potenciómetro AZ), I2C 8/9 (ADS1115 y **placa de relés PCF8574**: pines virtuales 120-127, `direct.pcfAddr` 0x20, `Board::i2cBegin`, `DEF_ACTIVE_HIGH 0`), UART del conector 43/44 (pasarela o CAT). Serial por USB nativo. Sin probar en la placa.
 
+## Esfera con el estilo de sat-aprs (2026-11-14, rama `esfera-rotor`; Manuel: «la esfera del rotor puede tener el mismo estilo que el creado en sat-aprs», en todos los sitios)
+- `mainPage` de `lcd_ui.h` y `paint()` de `web_page.h` (también en la Raspberry): copia de `Brujula` de `EquipoRotor.tsx` (EA7JRS/sat-aprs): fondo oscuro con degradado, graduación cada 5° (larga cada 30, media cada 10), números cada 30, N roja, objetivo ámbar con línea de puntos e índice en el borde, aguja azul en dos tonos con contrapeso (en la WebUI gira por el lado corto), topes en rojo y solape en naranja sobre el borde. Colores fijos en las dos paletas. Igual en la app (`RotorDial`) y en el Display v2 (`rotorDial`).
+
 ## Pasarela al bus RS485 (2026-11-09, Manuel: sin citar el protocolo ni su origen)
 - `serial.proto` 4 (`RC::RsBus` en `rc_serialproto.h`, `SerialRotor` en `drivers.cpp`): tramas `#ORIGEN:DESTINO:ORDEN:DATOS:SUMA$`, SUMA = origen + destino + último número de DATOS, decimales con coma; la placa es maestro (`busId` 3), esclavos por eje (`azId` 20, `elId` 21). `SETPOSDG`, `STOP`, `GETPOSDG` alterno, `ERR` a 255 → fallo (12 E-STOP, 15/16/18 atasco, resto SENSOR), *Borrar fallo* = `SETREF:0`. Mover a mano = `SETPOSDG` al tope. Cola de una trama cada vez (200 ms sin respuesta). 7B: RX 16 / TX 15. **No nombrar en el código ni en la documentación de dónde sale el protocolo.**
 
