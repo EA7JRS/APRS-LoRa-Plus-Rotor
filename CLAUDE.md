@@ -74,7 +74,7 @@ Controlador de rotores compatible con Hamlib, manejado por el tracker APRS LoRa+
 - `firmware/lib/plotter_core` vuelto a copiar del plotter (ea7ea5a): `astro.cpp` depende ahora de `celnav` (Sol con precisión de almanaque, 0,1′; Aries y 58 estrellas), por eso `test_host/Makefile` compila también `celnav.cpp`. Raspberry: `celnav.py` (generado desde el núcleo del plotter: mismas tablas y fórmulas) y `astro.sun_position` lo usa; prueba con valores de un almanaque náutico de 2026. Sin seguimiento de estrellas con el rotor (no pedido).
 
 ## lib al día (2026-11-15)
-- `firmware/lib/plotter_core` copiado del plotter (4f64002): `deviation` y `navtex` nuevos (el rotor no los usa) y posiciones compactas en `navwarn`.
+- `firmware/lib/plotter_core` copiado del plotter (4f64002): `deviation` y `navtex` nuevos (el rotor no los usa) y posiciones compactas en `navwarn`. Después (a4ac92d): `dsc` (llamadas LSD), tampoco lo usa.
 
 ## Manuales (2026-11-08)
 - `docs/MANUAL_ES.md`, `docs/MANUAL_EN.md` (manual de usuario) y `docs/QUICKSTART_ES.md`, `docs/QUICKSTART_EN.md` (guía rápida). Al cambiar funciones, placas o versión, actualizar los cuatro.
