@@ -476,38 +476,64 @@ namespace Lcd {
         void mainPage(Fb& fb, const UiState& s) {
             const LcdFont &S = *L.S, &M = *L.M, &F = *L.L;
             const int R = L.r;
-            // Brújula
-            fb.fillCircle(L.cx, L.cy, R + 2, CARD);
-            fb.ring(L.cx, L.cy, R + 2, 3 * L.k, LINE);
-            for (int a = 0; a < 360; a += 10) {
-                const double k = a * M_PI / 180.0, l = (a % 30 == 0 ? 12 : 6) * L.k;
-                fb.line(L.cx + sin(k) * (R - l), L.cy - cos(k) * (R - l), L.cx + sin(k) * (R - 1), L.cy - cos(k) * (R - 1),
-                        (a % 90 == 0 ? 3 : 1.5) * L.k, a % 30 == 0 ? FG : MUT);
+            // Esfera con el estilo de sat-aprs (EquipoRotor.tsx), la app y el Display: fondo oscuro, graduada cada 5° (larga
+            // cada 30, media cada 10), números cada 30, N roja, objetivo ámbar (línea de puntos e índice en el borde), aguja
+            // azul en dos tonos con contrapeso. Medidas sobre una esfera de 106 de radio. Colores fijos en las dos paletas.
+            const double sc = (R + 2) / 106.0;
+            auto at = [&](double deg, double r, double side, double& x, double& y) {
+                const double k = deg * M_PI / 180.0, ux = sin(k), uy = -cos(k);
+                x = L.cx + (r * ux - side * uy) * sc; y = L.cy + (r * uy + side * ux) * sc;
+            };
+            auto seg = [&](double deg, double r0, double r1, double w, uint16_t c) {
+                double x0, y0, x1, y1; at(deg, r0, 0, x0, y0); at(deg, r1, 0, x1, y1); fb.line(x0, y0, x1, y1, w * sc, c);
+            };
+            auto tri = [&](double deg, double r0, double s0, double r1, double s1, double r2, double s2, uint16_t c) {
+                double ax, ay, bx, by, cx2, cy2; at(deg, r0, s0, ax, ay); at(deg, r1, s1, bx, by); at(deg, r2, s2, cx2, cy2);
+                fb.triangle(ax, ay, bx, by, cx2, cy2, c);
+            };
+            for (int i = 0; i <= 12; i++) {                         // degradado radial: #060b14 en el borde, #16283a algo por encima del centro
+                const double f = i / 12.0;
+                auto mix = [&](int a0, int b0) { return (uint8_t)(a0 + (b0 - a0) * f); };
+                fb.fillCircle(L.cx, L.cy - (int)(0.08 * 106 * sc * f), (int)((R + 2) * (1.0 - 0.62 * f)), rgb(mix(0x06, 0x16), mix(0x0b, 0x28), mix(0x14, 0x3a)));
+            }
+            fb.ring(L.cx, L.cy, R + 2, 2 * sc, hex(0x334155));
+            fb.ring(L.cx, L.cy, 62 * sc, 1 * sc, hex(0x1e293b));
+            if (s.maxAz - s.minAz < 360)                            // zona muerta entre el tope máximo y el mínimo
+                for (double a = s.maxAz; a <= s.minAz + 360; a += 1) seg(fmod(a, 360.0), 102, 106, 2, hex(0xb85a5a));
+            if (s.maxAz > 360)                                      // zona de solape (acimut mecánico > 360): naranja sobre el borde
+                for (double a = 0; a <= s.maxAz - 360; a += 1) seg(a, 102, 106, 2, OVERLAP);
+            for (int a = 0; a < 360; a += 5) {
+                const bool mayor = a % 30 == 0, media = a % 10 == 0;
+                seg(a, mayor ? 90 : media ? 94 : 97, 103, mayor ? 2 : 1, hex(mayor ? 0xe2e8f0 : media ? 0x94a3b8 : 0x475569));
             }
             const char* card[] = { "N", "E", "S", "W" };
-            const int cr = R - (int)(28 * L.k);
-            for (int i = 0; i < 4; i++) {
-                const double k = i * M_PI / 2;
-                fb.text(L.cx + (int)(sin(k) * cr), L.cy - (int)(cos(k) * cr) - M.height / 2, card[i], M, i == 0 ? RED : FG, CENTER);
-            }
-            for (int a = 30; a < 360; a += 30) {
-                if (a % 90 == 0) continue;
-                const double k = a * M_PI / 180.0;
-                char t[12]; snprintf(t, sizeof t, "%d", a);
-                fb.text(L.cx + (int)(sin(k) * L.tickLabelR), L.cy - (int)(cos(k) * L.tickLabelR) - S.height / 2, t, S, MUT, CENTER);
-            }
-            // Zona de solape (acimut mecánico > 360): arco naranja sobre el borde
-            if (s.maxAz > 360) {
-                for (double a = 0; a <= s.maxAz - 360; a += 1) {
-                    const double k = a * M_PI / 180.0;
-                    fb.fillCircle(L.cx + (int)(sin(k) * (R + 2)), L.cy - (int)(cos(k) * (R + 2)), (int)(2 * L.k), OVERLAP);
+            for (int a = 0; a < 360; a += 30) {
+                double x, y;
+                if (a % 90 == 0) {
+                    at(a, 76, 0, x, y);
+                    fb.text((int)x, (int)y - M.height / 2, card[a / 90], M, hex(a == 0 ? 0xf87171 : 0xf1f5f9), CENTER);
+                } else {
+                    char t[12]; snprintf(t, sizeof t, "%d", a);
+                    at(a, 78, 0, x, y);
+                    fb.text((int)x, (int)y - S.height / 2, t, S, hex(0x94a3b8), CENTER);
                 }
             }
-            if (!std::isnan(s.taz)) needle(fb, fmod(s.taz, 360.0), R - 16 * L.k, 3 * L.k, ACC, false);
+            if (!std::isnan(s.taz)) {                               // objetivo: línea de puntos e índice en el borde
+                const double t = fmod(s.taz, 360.0);
+                for (double r = 14; r < 88; r += 8) seg(t, r, std::min(r + 3.0, 88.0), 1.5, hex(0xfbbf24));
+                tri(t, 91, 0, 105, -7, 105, 7, hex(0xfbbf24));
+            }
             if (aiming(frameMs_)) needle(fb, aimAz_, R - 6 * L.k, 4 * L.k, GREEN, true);
-            if (!std::isnan(s.az)) needle(fb, fmod(s.az, 360.0), R - 14 * L.k, 5 * L.k, RED, true);
-            fb.fillCircle(L.cx, L.cy, (int)(7 * L.k), FG);
-            fb.fillCircle(L.cx, L.cy, (int)(3 * L.k), BG);
+            if (!std::isnan(s.az)) {                                // aguja del acimut: contrapeso y punta en dos tonos
+                const double a = fmod(s.az, 360.0);
+                tri(a, 0, -5, -34, 0, 0, 5, hex(0x475569));
+                tri(a, 0, -7, 86, 0, 0, 0, hex(0x7dd3fc));
+                tri(a, 0, 0, 86, 0, 0, 7, hex(0x0284c7));
+                seg(a, 6, 80, 0.8, hex(0x9fd4ef));
+            }
+            fb.fillCircle(L.cx, L.cy, (int)(9 * sc), hex(0x0f172a));
+            fb.ring(L.cx, L.cy, 9 * sc, 2 * sc, hex(0x7dd3fc));
+            fb.fillCircle(L.cx, L.cy, (int)(3 * sc) + 1, hex(0x7dd3fc));
 
             // Lecturas
             char t[40];

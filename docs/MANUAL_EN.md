@@ -198,7 +198,7 @@ At `http://APRS-Rotor.local/` (boards) or `http://IP:8080/` (Raspberry Pi). User
 
 | Section | What it does |
 |---|---|
-| **Posición** (position) | current azimuth and elevation, target, status and raw reading |
+| **Posición** (position) | dial (as on the touch screen, section 8; the needle turns the short way), current azimuth and elevation, target, status and raw reading |
 | **Mando** (control) | **Ir** (go) to an azimuth and elevation; CCW / CW / UP / DOWN while held; **STOP**; **Park**; **Borrar fallo** (clear fault) |
 | **Calibración** (calibration) | point A, point B and offset fix (direct drive) |
 | **CAT** | (with `cat.proto`) frequency, step, modes, A/B, CTCSS tone, S-meter, PTT and Doppler tracking |
@@ -210,7 +210,7 @@ At `http://APRS-Rotor.local/` (boards) or `http://IP:8080/` (Raspberry Pi). User
 
 **Waveshare ESP32-C5-Touch-LCD-3.5** (portrait), **ESP32-S3-Touch-AMOLED-2.41** and **ESP32-S3-Touch-LCD-7B** (landscape) boards.
 
-- **Compass**: red needle = position, blue = target, orange arc = overlap zone.
+- **Compass** (the same dial as the WebUI, the Android app, APRS LoRa+ Display and sat-aprs): ticks every 5° and numbers every 30°, N in red; blue needle with a counterweight = position; amber index on the rim and dotted line = target; red rim = the zone between the stops (when it is not a full turn); orange arc = overlap zone.
 - **Buttons**: **CCW · STOP · CW · DOWN · PARK · UP**. The movement buttons move while held.
 - **Aiming**: hold the compass for half a second, drag to the heading (green needle) and release. A short tap does not move anything.
 - **Fault**: shown in red; tap it to clear it.
