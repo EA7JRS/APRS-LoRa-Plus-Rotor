@@ -300,6 +300,16 @@ class TestSky(unittest.TestCase):
         t = 1794490200                                           # 2026-11-12 13:30 UTC, Rota
         az, el = astro.sun_position(t, 36.53, -6.29)
         self.assertAlmostEqual(el, 32.434, delta=0.02); self.assertAlmostEqual(az, 202.895, delta=0.02)
+        # celnav (como el plotter): almanaque nautico de 2026, 16 jun 9 h: Sol AHG 314 49,6 dec N 23 21,2; Aries 39 39,0;
+        # Regulo (12 h) AHS 207 33,3 dec N 11 50,3
+        from aprs_lora_plus_rotor import celnav
+        jd = astro.julian_day(1781600400)                        # 2026-06-16 09:00 UTC
+        gha, dec = celnav.sun_gha_dec(jd)
+        self.assertAlmostEqual(gha, 314 + 49.6 / 60, delta=0.1 / 60); self.assertAlmostEqual(dec, 23 + 21.2 / 60, delta=0.1 / 60)
+        self.assertAlmostEqual(celnav.aries_gha(jd), 39 + 39.0 / 60, delta=0.1 / 60)
+        sha, dec = celnav.star_sha_dec(celnav.find_star("regulus"), jd + 3 / 24)
+        self.assertAlmostEqual(sha, 207 + 33.3 / 60, delta=0.11 / 60); self.assertAlmostEqual(dec, 11 + 50.3 / 60, delta=0.11 / 60)
+        self.assertEqual(len(celnav.STARS), 58)
         az, el, dist = astro.moon_position(t, 36.53, -6.29)
         self.assertAlmostEqual(el, 22.708, delta=0.03); self.assertAlmostEqual(az, 162.424, delta=0.03)
         self.assertTrue(400000 < dist < 410000)

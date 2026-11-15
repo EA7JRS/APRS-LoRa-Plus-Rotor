@@ -67,6 +67,9 @@ Controlador de rotores compatible con Hamlib, manejado por el tracker APRS LoRa+
 - Declinación del WMM2025 (`wmm.h` del plotter) para HDG / HDM: `lan.magAuto` (true; si no, `lan.magVar`), `hdg.dec` en `pos`. Beaufort `wind.bf` y en la pantalla («F6»).
 - La Pico ya no ignora `plotter_core` (lo necesita `rc_api.h`). `test_host/Makefile` compila `astro`, `geo`, `wind` y `wmm` del plotter: 445 comprobaciones. Raspberry: `astro.py`, `wmm.py` (coeficientes dentro), `sky.py`, `track` en `api.py`; 23 pruebas. Manuales: apartado 20.
 
+## celnav (2026-11-15; Manuel: «Avanza»)
+- `firmware/lib/plotter_core` vuelto a copiar del plotter (ea7ea5a): `astro.cpp` depende ahora de `celnav` (Sol con precisión de almanaque, 0,1′; Aries y 58 estrellas), por eso `test_host/Makefile` compila también `celnav.cpp`. Raspberry: `celnav.py` (generado desde el núcleo del plotter: mismas tablas y fórmulas) y `astro.sun_position` lo usa; prueba con valores de un almanaque náutico de 2026. Sin seguimiento de estrellas con el rotor (no pedido).
+
 ## Manuales (2026-11-08)
 - `docs/MANUAL_ES.md`, `docs/MANUAL_EN.md` (manual de usuario) y `docs/QUICKSTART_ES.md`, `docs/QUICKSTART_EN.md` (guía rápida). Al cambiar funciones, placas o versión, actualizar los cuatro.
 

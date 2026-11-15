@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import math
 
+from . import celnav
+
 _LR = [  # Meeus, tabla 47.A: D, M, M', F, longitud (1e-6 grados), distancia (m)
     (0, 0, 1, 0, 6288774, -20905355), (2, 0, -1, 0, 1274027, -3699111), (2, 0, 0, 0, 658314, -2955968),
     (0, 0, 2, 0, 213618, -569925), (0, 1, 0, 0, -185116, 48888), (0, 0, 0, 2, -114332, -3149),
@@ -51,19 +53,10 @@ def _altaz(lat: float, ha: float, dec: float) -> tuple[float, float]:
 
 
 def sun_position(t: float, lat: float, lon: float) -> tuple[float, float]:
-    """(azimut, altura) del sol en grados."""
-    jd = julian_day(t)
-    T = (jd + 69.0 / 86400.0 - 2451545.0) / 36525.0
-    L0 = 280.46646 + 36000.76983 * T + 0.0003032 * T * T
-    M = _rad(357.52911 + 35999.05029 * T - 0.0001537 * T * T)
-    C = ((1.914602 - 0.004817 * T - 0.000014 * T * T) * math.sin(M) + (0.019993 - 0.000101 * T) * math.sin(2 * M)
-         + 0.000289 * math.sin(3 * M))
-    om = _rad(125.04 - 1934.136 * T)
-    lam = _rad(L0 + C - 0.00569 - 0.00478 * math.sin(om))
-    eps = _rad(23.439291 - 0.0130042 * T + 0.00256 * math.cos(om))
-    ra = math.atan2(math.cos(eps) * math.sin(lam), math.cos(lam))
-    dec = math.asin(math.sin(eps) * math.sin(lam))
-    return _altaz(lat, _rad(_gmst(jd) + lon) - ra, dec)
+    """(azimut, altura) del sol en grados. Lugar aparente con precision de almanaque (celnav, como el plotter)."""
+    gha, dec = celnav.sun_gha_dec(julian_day(t))
+    alt, az = celnav.body_alt_az(gha, dec, lat, lon)
+    return az, alt
 
 
 def moon_position(t: float, lat: float, lon: float) -> tuple[float, float, float]:
