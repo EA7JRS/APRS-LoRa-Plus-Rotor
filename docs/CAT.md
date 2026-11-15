@@ -59,6 +59,10 @@ Raspberry Pi (`/etc/aprs-lora-plus-rotor/config.json`, sección `cat`; ver [RASP
 
 `type`: `none`, `hamlib` (`rigctl -l` da el número de modelo: 3081 IC-9700, 3073 IC-7300, 3085 IC-705, 1035 FT-991, 2014 TS-2000, 1022 FT-857...; comprobar con `rigctl -l | grep <equipo>`), `rigctl` (`host`, `port`) o `sdrconnect` (`host`, `port` 5454).
 
+## S-meter
+
+La caja lo da de 0 a 15 (`sm`: S0-S9 y S9+10 … +60; −1 sin dato). La pantalla, la WebUI y la app lo dibujan igual: la barra de la app Android (9 segmentos S y 6 sobre S9 con los colores IARU, los apagados al 15 %, marca entre S9 y +10, escala 1 3 5 7 9 / +20 +40 +60 y la lectura «S7» / «S9+20» del color del último segmento). En los receptores SDR es aproximado (dBm + 73 = S9).
+
 ## Seguridad del PTT
 
 - Apagado por defecto: hay que poner `cat.ptt: true` para que la pantalla, la WebUI, la app o rigctld puedan transmitir (sin eso responden `ptt not allowed` / `RPRT -9`).

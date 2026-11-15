@@ -101,4 +101,4 @@ Pruebas: `make -C firmware/test_host run ARDUINOJSON=/ruta/ArduinoJson/src` y `c
 
 GPL-3.0-or-later. Copyright (C) 2026 Manuel - EA7JRS.
 Formatos de los protocolos tomados del código de [Hamlib](https://github.com/Hamlib/Hamlib) (GS-232A/B, SPID, EasyComm, rotctld).
-Pantalla: secuencia del ST7796 y registros del expansor tomados de los ejemplos de Waveshare; letras de DejaVu Sans ([firmware/src/NOTICE_FONTS.md](firmware/src/NOTICE_FONTS.md)).
+Pantalla: secuencia del ST7796 y registros del expansor tomados de los ejemplos de Waveshare; letras de DejaVu Sans y, en el S-meter, Barlow Condensed y Share Tech Mono como en la app Android (OFL; [firmware/src/NOTICE_FONTS.md](firmware/src/NOTICE_FONTS.md)). Colores de serie: los de la app (`lcd.theme`).

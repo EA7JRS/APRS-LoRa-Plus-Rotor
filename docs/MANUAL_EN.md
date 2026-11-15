@@ -201,7 +201,7 @@ At `http://APRS-Rotor.local/` (boards) or `http://IP:8080/` (Raspberry Pi). User
 | **Posición** (position) | dial (as on the touch screen, section 8; the needle turns the short way), current azimuth and elevation, target, status and raw reading |
 | **Mando** (control) | **Ir** (go) to an azimuth and elevation; CCW / CW / UP / DOWN while held; **STOP**; **Park**; **Borrar fallo** (clear fault) |
 | **Calibración** (calibration) | point A, point B and offset fix (direct drive) |
-| **CAT** | (with `cat.proto`) frequency, step, modes, A/B, CTCSS tone, S-meter, PTT and Doppler tracking |
+| **CAT** | (with `cat.proto`) frequency, step, modes, A/B, CTCSS tone, S-meter (the same as the screen and the app), PTT and Doppler tracking |
 | **Configuración** (configuration) | the whole file: *Leer* (read), edit, *Guardar y reiniciar* (save and restart); passwords show as `********` and are left unchanged |
 | **Actualizar firmware** (update firmware) | upload a `firmware.bin` |
 | **Acerca de** (about) | version, board and © 2026 Manuel - EA7JRS |
@@ -214,7 +214,7 @@ At `http://APRS-Rotor.local/` (boards) or `http://IP:8080/` (Raspberry Pi). User
 - **Buttons**: **CCW · STOP · CW · DOWN · PARK · UP**. The movement buttons move while held.
 - **Aiming**: hold the compass for half a second, drag to the heading (green needle) and release. A short tap does not move anything.
 - **Fault**: shown in red; tap it to clear it.
-- **CAT** (header button, with `cat.proto`): frequency, − / step / +, LSB · USB · CW · FM · AM · DIG, *Seguir* (Doppler), A / B and PTT while held. The CTCSS tone shows next to the radio's name.
+- **CAT** (header button, with `cat.proto`): frequency, − / step / +, LSB · USB · CW · FM · AM · DIG, *Seguir* (Doppler), A / B and PTT while held. The CTCSS tone shows next to the radio's name. The **S-meter** is the Android app's: 9 S segments and 6 over S9 (+10 … +60 dB) in the IARU colours (green-blue, yellow, orange at S9, red), unlit ones dimmed, scale 1 3 5 7 9 / +20 +40 +60 and the reading ("S7", "S9+20") in the colour of the last segment; "S—" with no data.
 - **ⓘ**: name, callsign, board, WiFi, IP, ports, Bluetooth, uptime, **Acerca de** (about) and brightness.
 - **Colours**: by default, the Android app palette (the same as APRS LoRa+ Display); with `lcd.theme` 1, the WebUI one (red header).
 - **Brightness and sleep**: `lcd.bright` and `lcd.dimS`. The LCD dims; the AMOLED turns off so it does not get burn-in. The first touch only wakes it.
@@ -232,7 +232,7 @@ At `http://APRS-Rotor.local/` (boards) or `http://IP:8080/` (Raspberry Pi). User
    - a CW beacon with a locator (`VVV DE ED7YAA IM76HR`), from the tracker's or the phone's CW decoder.
 
    Angles are computed from the tracker's GNSS position.
-5. **Radio (CAT)**: frequency, step, modes, A/B, split, CTCSS tone, S-meter, PTT and the Doppler of the tracker's satellite ([section 12](#12-radio-and-sdr-receiver-cat)).
+5. **Radio (CAT)**: frequency, step, modes, A/B, split, CTCSS tone, S-meter (the same bar as the screen and the WebUI), PTT and the Doppler of the tracker's satellite ([section 12](#12-radio-and-sdr-receiver-cat)).
 6. **Calibration** (Point A / Point B / Offset), full **configuration** (*Read*, *Save and restart*) and *Restart the rotor box*.
 7. **Wind**: with the app's internet weather on (*Sensors > Internet weather*, OpenWeatherMap or IQAir) the app sends the wind to the box; with `wind.on: true` the box parks and locks the rotor on gusts of `wind.park` m/s or more (see [section 15](#15-safety-and-security)).
 

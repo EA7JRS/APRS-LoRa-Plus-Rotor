@@ -199,7 +199,7 @@ En `http://APRS-Rotor.local/` (placas) o en `http://IP:8080/` (Raspberry Pi). Us
 | **Posición** | esfera (como la de la pantalla, sección 8; la aguja gira por el lado corto), acimut y elevación actuales, objetivo, estado y lectura en bruto |
 | **Mando** | **Ir** a un acimut y una elevación; CCW / CW / UP / DOWN mientras se mantienen pulsados; **STOP**; **Park**; **Borrar fallo** |
 | **Calibración** | Punto A, Punto B y corregir el desfase (control directo) |
-| **CAT** | (con `cat.proto`) frecuencia, paso, modos, A/B, tono CTCSS, S-meter, PTT y seguimiento con Doppler |
+| **CAT** | (con `cat.proto`) frecuencia, paso, modos, A/B, tono CTCSS, S-meter (el mismo que la pantalla y la app), PTT y seguimiento con Doppler |
 | **Configuración** | el fichero entero: *Leer*, editar, *Guardar y reiniciar*; las contraseñas aparecen como `********` y no se tocan |
 | **Actualizar firmware** | subir un `firmware.bin` |
 | **Acerca de** | versión, placa y © 2026 Manuel - EA7JRS |
@@ -212,7 +212,7 @@ Placas **Waveshare ESP32-C5-Touch-LCD-3.5** (vertical), **ESP32-S3-Touch-AMOLED-
 - **Botones**: **CCW · STOP · CW · DOWN · PARK · UP**. Los de movimiento mueven mientras se mantienen pulsados.
 - **Apuntar**: mantén la brújula pulsada medio segundo, arrastra hasta el rumbo (aguja verde) y suelta. Un toque corto no mueve nada.
 - **Fallo**: aparece en rojo; tócalo para borrarlo.
-- **CAT** (botón de la cabecera, con `cat.proto`): frecuencia, − / paso / +, LSB · USB · CW · FM · AM · DIG, *Seguir* (Doppler), A / B y PTT manteniendo pulsado. El tono CTCSS se ve junto al nombre de la emisora.
+- **CAT** (botón de la cabecera, con `cat.proto`): frecuencia, − / paso / +, LSB · USB · CW · FM · AM · DIG, *Seguir* (Doppler), A / B y PTT manteniendo pulsado. El tono CTCSS se ve junto al nombre de la emisora. El **S-meter** es el de la app Android: 9 segmentos S y 6 sobre S9 (+10 … +60 dB) con los colores IARU (verde-azul, amarillo, naranja en S9, rojo), los apagados tenues, escala 1 3 5 7 9 / +20 +40 +60 y la lectura («S7», «S9+20») del color del último segmento; «S—» sin dato.
 - **ⓘ**: nombre, indicativo, placa, WiFi, IP, puertos, Bluetooth, tiempo encendida, **Acerca de** y brillo.
 - **Colores**: de serie, la paleta de la app Android (la misma que APRS LoRa+ Display); con `lcd.theme` 1, la de la WebUI (cabecera roja).
 - **Brillo y apagado**: `lcd.bright` y `lcd.dimS`. La LCD se atenúa; la AMOLED se apaga para que no queden marcas. El primer toque solo la enciende.
@@ -230,7 +230,7 @@ Pestaña **Rotor** de la app APRS LoRa+:
    - una baliza CW con locator (`VVV DE ED7YAA IM76HR`), del decodificador del tracker o del móvil.
 
    Los ángulos se calculan desde el GNSS del tracker.
-5. **Radio (CAT)**: frecuencia, paso, modos, A/B, *split*, tono CTCSS, S-meter, PTT y Doppler del satélite del tracker ([apartado 12](#12-emisora-y-receptor-sdr-cat)).
+5. **Radio (CAT)**: frecuencia, paso, modos, A/B, *split*, tono CTCSS, S-meter (la misma barra que la pantalla y la WebUI), PTT y Doppler del satélite del tracker ([apartado 12](#12-emisora-y-receptor-sdr-cat)).
 6. **Calibración** (Point A / Point B / Offset), **configuración** completa (*Read*, *Save and restart*) y *Restart the rotor box*.
 7. **Viento**: con el tiempo de internet de la app activado (*Sensors > Internet weather*, OpenWeatherMap o IQAir) la app manda el viento a la caja; con `wind.on: true` la caja aparca y bloquea el rotor con rachas de `wind.park` m/s o más (ver [apartado 15](#15-seguridad)).
 
