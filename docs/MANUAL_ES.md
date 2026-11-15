@@ -196,7 +196,7 @@ En `http://APRS-Rotor.local/` (placas) o en `http://IP:8080/` (Raspberry Pi). Us
 
 | Sección | Qué hace |
 |---|---|
-| **Posición** | acimut y elevación actuales, objetivo, estado y lectura en bruto |
+| **Posición** | esfera (como la de la pantalla, sección 8; la aguja gira por el lado corto), acimut y elevación actuales, objetivo, estado y lectura en bruto |
 | **Mando** | **Ir** a un acimut y una elevación; CCW / CW / UP / DOWN mientras se mantienen pulsados; **STOP**; **Park**; **Borrar fallo** |
 | **Calibración** | Punto A, Punto B y corregir el desfase (control directo) |
 | **CAT** | (con `cat.proto`) frecuencia, paso, modos, A/B, tono CTCSS, S-meter, PTT y seguimiento con Doppler |
@@ -208,7 +208,7 @@ En `http://APRS-Rotor.local/` (placas) o en `http://IP:8080/` (Raspberry Pi). Us
 
 Placas **Waveshare ESP32-C5-Touch-LCD-3.5** (vertical), **ESP32-S3-Touch-AMOLED-2.41** y **ESP32-S3-Touch-LCD-7B** (apaisadas).
 
-- **Brújula**: aguja roja = posición, azul = objetivo, arco naranja = zona de solape.
+- **Brújula** (la misma esfera que la WebUI, la app Android, APRS LoRa+ Display y sat-aprs): marcas cada 5° y números cada 30°, N en rojo; aguja azul con contrapeso = posición; índice ámbar en el borde y línea de puntos = objetivo; borde rojo = zona entre los topes (si no es una vuelta entera); arco naranja = zona de solape.
 - **Botones**: **CCW · STOP · CW · DOWN · PARK · UP**. Los de movimiento mueven mientras se mantienen pulsados.
 - **Apuntar**: mantén la brújula pulsada medio segundo, arrastra hasta el rumbo (aguja verde) y suelta. Un toque corto no mueve nada.
 - **Fallo**: aparece en rojo; tócalo para borrarlo.
