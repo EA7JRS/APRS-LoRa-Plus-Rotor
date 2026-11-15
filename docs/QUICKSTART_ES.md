@@ -18,7 +18,7 @@ Controlador de rotores de antena compatible con Hamlib. Lo manejan el tracker AP
 
 ## 2. Instala el firmware
 
-1. Abre **https://ea7jrs.github.io/APRS-LoRa-Plus/** en Chrome o Edge.
+1. Abre **https://ea7jrs.github.io/APRS-LoRa-Plus/install/** en Chrome o Edge.
 2. Elige **Rotor**, conecta la placa por USB y pulsa **Instalar**.
 3. Pico 2: descarga el `.uf2`, mantén pulsado **BOOTSEL** al conectarla y copia el fichero a la unidad que aparece.
 

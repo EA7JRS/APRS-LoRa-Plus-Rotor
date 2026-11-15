@@ -68,7 +68,7 @@ PlatformIO environments: `esp32dev`, `esp32s3`, `waveshare_c5_lcd35`, `waveshare
 
 ### Web installer (recommended)
 
-1. Open **https://ea7jrs.github.io/APRS-LoRa-Plus/** in Chrome or Edge (they have Web Serial).
+1. Open **https://ea7jrs.github.io/APRS-LoRa-Plus/install/** in Chrome or Edge (they have Web Serial).
 2. Choose **Rotor** and your board, plug it in by USB and press **Install**. The installer recognises the connected board and the version it runs.
 3. **Pico 2 / Pico 2 W**: download the `.uf2` file, plug the board in with **BOOTSEL** held down and copy the file to the drive that appears.
 

@@ -10,6 +10,8 @@ Controlador de rotores de antena **compatible con Hamlib** para el ecosistema **
 
 **Placas**: ESP32, ESP32-S3, **Waveshare ESP32-C5-Touch-LCD-3.5**, **ESP32-S3-Touch-AMOLED-2.41** y **ESP32-S3-Touch-LCD-7B** (con pantalla táctil: mando del rotor en la propia caja), Raspberry Pi Pico 2 / Pico 2 W y Raspberry Pi (Zero 2 W, 3, 4, 5).
 
+**Esfera** (pantalla táctil y WebUI, la misma que la app, APRS LoRa+ Display y sat-aprs): aguja azul = posición, ámbar = objetivo con su índice en el borde, rojo = topes mecánicos, naranja = solape; en la WebUI la aguja gira por el lado corto.
+
 ```
                        ┌──────────────── APRS LoRa+ Rotor ────────────────┐
  Tracker APRS LoRa+ ──►│ rotctld (WiFi 4533)   · GS-232B por SPP           │
@@ -46,7 +48,7 @@ Todos los repositorios del proyecto llevan **el mismo número de versión**: el 
 
 ## Instalar
 
-**Instalador web** (Chrome o Edge, placa por USB): https://ea7jrs.github.io/APRS-LoRa-Plus/ → elige **Rotor** y tu placa. ESP32, ESP32-S3 y ESP32-C5 se instalan desde el navegador; para la Pico 2 / Pico 2 W descarga el `.uf2` y cópialo a la unidad que aparece al conectarla con BOOTSEL pulsado. El instalador reconoce la placa conectada y su versión (pregunta `APRS-INFO?` por USB).
+**Instalador web** (Chrome o Edge, placa por USB): https://ea7jrs.github.io/APRS-LoRa-Plus/install/ → elige **Rotor** y tu placa. ESP32, ESP32-S3 y ESP32-C5 se instalan desde el navegador; para la Pico 2 / Pico 2 W descarga el `.uf2` y cópialo a la unidad que aparece al conectarla con BOOTSEL pulsado. El instalador reconoce la placa conectada y su versión (pregunta `APRS-INFO?` por USB).
 
 ## Firmware (ESP32, ESP32-S3, ESP32-C5, Pico 2)
 

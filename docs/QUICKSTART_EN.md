@@ -18,7 +18,7 @@ Hamlib-compatible antenna rotor controller. It is driven by the APRS LoRa+ track
 
 ## 2. Install the firmware
 
-1. Open **https://ea7jrs.github.io/APRS-LoRa-Plus/** in Chrome or Edge.
+1. Open **https://ea7jrs.github.io/APRS-LoRa-Plus/install/** in Chrome or Edge.
 2. Choose **Rotor**, plug the board in by USB and press **Install**.
 3. Pico 2: download the `.uf2`, hold **BOOTSEL** while plugging it in and copy the file to the drive that appears.
 
