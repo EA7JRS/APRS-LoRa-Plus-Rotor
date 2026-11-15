@@ -309,7 +309,7 @@ class TestSky(unittest.TestCase):
         self.assertAlmostEqual(celnav.aries_gha(jd), 39 + 39.0 / 60, delta=0.1 / 60)
         sha, dec = celnav.star_sha_dec(celnav.find_star("regulus"), jd + 3 / 24)
         self.assertAlmostEqual(sha, 207 + 33.3 / 60, delta=0.11 / 60); self.assertAlmostEqual(dec, 11 + 50.3 / 60, delta=0.11 / 60)
-        self.assertEqual(len(celnav.STARS), 58)
+        self.assertEqual(len(celnav.STARS), 157)
         az, el, dist = astro.moon_position(t, 36.53, -6.29)
         self.assertAlmostEqual(el, 22.708, delta=0.03); self.assertAlmostEqual(az, 162.424, delta=0.03)
         self.assertTrue(400000 < dist < 410000)
