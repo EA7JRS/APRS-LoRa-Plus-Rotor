@@ -323,7 +323,18 @@ sudo ./install.sh              # Zero 2 W as a USB GS-232B for the PC: sudo ./in
 3. Ports: rotctld 4533, JSON 4534, WebUI 8080. Bluetooth: BLE for the app and SPP for the tracker. APRS through a KISS TNC (`aprs.kiss` = `tcp:IP:8001` for a tracker or iGate in KISS mode, or `serial:/dev/ttyACM0:115200`).
 4. Log: `journalctl -u aprs-lora-plus-rotor -f`.
 
-More in [RASPBERRY_PI.md](RASPBERRY_PI.md) (in Spanish).
+**No controller, with stepper motors** (Waveshare Stepper Motor HAT) and **its own GPS** (Uputronics GPS/RTC HAT):
+
+```sh
+sudo ./install.sh --stepper --gps && sudo reboot
+```
+
+- `"driver": "stepper"`: motor 1 = azimuth, motor 2 = elevation. In `stepper.az` / `stepper.el` set the microsteps of the DIP switches (`micro`, 32 from the factory), the gear ratio (`gear`), the speed (`dps`) and the acceleration (`accel`).
+- The position is counted in steps and saved when it stops. Set it with **Corregir desfase** (offset fix: WebUI calibration, *Offset* in the app) or with one limit switch per axis (`home`, searched at start-up or with the `home` command).
+- `gps.on`: the GPS position is used for the beacon, the sun and moon and the declination; the time with PPS goes to NTPsec and the HAT's clock keeps it without a network.
+- **Both HATs use GPIO18** (motor 2 STEP and PPS): wire pin 12 of the Stepper HAT to pin 37 of the Pi (GPIO26) and set `stepper.el.step: 26` (`install.sh` does it), or use azimuth only.
+
+More in [RASPBERRY_PI.md](RASPBERRY_PI.md) and [RASPBERRY_HATS.md](RASPBERRY_HATS.md) (in Spanish).
 
 ## 15. Safety and security
 

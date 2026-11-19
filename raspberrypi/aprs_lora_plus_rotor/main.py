@@ -47,6 +47,8 @@ from .heading import HeadingRotor
 from .lan import Lan
 from .wind import WindGuard, WindRotor
 from .sky import SkyRotor
+from .stepper import StepperRotor
+from .gnss import OwnGps
 
 log = logging.getLogger("rotor")
 
@@ -55,16 +57,23 @@ class Daemon(ApiHost):
     def __init__(self, cfg: Config):
         self.cfg = cfg
         d = cfg.data
-        self.proc = RotctldProcess(d["hamlib"])
         self.wind = WindGuard(d["wind"])
-        hamlib = HamlibRotor(d["hamlib"], (float(d["park"]["az"]), float(d["park"]["el"])))
-        # tracker / app / Hamlib -> sol / luna -> rumbo (barco o coche) -> viento -> rotctld de Hamlib
-        self.heading = HeadingRotor(WindRotor(hamlib, self.wind), bool(d["lan"]["heading"]), float(d["lan"]["headStep"]))
+        park = (float(d["park"]["az"]), float(d["park"]["el"]))
+        if d["driver"] == "stepper":                       # motores paso a paso en la propia Pi (Waveshare Stepper Motor HAT)
+            self.proc = None
+            self.base = StepperRotor(d["stepper"], park)
+        else:
+            self.proc = RotctldProcess(d["hamlib"])
+            self.base = HamlibRotor(d["hamlib"], park)
+        self.gps = OwnGps(d["gps"])                        # GPS propio (Uputronics GPS/RTC HAT) por gpsd
+        # tracker / app / Hamlib -> sol / luna -> rumbo (barco o coche) -> viento -> rotctld de Hamlib o motores
+        self.heading = HeadingRotor(WindRotor(self.base, self.wind), bool(d["lan"]["heading"]), float(d["lan"]["headStep"]))
         sk = d["sky"]
         self.sky = SkyRotor(self.heading, float(sk["step"]), float(sk["minEl"]), bool(sk["refraction"]))
         self.rotor = self.sky
         self.lan = Lan(d["lan"], d["aprs"], self.wind, self.heading)
         self.lan.on_park = lambda: (self.rotor.stop(), self.rotor.park())
+        self.lan.own_pos = self.gps.position
         a = d["aprs"]
         self.aprs = AprsControl(AprsConfig(a["call"].upper(), a["tocall"], a["path"], a["allow"], a["totp"], bool(a["reply"])))
         self.kiss_writer = None
@@ -78,13 +87,15 @@ class Daemon(ApiHost):
     def info(self) -> dict:
         d = self.cfg.data
         return {"dev": "APRS LoRa+ Rotor", "ver": __version__, "board": "raspberrypi", "chip": _pi_model(),
-                "name": d["name"], "drv": f"hamlib {d['hamlib']['model']}", "call": d["aprs"]["call"],
+                "name": d["name"], "drv": "stepper" if self.proc is None else f"hamlib {d['hamlib']['model']}",
+                "call": d["aprs"]["call"],
                 "caps": {"wifi": True, "ble": bool(d["bt"]["ble"]), "spp": bool(d["bt"]["spp"]),
-                         "lora": bool(d["aprs"]["enabled"]), "cal": False, "move": True, "cat": bool(self.cat),
-                         "wind": True, "lan": True, "sky": True},
+                         "lora": bool(d["aprs"]["enabled"]), "cal": self.proc is None, "move": True, "cat": bool(self.cat),
+                         "wind": True, "lan": True, "sky": True, "gps": bool(d["gps"]["on"])},
                 "ip": _ip(), "rotctld": d["net"]["rotctldPort"] if d["net"]["rotctld"] else 0,
                 "up": int(time.monotonic() - self.started), "utc": int(time.time()),
-                "hamlib": self.proc.last_error or "ok",
+                **({"hamlib": self.proc.last_error or "ok"} if self.proc else {}),
+                **({"gps": self.gps.info()} if self.gps.info() else {}),
                 "rigctld": d["cat"]["serverPort"] if self.cat and d["cat"]["server"] else 0,
                 **({"rig": self.cat.proc.last_error or "ok"} if self.cat and self.cat.proc else {}),
                 **({"lan": self.lan.info()} if self.lan.info() else {})}
@@ -93,6 +104,8 @@ class Daemon(ApiHost):
         r = self.rotor
         self.wind.tick()
         e = {"f": "OK" if r.link_ok else "NO LINK"}
+        if isinstance(self.base, StepperRotor):            # motores: fallo del final de carrera o posicion sin fijar
+            e["f"] = self.base.fault or ("OK" if self.base.known else "NOPOS")
         if e["f"] == "OK" and self.wind.locked:
             e["f"] = "WIND"
         if r.taz is not None:
@@ -130,10 +143,21 @@ class Daemon(ApiHost):
         return e
 
     def raw(self) -> dict:
-        return {"link": self.rotor.link_ok}
+        r = {"link": self.rotor.link_ok}
+        if isinstance(self.base, StepperRotor):
+            r.update(self.base.raw())
+        return r
+
+    def here(self, axis: str, deg: float) -> str:
+        return self.base.here(axis, deg) if isinstance(self.base, StepperRotor) else "only direct drive"
+
+    def home(self) -> str:
+        return self.base.home() if isinstance(self.base, StepperRotor) else "no home switch"
 
     def clear_fault(self):
         self.wind.release()
+        if isinstance(self.base, StepperRotor):
+            self.base.clear()
 
     def reboot(self):
         """Reinicia el demonio (systemd lo vuelve a arrancar con la configuracion nueva)."""
@@ -279,8 +303,10 @@ class Daemon(ApiHost):
     # ---- arranque -------------------------------------------------------------------------------------------------------
     async def run(self):
         d = self.cfg.data
-        self.proc.start()
+        if self.proc:
+            self.proc.start()
         asyncio.create_task(self.rotor.run())
+        asyncio.create_task(self.gps.run())
         asyncio.create_task(self.lan.run())
         asyncio.create_task(self.sky_loop())
         net = d["net"]
@@ -313,7 +339,10 @@ class Daemon(ApiHost):
         log.info("parando")
         for s in servers:
             s.close()
-        await self.proc.stop()
+        if self.proc:
+            await self.proc.stop()
+        if isinstance(self.base, StepperRotor):
+            self.base.close()                            # quita la corriente y guarda la posicion
         if self.cat and self.cat.proc:
             await self.cat.proc.stop()
 

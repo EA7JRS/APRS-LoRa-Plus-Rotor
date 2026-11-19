@@ -36,7 +36,8 @@ El PIN viaja en claro dentro del enlace: el BLE va cifrado; por TCP/HTTP úsalo 
 | `move` | `d`: `cw`, `ccw`, `up`, `down` (o el número `ROT_MOVE_*` de Hamlib); `s`: velocidad 1-100 (opcional) | `ok`. Se mueve hasta `stop` o hasta el tope |
 | `clear` | — | `ok`: borra el fallo (atasco, sensor) y libera el bloqueo por viento hasta la siguiente racha fuerte |
 | `cal` | `axis` (`az`/`el`), `pt` (`a`/`b`), `deg` | `ok` / `err`. Toma la lectura actual del sensor como punto de calibración (solo control directo) |
-| `here` | `axis`, `deg` | `ok` / `err`. Corrige el desfase: la posición actual pasa a valer `deg` (solo control directo) |
+| `here` | `axis`, `deg` | `ok` / `err`. Corrige el desfase: la posición actual pasa a valer `deg` (control directo y motores paso a paso de la Raspberry) |
+| `home` | — | `ok` / `err`. Busca los finales de carrera (motores paso a paso de la Raspberry con `stepper.*.home`) |
 | `raw` | — | evento `raw` |
 | `cfgget` | — | eventos `cfg` con la configuración entera en trozos |
 | `cfgset` | `i`, `n`, `d` | `ok` por trozo; con el último, `{"e":"ok","c":"cfgset","i":…,"done":true}` y el equipo se reinicia para aplicarla |
@@ -65,7 +66,9 @@ Con CAT configurado: `"cat":true`, `caps.cat` y `"rigctld":4532` (0 = apagado). 
 
 Red local (ESP32 y Raspberry Pi, `caps.lan`): `"clock":{"src":"GPS","age":120,"ntp":"ntp.roa.es"}` (quién puso la hora: `GPS`, `NTP` o `-`; solo ESP32) y, con algo configurado en `lan`, `"lan":{"kind":3,"wifi":true,"tcp":true,"lines":5210,"sk":18000,"udp":120,"age":0,"wxOk":3,"wxFail":0,"wxAge":400,"lat":36.53,"lon":-6.28}`.
 
-`board` es el entorno de PlatformIO (`esp32dev`, `esp32s3`, `waveshare_c5_lcd35`, `waveshare_s3_amoled241`, `waveshare_s3_lcd7b`, `pico2w`, `pico2`) o `raspberrypi`. En la Raspberry `drv` es `hamlib <modelo>` y se añade `hamlib` (estado del rotctld).
+`board` es el entorno de PlatformIO (`esp32dev`, `esp32s3`, `waveshare_c5_lcd35`, `waveshare_s3_amoled241`, `waveshare_s3_lcd7b`, `pico2w`, `pico2`) o `raspberrypi`. En la Raspberry `drv` es `hamlib <modelo>` y se añade `hamlib` (estado del rotctld); con motores paso a paso, `drv` es `stepper` y `caps.cal` vale `true` (solo `here`, no `cal`).
+
+GPS propio de la Raspberry (`gps.on`, `caps.gps`): `"gps":{"link":true,"fix":3,"sats":9,"seen":14,"pps":true,"lat":36.72,"lon":-4.42,"alt":12.5}` (`fix` 0 sin posición, 2 = 2D, 3 = 3D; `pps` = pulso en los últimos 3 s).
 
 ### `pos`
 
@@ -92,7 +95,7 @@ Red local (ESP32 y Raspberry Pi, `caps.lan`): `"clock":{"src":"GPS","age":120,"n
 
 ### `raw`
 
-Control directo: `{"e":"raw","az":2105,"el":1460,"unit":"mV"}` (`mV` ESP32, `adc` cuentas de 12 bits RP2350, `ads` ADS1115). Pasarela / Raspberry: `{"e":"raw","link":true}`.
+Control directo: `{"e":"raw","az":2105,"el":1460,"unit":"mV"}` (`mV` ESP32, `adc` cuentas de 12 bits RP2350, `ads` ADS1115). Pasarela / Raspberry: `{"e":"raw","link":true}`. Motores paso a paso: `{"e":"raw","link":true,"known":true,"homing":false,"azSteps":24000,"azStepsDeg":266.667,"elSteps":8000,"elStepsDeg":266.667,"azHome":false}` (`known` = posición fijada; `fault` si no encontró el final de carrera). En `pos`, `f` vale `NOPOS` (posición sin fijar) o `HOME AZ` / `HOME EL`.
 
 ### `cfg`
 

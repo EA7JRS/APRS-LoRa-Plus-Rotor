@@ -18,7 +18,7 @@ Controlador de rotores de antena **compatible con Hamlib** para el ecosistema **
                        │ mensajes APRS por LoRa (P az el + TOTP)           │──► rotor
  App Android ─────────►│ BLE / TCP 4534: protocolo JSON (PIN)              │    · control directo (relés / puente H + potenciómetro)
  GPredict, Look4Sat ──►│ rotctld (Hamlib NET rotctl, modelo 2)             │    · pasarela serie (GS-232, Rot2Prog, EasyComm, RS485)
- PC con Hamlib (USB) ─►│ se hace pasar por GS-232A/B, EasyComm II, Rot2Prog│    · Raspberry: rotctld de Hamlib (cualquier modelo)
+ PC con Hamlib (USB) ─►│ se hace pasar por GS-232A/B, EasyComm II, Rot2Prog│    · Raspberry: rotctld de Hamlib (cualquier modelo) o motores paso a paso
  GPredict, WSJT-X ───►│ rigctld 4532 (CAT)  ──────────────────────────────│──► emisora / SDR (CI-V, Yaesu, Kenwood, SDRconnect)
  Navegador ───────────►│ WebUI (brújula, mando, calibración, config, OTA)  │
                        └───────────────────────────────────────────────────┘
@@ -40,6 +40,8 @@ Controlador de rotores de antena **compatible con Hamlib** para el ecosistema **
 | Red local: viento, posición y rumbo (gpsd, NMEA, Signal K, UDP, OpenWeatherMap) | ✔ | ✔ | ✔ | ✔ | ✔ | — | — | ✔ (`lan.py`) |
 | Seguir el sol o la luna (ruido solar, EME), declinación del WMM, fuerza Beaufort | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
 | Hora: GPS de la red y NTP `ntp.roa.es` (ROA) | ✔ | ✔ | ✔ | ✔ | ✔ | NTP | — | NTPsec (NTS del ROA, GPS / PPS de gpsd) |
+| Motores paso a paso (Waveshare Stepper Motor HAT, finales de carrera) | — | — | — | — | — | — | — | ✔ |
+| GPS propio con PPS y reloj (Uputronics GPS/RTC HAT) | — | — | — | — | — | — | — | ✔ |
 | Actualización por la WebUI | placas de 8 MB | ✔ | ✔ | ✔ | ✔ | ✔ | — | `git pull` + `install.sh` |
 
 ## Versión
@@ -66,10 +68,11 @@ Primer arranque: abre el punto de acceso **APRS-Rotor** (contraseña `aprsrotor`
 ## Raspberry Pi
 
 ```sh
-cd raspberrypi && sudo ./install.sh
+cd raspberrypi && sudo ./install.sh                     # rotor de Hamlib por su controlador
+cd raspberrypi && sudo ./install.sh --stepper --gps     # motores paso a paso (Waveshare Stepper Motor HAT) + Uputronics GPS/RTC HAT
 ```
 
-Ver [docs/RASPBERRY_PI.md](docs/RASPBERRY_PI.md).
+Ver [docs/RASPBERRY_PI.md](docs/RASPBERRY_PI.md) y [docs/RASPBERRY_HATS.md](docs/RASPBERRY_HATS.md) (los dos HAT comparten el GPIO18: hay que mover un cable).
 
 ## Documentación
 
@@ -85,6 +88,7 @@ Ver [docs/RASPBERRY_PI.md](docs/RASPBERRY_PI.md).
 - [docs/APRS_CONTROL.md](docs/APRS_CONTROL.md): mover el rotor con mensajes APRS por LoRa, con código TOTP
 - [docs/INTEGRATION.md](docs/INTEGRATION.md): tracker, app, GPredict, Hamlib
 - [docs/RASPBERRY_PI.md](docs/RASPBERRY_PI.md): demonio de la Raspberry Pi
+- [docs/RASPBERRY_HATS.md](docs/RASPBERRY_HATS.md): Raspberry Pi con el Waveshare Stepper Motor HAT (dos motores paso a paso) y el Uputronics GPS/RTC HAT (posición, PPS, reloj)
 
 ## Estructura
 

@@ -10,6 +10,7 @@ import json
 import os
 
 from .aprs import b32key
+from . import stepper
 
 from . import __version__ as VERSION
 MASK = "********"
@@ -45,6 +46,12 @@ DEFAULTS["wind"] = {"on": False, "park": 15.0, "resume": 10.0, "hold": 15}   # p
 DEFAULTS["lan"] = {"kind": 0, "host": "", "port": 10110, "udp": 0, "owmKey": "", "wind": True, "pos": True,
                    "heading": False, "headStep": 3.0, "magVar": 0.0, "magAuto": True}
 DEFAULTS["sky"] = {"step": 1.0, "minEl": 0.0, "refraction": True}   # seguir el sol o la luna (orden "track")
+# Que mueve el rotor: "hamlib" (rotctld de Hamlib con un controlador) o "stepper" (motores paso a paso en la propia Pi con
+# el Waveshare Stepper Motor HAT, stepper.py; docs/RASPBERRY_HATS.md)
+DEFAULTS["driver"] = "hamlib"
+DEFAULTS["stepper"] = copy.deepcopy(stepper.DEFAULTS)
+# GPS propio (Uputronics GPS/RTC HAT con gpsd): su posicion manda sobre lan.pos y aprs.lat / aprs.lon (gnss.py)
+DEFAULTS["gps"] = {"on": False, "host": "127.0.0.1", "port": 2947}
 
 SECRETS = [("pin",), ("net", "webPass"), ("aprs", "totp"), ("lan", "owmKey")]
 
@@ -104,6 +111,14 @@ def validate(c: dict) -> str:
             return "lan.udp"
         if not 0.5 <= float(ln["headStep"]) <= 45 or not -90 <= float(ln["magVar"]) <= 90:
             return "lan.headStep 0.5-45 / lan.magVar -90..90"
+        if c["driver"] not in ("hamlib", "stepper"):
+            return "driver hamlib | stepper"
+        if c["driver"] == "stepper":
+            e = stepper.validate(c["stepper"], bool(c["gps"]["on"]))
+            if e:
+                return e
+        if not 1 <= int(c["gps"]["port"]) <= 65535 or not c["gps"]["host"]:
+            return "gps.host / gps.port"
         sk = c["sky"]
         if not 0.1 <= float(sk["step"]) <= 20 or not -5 <= float(sk["minEl"]) <= 60:
             return "sky.step 0.1-20 / sky.minEl -5..60"

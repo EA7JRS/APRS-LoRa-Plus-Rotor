@@ -122,6 +122,23 @@ Seguir el sol o la luna (orden `track`).
 | `minEl` | 0 | por debajo de esta elevación espera (-5 a 60) |
 | `refraction` | true | suma la refracción media (lo que ve la antena) |
 
+## `driver`, `stepper` y `gps` (solo Raspberry Pi)
+
+`driver`: `hamlib` (de serie; rotctld de Hamlib con el controlador del rotor) o `stepper` (motores paso a paso con el Waveshare Stepper Motor HAT). Detalles y montaje en [RASPBERRY_HATS.md](RASPBERRY_HATS.md).
+
+| Clave | Por defecto | |
+|---|---|---|
+| `stepper.az` / `stepper.el` | pines del HAT | `dir`, `step`, `en`, `mode` (motor 1: 13, 19, 12, [16, 17, 20]; motor 2: 24, 18, 4, [21, 22, 27]); `stepsRev` 200, `micro` 32, `gear` 1, `dps` 4, `accel` 8, `invert`, `hold`; final de carrera `home` (-1 = no), `homeAt`, `homeDir`, `homeActive`, `homePullup`; `el.on` |
+| `stepper.minAz` / `maxAz` / `minEl` / `maxEl` | 0 / 360 / 0 / 90 | topes (acimut hasta 720 con solape) |
+| `stepper.enActive` | 1 | nivel de ENABLE que da corriente (1 en las placas Rev2.1) |
+| `stepper.modePins` | false | micropasos por GPIO (solo con las resistencias de 0 Ω del reverso; si no, los DIP) |
+| `stepper.homeOnStart` | true | buscar los finales de carrera al arrancar |
+| `stepper.chip` | -1 | `/dev/gpiochipN` (-1 = el del conector de 40 pines) |
+| `gps.on` | false | GPS propio por gpsd: su posición manda sobre `lan.pos` y `aprs.lat` / `aprs.lon` |
+| `gps.host` / `gps.port` | 127.0.0.1 / 2947 | gpsd |
+
+Con `gps.on`, ningún pin de `stepper` puede ser el GPIO18 (el PPS del Uputronics).
+
 ## `aprs`
 
 `call` (indicativo del rotor), `tocall` (`APZLRR`), `path`, `allow`, `totp`, `reply`, `beaconMin`, `lat`, `lon`, `comment`. Ver [APRS_CONTROL.md](APRS_CONTROL.md).

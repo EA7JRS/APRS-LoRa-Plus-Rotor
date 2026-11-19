@@ -19,6 +19,7 @@ from aprs_lora_plus_rotor.wind import WindGuard, WindRotor  # noqa: E402
 from aprs_lora_plus_rotor import lan as L  # noqa: E402
 from aprs_lora_plus_rotor.heading import HeadingRotor, ang_diff  # noqa: E402
 from aprs_lora_plus_rotor import astro, sky, wmm  # noqa: E402
+from aprs_lora_plus_rotor import stepper as ST, gnss  # noqa: E402
 
 
 class FakeRotor(P.Rotor):
@@ -663,6 +664,164 @@ class TestWeb(unittest.TestCase):
         p = load_page()
         self.assertTrue(p.startswith(b"<!DOCTYPE html>"))
         self.assertNotIn(b"/update", p)
+
+
+def _stepper_cfg(**k):
+    c = json.loads(json.dumps(ST.DEFAULTS))
+    for ax in ("az", "el"):
+        c[ax].update({"stepsRev": 200, "micro": 1, "gear": 1.8, "dps": 30.0, "accel": 60.0})   # 1 paso por grado
+    c.update(k)
+    return c
+
+
+def _run(r, t=0.0, limit=200000):
+    """Avanza el reloj de los pasos hasta que todo para; devuelve el tiempo final."""
+    for _ in range(limit):
+        n = r.step_once(t)
+        if n is None:
+            return t
+        t = max(n, t + 1e-6)
+    raise AssertionError("no para")
+
+
+class TestStepper(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.state = os.path.join(self.tmp, "st.json")
+
+    def mk(self, **k):
+        self.g = ST.FakeGpio()
+        return ST.StepperRotor(_stepper_cfg(**k), (90.0, 0.0), gpio=self.g, state_path=self.state)
+
+    def test_defaults_valid_and_pps_clash(self):
+        c = config.Config(os.path.join(self.tmp, "c.json"))
+        d = json.loads(json.dumps(c.data))
+        d["driver"] = "stepper"
+        self.assertEqual(config.validate(d), "")
+        d["gps"]["on"] = True                              # STEP del motor 2 = GPIO18 = PPS del Uputronics
+        self.assertIn("GPIO18", config.validate(d))
+        d["stepper"]["el"]["step"] = 26
+        self.assertEqual(config.validate(d), "")
+        d["stepper"]["el"]["step"] = 13                    # el DIR del motor 1
+        self.assertIn("az.dir", config.validate(d))
+        self.assertEqual(ST.StepperAxis.steps_per_deg({"stepsRev": 200, "micro": 32, "gear": 60, }), 200 * 32 * 60 / 360)
+
+    def test_goto_steps_and_enable(self):
+        r = self.mk()
+        self.assertFalse(r.known)
+        r.set_pos(45.0, 30.0)
+        t = _run(r)
+        self.assertAlmostEqual(r.get_pos()[0], 45.0, places=6)
+        self.assertAlmostEqual(r.get_pos()[1], 30.0, places=6)
+        self.assertEqual(self.g.rises[19], 45)            # STEP del motor 1
+        self.assertEqual(self.g.rises[18], 30)            # STEP del motor 2
+        self.assertEqual(self.g.level[12], 1)             # ENABLE alto = activo (Rev2.1)
+        self.assertGreater(t, 45 / 30.0)                  # la rampa no deja ir mas rapido que dps
+        r.step_once(t + 1.0)                              # medio segundo parado: sin corriente
+        self.assertEqual(self.g.level[12], 0)
+        with open(self.state) as f:
+            self.assertAlmostEqual(json.load(f)["az"], 45.0)
+
+    def test_shortest_way_overlap_and_limits(self):
+        r = self.mk(maxAz=450.0)
+        r.here("az", 350.0)
+        r.set_pos(10.0, 0.0)                               # 350 -> 370 (solape) mejor que volver a 10
+        _run(r)
+        self.assertAlmostEqual(r.axes["az"].deg, 370.0)
+        self.assertAlmostEqual(r.get_pos()[0], 10.0)
+        r.set_pos(100.0, 95.0)                             # 370 -> 460 no cabe: 100; elevacion al tope 90
+        _run(r)
+        self.assertAlmostEqual(r.axes["az"].deg, 100.0)
+        self.assertAlmostEqual(r.get_pos()[1], 90.0)
+
+    def test_move_stop_ramp_and_direction(self):
+        r = self.mk()
+        r.here("az", 180.0)
+        r.move(P.MOVE_RIGHT, 0)
+        t = 0.0
+        for _ in range(60):
+            t = max(r.step_once(t), t + 1e-6)
+        self.assertGreater(r.axes["az"].deg, 180.0)
+        self.assertTrue(r.status() & P.ST_MOVING_RIGHT)
+        r.stop()
+        before = r.axes["az"].deg
+        _run(r, t)
+        self.assertGreaterEqual(r.axes["az"].deg, before)  # frena, no da la vuelta
+        self.assertLess(r.axes["az"].deg - before, 10.0)
+        self.assertEqual(r.status(), 0)
+        p = r.axes["az"].deg
+        r.set_pos(p - 20.0, 0.0)                           # cambio de sentido: DIR baja
+        _run(r)
+        self.assertAlmostEqual(r.axes["az"].deg, p - 20.0)
+        self.assertEqual(self.g.level[13], 0)
+
+    def test_home_switch_and_saved_position(self):
+        c = _stepper_cfg()
+        c["az"].update({"home": 5, "homeAt": 2.0, "homeDir": -1})
+        self.g = ST.FakeGpio()
+        r = ST.StepperRotor(c, (0.0, 0.0), gpio=self.g, state_path=self.state)
+        self.g.inputs[5] = 1                               # suelto (pullup)
+        self.assertEqual(r.home(), "")
+        self.assertFalse(r.set_pos(10.0, 0.0))             # buscando: no admite ordenes
+        t = 0.0
+        for _ in range(30):
+            t = max(r.step_once(t), t + 1e-6)
+        self.g.inputs[5] = 0                               # pisa el final de carrera
+        _run(r, t)
+        self.assertTrue(r.known)
+        self.assertFalse(r.homing)
+        self.assertAlmostEqual(r.axes["az"].deg, 2.0)
+        r.set_pos(30.0, 10.0)
+        _run(r)
+        r2 = ST.StepperRotor(c, (0.0, 0.0), gpio=ST.FakeGpio(), state_path=self.state)
+        self.assertTrue(r2.known)
+        self.assertAlmostEqual(r2.get_pos()[0], 30.0)
+        self.assertAlmostEqual(r2.get_pos()[1], 10.0)
+        r3 = ST.StepperRotor(c, (0.0, 0.0), gpio=ST.FakeGpio(), state_path=self.state)
+        r3.g.inputs[5] = 1                                 # nunca se pisa: fallo
+        r3.home()
+        _run(r3)
+        self.assertEqual(r3.fault, "HOME AZ")
+
+    def test_api_here_and_home(self):
+        class H(api.ApiHost):
+            def __init__(s, rot):
+                s.rotor = rot
+            def here(s, axis, deg):
+                return s.rotor.here(axis, deg)
+            def home(s):
+                return s.rotor.home()
+        r = self.mk()
+        sess = api.ApiSession()
+        out = sess.handle('{"c":"here","axis":"az","deg":123.0}', H(r))
+        self.assertIn('"e":"ok"', out[0])
+        self.assertAlmostEqual(r.get_pos()[0], 123.0)
+        self.assertIn("no home switch", sess.handle('{"c":"home"}', H(r))[0])
+
+
+class TestGnss(unittest.TestCase):
+    def test_gpsd_json(self):
+        g = gnss.OwnGps({"on": True, "host": "127.0.0.1", "port": 2947})
+        self.assertIsNone(g.position(0.0))
+        g.feed('{"class":"TPV","device":"/dev/serial0","mode":3,"lat":36.7213,"lon":-4.4214,"altMSL":12.5}', 1.0)
+        g.feed('{"class":"SKY","satellites":[{"PRN":1,"used":true},{"PRN":2,"used":false},{"PRN":3,"used":true}]}', 1.0)
+        g.feed('{"class":"PPS","device":"/dev/pps0"}', 1.5)
+        self.assertEqual(g.position(2.0), (36.7213, -4.4214))
+        i = g.info(2.0)
+        self.assertEqual((i["fix"], i["sats"], i["seen"], i["pps"], i["alt"]), (3, 2, 3, True, 12.5))
+        self.assertFalse(g.info(9.0)["pps"])
+        self.assertIsNone(g.position(20.0))                # posicion vieja
+        g.feed('{"class":"TPV","mode":1}', 21.0)
+        self.assertIsNone(g.position(21.0))
+        g.feed("no json", 22.0)
+
+    def test_own_gps_first(self):
+        g = gnss.OwnGps({"on": True, "host": "127.0.0.1", "port": 2947})
+        ln = L.Lan(dict(config.DEFAULTS["lan"]), {"lat": 40.0, "lon": -3.0}, WindGuard(config.DEFAULTS["wind"]), None)
+        self.assertEqual(ln.position(), (40.0, -3.0))
+        ln.own_pos = g.position
+        g.feed('{"class":"TPV","mode":2,"lat":36.5,"lon":-6.2}')
+        self.assertEqual(ln.position(), (36.5, -6.2))
 
 
 if __name__ == "__main__":

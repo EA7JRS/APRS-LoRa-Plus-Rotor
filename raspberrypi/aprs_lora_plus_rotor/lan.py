@@ -229,6 +229,7 @@ class Lan:
         self.wx_ok = self.wx_fail = 0
         self.last = 0.0
         self.on_park = None             # al aparcar por viento: parar y aparcar (lo pone el demonio)
+        self.own_pos = None             # GPS propio de la caja (gnss.OwnGps.position): manda sobre la red y la configurada
 
     @property
     def enabled(self) -> bool:
@@ -236,6 +237,10 @@ class Lan:
         return bool(int(c["kind"]) or int(c["udp"]) or c["owmKey"])
 
     def position(self, now: float | None = None) -> tuple[float, float] | None:
+        if self.own_pos:
+            p = self.own_pos()
+            if p:
+                return p
         if self.cfg["pos"]:
             la, lo = self.store.get("lat", now), self.store.get("lon", now)
             if la is not None and lo is not None:

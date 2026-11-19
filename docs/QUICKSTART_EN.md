@@ -14,7 +14,7 @@ Hamlib-compatible antenna rotor controller. It is driven by the APRS LoRa+ track
 | Waveshare ESP32-S3-Touch-AMOLED-2.41 (`waveshare_s3_amoled241`) | Box with a landscape AMOLED screen |
 | Waveshare ESP32-S3-Touch-LCD-7B (`waveshare_s3_lcd7b`) | Box with a 7" screen (the APRS LoRa+ Display board); relays through a PCF8574 board on I2C |
 | Raspberry Pi Pico 2 W / Pico 2 (`pico2w`, `pico2`) | Direct drive or gateway; LoRa with the SX1262 HAT |
-| Raspberry Pi (Zero 2 W, 3, 4, 5) | Any Hamlib rotor through its controller (see the manual) |
+| Raspberry Pi (Zero 2 W, 3, 4, 5) | Any Hamlib rotor through its controller, or two stepper motors with the Waveshare Stepper Motor HAT and GPS with the Uputronics GPS/RTC HAT (`install.sh --stepper --gps`, see [RASPBERRY_HATS.md](RASPBERRY_HATS.md), Spanish) |
 
 ## 2. Install the firmware
 

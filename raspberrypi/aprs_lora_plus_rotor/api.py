@@ -38,6 +38,8 @@ class ApiHost:
     def config_json(self) -> str: return "{}"
     def apply_config(self, text: str) -> str: return "not supported"
     def raw(self) -> dict: return {}
+    def here(self, axis: str, deg: float) -> str: return "only direct drive"     # Corregir desfase
+    def home(self) -> str: return "no home switch"                               # buscar los finales de carrera
     def clear_fault(self): pass
     def reboot(self): pass
     def pin(self) -> str: return ""
@@ -154,7 +156,14 @@ class ApiSession:
                 ok(c)
             else:
                 err(c, "rejected")
-        elif c in ("cal", "here"):
+        elif c == "here":
+            deg = _num(d.get("deg"))
+            e = "deg" if deg is None else h.here(str(d.get("axis", "az")), deg)
+            ok(c) if not e else err(c, e)
+        elif c == "home":
+            e = h.home()
+            ok(c) if not e else err(c, e)
+        elif c == "cal":
             err(c, "only direct drive")
         elif c == "cfgget":
             cfg = h.config_json()

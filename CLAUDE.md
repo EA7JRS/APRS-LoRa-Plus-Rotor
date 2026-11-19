@@ -76,6 +76,12 @@ Controlador de rotores compatible con Hamlib, manejado por el tracker APRS LoRa+
 ## lib al día (2026-11-15)
 - `firmware/lib/plotter_core` copiado del plotter (4f64002): `deviation` y `navtex` nuevos (el rotor no los usa) y posiciones compactas en `navwarn`. Después (a4ac92d): `dsc` (llamadas LSD), tampoco lo usa.
 
+## Raspberry Pi con HAT (2026-11-20; Manuel: «para las versiones de rotor utilizando raspberry pi se usaran hats Waveshare Stepper Motor HAT y Uputronics GPS»)
+- `stepper.py`: `"driver": "stepper"` = motores paso a paso del Waveshare Stepper Motor HAT (dos DRV8825) en vez de Hamlib (sin rotctld interno). Pines del wiki de Waveshare: motor 1 (acimut) DIR 13, STEP 19, ENABLE 12, MODE 16 17 20; motor 2 (elevación) DIR 24, STEP 18, ENABLE 4, MODE 21 22 27; ENABLE alto = activo en Rev2.1 (`enActive`); micropasos por los DIP (de fábrica 1/32; `modePins` solo con las resistencias de 0 Ω). lgpio (`python3-lgpio`, `/dev/gpiochip` del conector, también la Pi 5), hilo propio con rampa trapezoidal, nunca más allá de los topes, acimut por el camino corto con solape, sin corriente parado (`hold`). Posición contada, guardada en `/var/lib/aprs-lora-plus-rotor/stepper.json`; `here` la fija (`caps.cal` true, `cal` no), finales de carrera opcionales (`home`, `homeOnStart`, orden `home`, fallo `HOME AZ`), `NOPOS` sin fijar; `raw` con los pasos.
+- `gnss.py`: `gps.on` = cliente JSON de gpsd (TPV, SKY, PPS); su posición manda sobre `lan.pos` y `aprs.lat/lon` (`Lan.own_pos`); `info.gps`, `caps.gps`. Hora: NTPsec con SHM 0 / 1 de gpsd (ya estaba), reloj RV-3028 (`dtoverlay=i2c-rtc,rv3028`).
+- **Los dos HAT chocan en el GPIO18** (STEP del motor 2 y PPS del Uputronics): la validación lo rechaza con `gps.on`; arreglo: pin 12 del Stepper HAT sin unir a la Pi y cable al pin 37 (GPIO26), `stepper.el.step` 26 (lo pone `install.sh`), o solo acimut.
+- `install.sh --stepper --gps` (lgpio; gpsd, pps-tools, UART sin consola, `pps-gpio` en 18, `uart0` en la Pi 5). Documento: `docs/RASPBERRY_HATS.md`. 31 pruebas Python (GPIO simulado, mensajes de gpsd). **Sin probar con las placas.** La app no tiene aún el botón `home` ni muestra `info.gps`.
+
 ## Manuales (2026-11-08)
 - `docs/MANUAL_ES.md`, `docs/MANUAL_EN.md` (manual de usuario) y `docs/QUICKSTART_ES.md`, `docs/QUICKSTART_EN.md` (guía rápida). Al cambiar funciones, placas o versión, actualizar los cuatro.
 
