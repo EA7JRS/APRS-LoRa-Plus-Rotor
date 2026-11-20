@@ -1,5 +1,5 @@
 #!/bin/sh
-# APRS LoRa+ Rotor - instalacion en Raspberry Pi OS (Bookworm o posterior): Pi Zero 2 W, 3, 4 y 5
+# APRS LoRa+ Rotor - instalacion en Raspberry Pi OS (Bookworm o posterior): Pi Zero 2 W, 3B / 3B+, 4B / 400 y 5
 # Copyright (C) 2026 Manuel - EA7JRS - GPL-3.0-or-later
 #
 #   sudo ./install.sh            instala o actualiza y arranca el servicio
@@ -10,6 +10,7 @@
 #                                  (Pi 4 y 5; en la 3 y la Zero 2 W, adaptador USB-serie); reinicia la Pi
 #   (se pueden juntar: sudo ./install.sh --stepper --gps --link-uart; ver docs/RASPBERRY_HATS.md por el GPIO18 de los dos HAT)
 #   NO_NTP=1 sudo ./install.sh   sin tocar la hora del sistema (de serie pone NTPsec con la hora del ROA y el GPS de gpsd)
+#   PI5_RTC=1 sudo ./install.sh --gps   Pi 5: deja su reloj propio (con su pila) en vez del RV-3028 del Uputronics
 set -e
 
 GADGET=""; STEPPER=""; GPS=""; LINK=""; LINKDEV=""
@@ -25,6 +26,11 @@ done
 
 if [ "$(id -u)" != "0" ]; then echo "Ejecuta con sudo"; exit 1; fi
 HERE=$(cd "$(dirname "$0")" && pwd)
+# Modelo: pi3 (3B / 3B+), pi4, pi5, zero2 u other (aprs_lora_plus_rotor/board.py)
+MODEL=$(tr -d '\0' < /proc/device-tree/model 2>/dev/null || echo Linux)
+FAM=$(cd "$HERE" && python3 -c 'import sys; from aprs_lora_plus_rotor import board; print(board.family(sys.argv[1]))' "$MODEL")
+echo "== $MODEL ($FAM)"
+[ "$FAM" = "other" ] && echo "   aviso: modelo no probado; los de este proyecto son Zero 2 W, 3B / 3B+, 4B / 400 y 5"
 DEST=/opt/aprs-lora-plus-rotor
 CONF=/etc/aprs-lora-plus-rotor
 
@@ -65,11 +71,17 @@ if [ -n "$GPS" ]; then
     addcfg "enable_uart=1"
     addcfg "dtparam=i2c_arm=on"
     addcfg "dtoverlay=pps-gpio,gpiopin=18"
-    addcfg "dtoverlay=i2c-rtc,rv3028,backup-switchover-mode=1"
-    if grep -q "Raspberry Pi 5" /proc/device-tree/model 2>/dev/null; then
+    if [ "$FAM" = "pi5" ]; then
         addcfg "dtparam=uart0=on"                       # en la Pi 5 el UART de los pines 8/10 es ttyAMA0
         GPSDEV=/dev/ttyAMA0
+        if [ -z "$PI5_RTC" ]; then
+            # La Pi 5 tiene su reloj (rtc0, pila aparte): se apaga para que el RV-3028 del HAT sea el del sistema
+            addcfg "dtparam=rtc=off"
+            addcfg "dtoverlay=i2c-rtc,rv3028,backup-switchover-mode=1"
+        fi
     else
+        # Zero 2 W, 3 y 4: el Bluetooth se queda el PL011 y el GPS va por el mini UART (enable_uart=1 fija su reloj)
+        addcfg "dtoverlay=i2c-rtc,rv3028,backup-switchover-mode=1"
         GPSDEV=/dev/serial0
     fi
     if command -v raspi-config >/dev/null; then
@@ -93,11 +105,10 @@ if [ -n "$LINK" ]; then
     # El UART0 (GPIO14/15) es el del GPS: la pantalla va por otro PL011 en GPIO8 (TX, pin 24) y GPIO9 (RX, pin 21),
     # libres con los dos HAT. /dev/rotor-link apunta a el (el numero de ttyAMA cambia segun los UART activados)
     echo "== UART para la pantalla del rotor por cable (GPIO8 TX, GPIO9 RX)"
-    MODEL=$(tr -d '\0' < /proc/device-tree/model 2>/dev/null || true)
     KERN=""
-    case "$MODEL" in
-        *"Raspberry Pi 5"*|*"Compute Module 5"*) addcfg "dtoverlay=uart3-pi5"; KERN="1f0003c000.serial" ;;
-        *"Raspberry Pi 4"*|*"Raspberry Pi 400"*|*"Compute Module 4"*) addcfg "dtoverlay=uart4"; KERN="fe201800.serial" ;;
+    case "$FAM" in
+        pi5) addcfg "dtoverlay=uart3-pi5"; KERN="1f0003c000.serial" ;;
+        pi4) addcfg "dtoverlay=uart4"; KERN="fe201800.serial" ;;
         *) LINKDEV=/dev/ttyUSB0
            echo "   $MODEL no tiene otro UART en el conector: usa un adaptador USB-serie de 3,3 V ($LINKDEV)" ;;
     esac
@@ -132,6 +143,9 @@ os.replace(p + ".tmp", p)
 EOP
 fi
 
+if [ -n "$GADGET" ] && [ "$FAM" = "pi3" ]; then
+    echo "   --gadget: la Pi 3 no tiene USB OTG (solo la Zero 2 W); se salta"; GADGET=""
+fi
 if [ -n "$GADGET" ]; then
     echo "== USB gadget serie (Zero 2 W)"
     grep -q "^dtoverlay=dwc2" "$BOOT/config.txt" || echo "dtoverlay=dwc2" >> "$BOOT/config.txt"
@@ -154,4 +168,5 @@ echo "rotctld (Hamlib NET rotctl, modelo 2): $IP:4533   ·   modelos de Hamlib: 
 [ -n "$STEPPER" ] && echo "Motores: ajusta stepper.az / stepper.el (micropasos de los DIP, gear, dps) en la configuracion"
 [ -n "$GPS" ] && echo "GPS: reinicia la Pi (sudo reboot) para el UART, el PPS y el reloj; luego: cgps, ppstest /dev/pps0"
 [ -n "$LINKDEV" ] && echo "Pantalla por cable: $LINKDEV (GS-232B 9600); en la pantalla, driver 1, serial.proto 1, serial.baud 9600"
+[ "$FAM" = "pi5" ] && [ -n "$STEPPER" ] && echo "Pi 5 alimentada por el Stepper HAT (3 A): los USB quedan en 600 mA y avisa al arrancar (docs/RASPBERRY_HATS.md)"
 [ -n "$REBOOT" ] && echo "Reinicia la Pi: sudo reboot"

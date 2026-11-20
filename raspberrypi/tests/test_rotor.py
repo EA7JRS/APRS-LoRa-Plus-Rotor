@@ -19,7 +19,7 @@ from aprs_lora_plus_rotor.wind import WindGuard, WindRotor  # noqa: E402
 from aprs_lora_plus_rotor import lan as L  # noqa: E402
 from aprs_lora_plus_rotor.heading import HeadingRotor, ang_diff  # noqa: E402
 from aprs_lora_plus_rotor import astro, sky, wmm  # noqa: E402
-from aprs_lora_plus_rotor import stepper as ST, gnss  # noqa: E402
+from aprs_lora_plus_rotor import stepper as ST, gnss, board  # noqa: E402
 
 
 class FakeRotor(P.Rotor):
@@ -682,6 +682,54 @@ def _run(r, t=0.0, limit=200000):
             return t
         t = max(n, t + 1e-6)
     raise AssertionError("no para")
+
+
+class TestBoard(unittest.TestCase):
+    def test_family(self):
+        f = board.family
+        self.assertEqual(f("Raspberry Pi 3 Model B Plus Rev 1.3"), "pi3")
+        self.assertEqual(f("Raspberry Pi 3 Model B Rev 1.2"), "pi3")
+        self.assertEqual(f("Raspberry Pi 5 Model B Rev 1.0"), "pi5")
+        self.assertEqual(f("Raspberry Pi Compute Module 5 Rev 1.0"), "pi5")
+        self.assertEqual(f("Raspberry Pi 4 Model B Rev 1.5"), "pi4")
+        self.assertEqual(f("Raspberry Pi 400 Rev 1.1"), "pi4")
+        self.assertEqual(f("Raspberry Pi Zero 2 W Rev 1.0"), "zero2")
+        self.assertEqual(f("Linux"), "other")
+        i = board.info("Raspberry Pi 5 Model B Rev 1.0")
+        self.assertEqual((i["gpio"], i["gps"], i["link"], i["rtc"]), ("pinctrl-rp1", "/dev/ttyAMA0", "uart3-pi5", True))
+        i = board.info("Raspberry Pi 3 Model B Plus Rev 1.3")
+        self.assertEqual((i["gpio"], i["gps"], i["link"]), ("pinctrl-bcm2835", "/dev/serial0", ""))
+
+    def test_model_file(self):
+        p = os.path.join(tempfile.mkdtemp(), "model")
+        with open(p, "wb") as f:
+            f.write(b"Raspberry Pi 3 Model B Plus Rev 1.3\x00")
+        self.assertEqual(board.model(p), "Raspberry Pi 3 Model B Plus Rev 1.3")
+        self.assertEqual(board.model(p + "x"), "Linux")
+
+    def test_pick_chip(self):
+        # Pi 5 con nucleo antiguo: el conector es gpiochip4; con el nuevo, gpiochip0; los brcmstb no valen
+        old = {0: "gpio-brcmstb@107d508500", 1: "gpio-brcmstb@107d508520", 4: "pinctrl-rp1"}
+        new = {0: "pinctrl-rp1", 10: "gpio-brcmstb@107d508500", 11: "gpio-brcmstb@107d508520"}
+        self.assertEqual(ST.pick_chip(old, "pinctrl-rp1"), 4)
+        self.assertEqual(ST.pick_chip(new, "pinctrl-rp1"), 0)
+        self.assertEqual(ST.pick_chip({0: "pinctrl-bcm2835", 1: "raspberrypi-exp-gpio"}, "pinctrl-bcm2835"), 0)
+        self.assertEqual(ST.pick_chip({0: "x", 2: "pinctrl-bcm2711"}, "pinctrl-rp1"), 2)    # otra etiqueta: primer pinctrl-
+        self.assertEqual(ST.pick_chip({0: "x"}, "pinctrl-rp1"), -1)
+
+    def test_step_rate(self):
+        s = json.loads(json.dumps(ST.DEFAULTS))
+        for ax in ("az", "el"):
+            s[ax].update(gear=60.0, dps=4.0)        # 200 x 32 x 60 / 360 x 4 = 4267 pasos/s por motor
+        self.assertEqual(ST.validate(s, False, board.FAMILIES["pi5"]["steps"]), "")
+        self.assertEqual(ST.validate(s, False, board.FAMILIES["pi4"]["steps"]), "")
+        self.assertEqual(ST.validate(s, False, board.FAMILIES["pi3"]["steps"]), "")
+        s["el"]["dps"] = 6.0                         # 4267 + 6400 = 10667: no en la 3 ni la Zero 2 W (10000)
+        self.assertIn("10000", ST.validate(s, False, board.FAMILIES["pi3"]["steps"]))
+        self.assertIn("10000", ST.validate(s, False, board.FAMILIES["zero2"]["steps"]))
+        self.assertEqual(ST.validate(s, False, board.FAMILIES["pi4"]["steps"]), "")
+        s["el"]["on"] = False                        # un solo motor
+        self.assertEqual(ST.validate(s, False, board.FAMILIES["pi3"]["steps"]), "")
 
 
 class TestStepper(unittest.TestCase):

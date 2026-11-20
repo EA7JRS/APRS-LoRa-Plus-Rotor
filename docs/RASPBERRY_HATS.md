@@ -1,8 +1,10 @@
 # Raspberry Pi con Waveshare Stepper Motor HAT y Uputronics GPS/RTC HAT
 
-La caja del rotor en una Raspberry Pi (Zero 2 W, 3, 4, 5) puede mover el rotor ella misma, sin controlador comercial ni Hamlib: dos motores paso a paso con el **Waveshare Stepper Motor HAT** (dos DRV8825). El **Uputronics GPS/RTC HAT** da la posición de la estación, la hora con PPS para NTPsec y un reloj RV-3028 que guarda la hora sin red.
+La caja del rotor en una Raspberry Pi (Zero 2 W, 3B / 3B+, 4, 5) puede mover el rotor ella misma, sin controlador comercial ni Hamlib: dos motores paso a paso con el **Waveshare Stepper Motor HAT** (dos DRV8825). El **Uputronics GPS/RTC HAT** da la posición de la estación, la hora con PPS para NTPsec y un reloj RV-3028 que guarda la hora sin red.
 
 Las dos placas se pueden usar por separado, pero **juntas chocan en el GPIO18**: ver [Los dos HAT a la vez](#los-dos-hat-a-la-vez).
+
+Modelos: Pi 3B / 3B+, 4B / 400, 5 y Zero 2 W ([tabla](RASPBERRY_PI.md#modelos): UART del GPS, reloj, segundo UART, pasos por segundo y alimentación de cada uno).
 
 ## Instalación
 
@@ -13,7 +15,7 @@ sudo reboot                            # con --gps: UART, PPS y reloj
 ```
 
 - `--stepper`: instala `python3-lgpio` (pulsos por `/dev/gpiochip`, también en la Pi 5) y pone `"driver": "stepper"`.
-- `--gps`: instala `gpsd`, `gpsd-clients` y `pps-tools`; añade a `config.txt` `enable_uart=1`, `dtparam=i2c_arm=on`, `dtoverlay=pps-gpio,gpiopin=18` y `dtoverlay=i2c-rtc,rv3028,backup-switchover-mode=1` (en la Pi 5 también `dtparam=uart0=on`); quita la consola del puerto serie; gpsd lee `/dev/serial0` (`/dev/ttyAMA0` en la Pi 5) y `/dev/pps0`; pone `"gps": {"on": true}`.
+- `--gps`: instala `gpsd`, `gpsd-clients` y `pps-tools`; añade a `config.txt` `enable_uart=1`, `dtparam=i2c_arm=on`, `dtoverlay=pps-gpio,gpiopin=18` y `dtoverlay=i2c-rtc,rv3028,backup-switchover-mode=1` (en la Pi 5 también `dtparam=uart0=on` y `dtparam=rtc=off`: su reloj propio se apaga para que mande el RV-3028 del HAT; `PI5_RTC=1` lo deja); quita la consola del puerto serie; gpsd lee `/dev/serial0` (`/dev/ttyAMA0` en la Pi 5) y `/dev/pps0`; pone `"gps": {"on": true}`.
 - `--link-uart`: UART para una pantalla del rotor por cable ([abajo](#2-pantalla-lcd-7--lcd-7b-por-cable-gs-232b)).
 - Con las dos, si el STEP del motor 2 sigue en el GPIO18, lo cambia a **26** en la configuración (el cable de abajo).
 

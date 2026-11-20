@@ -22,6 +22,7 @@ import os
 import threading
 import time
 
+from . import board
 from .protocols import (MOVE_DOWN, MOVE_LEFT, MOVE_RIGHT, MOVE_UP, ST_BUSY, ST_MOVING, ST_MOVING_AZ, ST_MOVING_DOWN,
                         ST_MOVING_EL, ST_MOVING_LEFT, ST_MOVING_RIGHT, ST_MOVING_UP, Rotor)
 
@@ -45,8 +46,12 @@ DEFAULTS = {"chip": -1, "enActive": 1, "modePins": False, "homeOnStart": True, "
             "minEl": 0.0, "maxEl": 90.0, **AXIS_DEFAULTS}
 
 
-def validate(s: dict, gps_on: bool) -> str:
+def validate(s: dict, gps_on: bool, max_steps: int | None = None) -> str:
+    """max_steps: pasos por segundo de los dos motores juntos que da esta Pi (board.FAMILIES)."""
+    if max_steps is None:
+        max_steps = int(board.info()["steps"])
     used: dict[int, str] = {}
+    total = 0.0
     for ax in ("az", "el"):
         a = s[ax]
         if not a["on"]:
@@ -69,8 +74,9 @@ def validate(s: dict, gps_on: bool) -> str:
         if not (int(a["stepsRev"]) > 0 and float(a["gear"]) > 0 and 0.05 <= float(a["dps"]) <= 90
                 and 0.1 <= float(a["accel"]) <= 500 and int(a["homeDir"]) in (-1, 1)):
             return f"stepper.{ax}: stepsRev > 0, gear > 0, dps 0.05-90, accel 0.1-500, homeDir -1 / 1"
-        if StepperAxis.rate(a) > 20000:
-            return f"stepper.{ax}: mas de 20000 pasos/s (baja dps o micro)"
+        total += StepperAxis.rate(a)
+    if total > max_steps:
+        return f"stepper: {total:.0f} pasos/s entre los dos motores; esta Pi da {max_steps} (baja dps o micro)"
     if gps_on and PPS_GPIO in used:
         return f"stepper.{used[PPS_GPIO]} = GPIO18, el PPS del GPS (docs/RASPBERRY_HATS.md)"
     if not (float(s["minAz"]) < float(s["maxAz"]) and float(s["maxAz"]) - float(s["minAz"]) <= 720
@@ -80,28 +86,41 @@ def validate(s: dict, gps_on: bool) -> str:
 
 
 # ---- GPIO ---------------------------------------------------------------------------------------------------------------
-class Gpio:
-    """lgpio sobre /dev/gpiochipN: el del conector de 40 pines (pinctrl-bcm2835 / bcm2711 / rp1)."""
+def pick_chip(labels: dict[int, str], want: str) -> int:
+    """gpiochip del conector: el de la etiqueta del modelo (pinctrl-rp1 en la 5...) o, si no, el primer pinctrl-."""
+    for pref in (want, "pinctrl-"):
+        for c in sorted(labels):
+            if pref and labels[c].startswith(pref):
+                return c
+    return -1
 
-    def __init__(self, chip: int = -1):
+
+class Gpio:
+    """lgpio sobre /dev/gpiochipN: el del conector de 40 pines (pinctrl-bcm2835 en la 3 y la Zero 2 W, bcm2711 en la 4, rp1 en la 5)."""
+
+    def __init__(self, chip: int = -1, want: str = ""):
         import lgpio  # python3-lgpio
         self.lg = lgpio
-        chips = [chip] if chip >= 0 else range(0, 8)
         self.h = None
-        for c in chips:
+        if chip >= 0:
+            self.h = lgpio.gpiochip_open(chip)
+            log.info("GPIO: gpiochip%d", chip)
+            return
+        labels = {}
+        for c in range(0, 16):                 # la Pi 5 con nucleos antiguos: gpiochip4; con los nuevos, gpiochip0
             try:
                 h = lgpio.gpiochip_open(c)
             except Exception:  # noqa: BLE001
                 continue
             try:
-                label = lgpio.gpio_get_chip_info(h)[3]
+                labels[c] = str(lgpio.gpio_get_chip_info(h)[3])
             except Exception:  # noqa: BLE001
-                label = ""
-            if chip >= 0 or str(label).startswith("pinctrl-"):
-                self.h = h
-                log.info("GPIO: gpiochip%d (%s)", c, label)
-                break
+                labels[c] = ""
             lgpio.gpiochip_close(h)
+        c = pick_chip(labels, want or board.info()["gpio"])
+        if c >= 0:
+            self.h = lgpio.gpiochip_open(c)
+            log.info("GPIO: gpiochip%d (%s)", c, labels[c])
         if self.h is None:
             raise OSError("no hay gpiochip del conector de 40 pines")
 

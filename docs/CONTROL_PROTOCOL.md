@@ -66,7 +66,7 @@ Con CAT configurado: `"cat":true`, `caps.cat` y `"rigctld":4532` (0 = apagado). 
 
 Red local (ESP32 y Raspberry Pi, `caps.lan`): `"clock":{"src":"GPS","age":120,"ntp":"ntp.roa.es"}` (quién puso la hora: `GPS`, `NTP` o `-`; solo ESP32) y, con algo configurado en `lan`, `"lan":{"kind":3,"wifi":true,"tcp":true,"lines":5210,"sk":18000,"udp":120,"age":0,"wxOk":3,"wxFail":0,"wxAge":400,"lat":36.53,"lon":-6.28}`.
 
-`board` es el entorno de PlatformIO (`esp32dev`, `esp32s3`, `waveshare_c5_lcd35`, `waveshare_s3_amoled241`, `waveshare_s3_lcd7b`, `waveshare_s3_lcd7`, `pico2w`, `pico2`) o `raspberrypi`. En la Raspberry `drv` es `hamlib <modelo>` y se añade `hamlib` (estado del rotctld); con motores paso a paso, `drv` es `stepper` y `caps.cal` vale `true` (solo `here`, no `cal`). Con `driver` 2 (mando de otra caja por su rotctld), `drv` es `rotctld (network)` y `raw` lleva `link` y `remote` (host).
+`board` es el entorno de PlatformIO (`esp32dev`, `esp32s3`, `waveshare_c5_lcd35`, `waveshare_s3_amoled241`, `waveshare_s3_lcd7b`, `waveshare_s3_lcd7`, `pico2w`, `pico2`) o `raspberrypi`. En la Raspberry `chip` es el modelo (`Raspberry Pi 3 Model B Plus Rev 1.3`), `family` es `pi3`, `pi4`, `pi5`, `zero2` u `other`, y `drv` es `hamlib <modelo>` y se añade `hamlib` (estado del rotctld); con motores paso a paso, `drv` es `stepper` y `caps.cal` vale `true` (solo `here`, no `cal`). Con `driver` 2 (mando de otra caja por su rotctld), `drv` es `rotctld (network)` y `raw` lleva `link` y `remote` (host).
 
 GPS propio de la Raspberry (`gps.on`, `caps.gps`): `"gps":{"link":true,"fix":3,"sats":9,"seen":14,"pps":true,"lat":36.72,"lon":-4.42,"alt":12.5}` (`fix` 0 sin posición, 2 = 2D, 3 = 3D; `pps` = pulso en los últimos 3 s).
 

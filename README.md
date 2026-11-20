@@ -8,7 +8,7 @@ Controlador de rotores de antena **compatible con Hamlib** para el ecosistema **
 
 **Manual**: [español](docs/MANUAL_ES.md) · [English](docs/MANUAL_EN.md) · **Guía rápida / Quick start**: [ES](docs/QUICKSTART_ES.md) · [EN](docs/QUICKSTART_EN.md)
 
-**Placas**: ESP32, ESP32-S3, **Waveshare ESP32-C5-Touch-LCD-3.5**, **ESP32-S3-Touch-AMOLED-2.41**, **ESP32-S3-Touch-LCD-7B** y **ESP32-S3-Touch-LCD-7** (con pantalla táctil: mando del rotor en la propia caja), Raspberry Pi Pico 2 / Pico 2 W y Raspberry Pi (Zero 2 W, 3, 4, 5).
+**Placas**: ESP32, ESP32-S3, **Waveshare ESP32-C5-Touch-LCD-3.5**, **ESP32-S3-Touch-AMOLED-2.41**, **ESP32-S3-Touch-LCD-7B** y **ESP32-S3-Touch-LCD-7** (con pantalla táctil: mando del rotor en la propia caja), Raspberry Pi Pico 2 / Pico 2 W y Raspberry Pi (Zero 2 W, 3B / 3B+, 4, 5).
 
 **Esfera** (pantalla táctil y WebUI, la misma que la app, APRS LoRa+ Display y sat-aprs): aguja azul = posición, ámbar = objetivo con su índice en el borde, rojo = topes mecánicos, naranja = solape; en la WebUI la aguja gira por el lado corto.
 
@@ -69,7 +69,7 @@ Primer arranque: abre el punto de acceso **APRS-Rotor** (contraseña `aprsrotor`
 ## Raspberry Pi
 
 ```sh
-cd raspberrypi && sudo ./install.sh                     # rotor de Hamlib por su controlador
+cd raspberrypi && sudo ./install.sh                     # rotor de Hamlib por su controlador (Pi 3B / 3B+, 4, 5, Zero 2 W: detecta el modelo)
 cd raspberrypi && sudo ./install.sh --stepper --gps     # motores paso a paso (Waveshare Stepper Motor HAT) + Uputronics GPS/RTC HAT
 cd raspberrypi && sudo ./install.sh --link-uart         # + pantalla LCD-7 / 7B por cable (GPIO8 / 9, GS-232B)
 ```

@@ -14,7 +14,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with APRS LoRa+ Rotor. If not, see <https://www.gnu.org/licenses/>.
-"""Demonio APRS LoRa+ Rotor para Raspberry Pi (Zero 2 W, 3, 4, 5):
+"""Demonio APRS LoRa+ Rotor para Raspberry Pi (Zero 2 W, 3B / 3B+, 4, 5):
 
     rotctld de Hamlib (127.0.0.1:4535, cualquier rotor de Hamlib)
         ^
@@ -32,7 +32,7 @@ import socket
 import sys
 import time
 
-from . import __version__
+from . import __version__, board
 from .api import ApiHost, ApiSession, pos_event  # noqa: F401
 from .aprs import AprsConfig, AprsControl, LORA_HEADER, status_line
 from .bluez import Bluetooth
@@ -86,7 +86,8 @@ class Daemon(ApiHost):
     # ---- ApiHost --------------------------------------------------------------------------------------------------------
     def info(self) -> dict:
         d = self.cfg.data
-        return {"dev": "APRS LoRa+ Rotor", "ver": __version__, "board": "raspberrypi", "chip": _pi_model(),
+        return {"dev": "APRS LoRa+ Rotor", "ver": __version__, "board": "raspberrypi", "chip": board.model(),
+                "family": board.family(board.model()),
                 "name": d["name"], "drv": "stepper" if self.proc is None else f"hamlib {d['hamlib']['model']}",
                 "call": d["aprs"]["call"],
                 "caps": {"wifi": True, "ble": bool(d["bt"]["ble"]), "spp": bool(d["bt"]["spp"]),
@@ -356,14 +357,6 @@ def _ip() -> str:
         return ip
     except OSError:
         return ""
-
-
-def _pi_model() -> str:
-    try:
-        with open("/proc/device-tree/model", encoding="utf-8", errors="replace") as f:
-            return f.read().strip("\x00\n ")
-    except OSError:
-        return "Linux"
 
 
 def main(argv=None):

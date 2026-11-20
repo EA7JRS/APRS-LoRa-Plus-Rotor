@@ -1,4 +1,4 @@
-# Raspberry Pi (Zero 2 W, 3, 4, 5)
+# Raspberry Pi (Zero 2 W, 3B / 3B+, 4, 5)
 
 ```
    rotor ── controlador (GS-232, SPID, EasyComm, K3NG, ARS, ERC…) ── USB / serie ──┐
@@ -18,6 +18,24 @@
 Vale cualquier rotor que Hamlib conozca: el demonio no habla con el rotor, lo hace el `rotctld` real.
 
 Sin controlador: con `"driver": "stepper"` el demonio mueve él mismo dos motores paso a paso con el **Waveshare Stepper Motor HAT**, y con `gps.on` toma la posición de la estación del **Uputronics GPS/RTC HAT**. Instalación (`./install.sh --stepper --gps`), pines, mecánica, finales de carrera y el choque de los dos HAT en el GPIO18: [RASPBERRY_HATS.md](RASPBERRY_HATS.md). Allí también cómo emparejarla con una pantalla LCD-7 / LCD-7B (WiFi o cable, `--link-uart`) y con la app por Bluetooth.
+
+## Modelos
+
+Raspberry Pi OS Bookworm o posterior (32 o 64 bits). `install.sh` mira el modelo (`/proc/device-tree/model`, `aprs_lora_plus_rotor/board.py`) y pone lo que toca; el evento `info` lo da en `chip` (texto) y `family` (`pi3`, `pi4`, `pi5`, `zero2`).
+
+| | Pi 3B / 3B+ | Pi 4B / 400 | Pi 5 | Zero 2 W |
+|---|---|---|---|---|
+| GPIO del conector (lgpio) | `pinctrl-bcm2835` | `pinctrl-bcm2711` | `pinctrl-rp1` (gpiochip0, o 4 con núcleos antiguos) | `pinctrl-bcm2835` |
+| UART de los pines 8 / 10 (GPS) | mini UART, `/dev/serial0` (el PL011 es del Bluetooth) | mini UART, `/dev/serial0` | `/dev/ttyAMA0` (`dtparam=uart0=on`) | mini UART, `/dev/serial0` |
+| Segundo UART en GPIO8 / 9 (`--link-uart`) | no: adaptador USB-serie | `uart4` | `uart3-pi5` | no: adaptador USB-serie |
+| Reloj | RV-3028 del HAT | RV-3028 del HAT | el suyo se apaga (`dtparam=rtc=off`) y manda el RV-3028; `PI5_RTC=1` deja el suyo | RV-3028 del HAT |
+| Pasos por segundo (dos motores juntos) | 10000 | 16000 | 20000 | 10000 |
+| USB gadget (`--gadget`) | no | — | — | sí |
+| Alimentación por el Stepper HAT (5 V, 3 A) | sí (pide 2,5 A) | sí (pide 3 A) | sí, con los USB en 600 mA (ver abajo) | sí |
+
+Los pasos por segundo son un tope estimado (los pulsos los da Python con lgpio; sin medir en cada modelo): la configuración rechaza `stepper` si la suma de los dos motores (`dps` × pasos por grado) pasa del de esa Pi.
+
+**Pi 5**: pide 5 V y 5 A. Alimentada por el Stepper HAT (su regulador da hasta 3 A) arranca con el aviso de fuente y deja los USB en 600 mA: basta para un adaptador USB-serie, no para discos o un RTL-SDR. Con el HAT alimentado, la Pi ya recibe sus 5 V por el conector: no le pongas también la USB-C (serían dos fuentes de 5 V unidas). Lo mismo en los demás modelos.
 
 ## Instalación
 

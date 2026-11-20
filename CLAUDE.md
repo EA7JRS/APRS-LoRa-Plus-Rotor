@@ -8,7 +8,7 @@ Repositorio: `EA7JRS/APRS-LoRa-Plus-Rotor` (privado, creado por Manuel el 2026-1
 Controlador de rotores compatible con Hamlib, manejado por el tracker APRS LoRa+, la app Android y cualquier programa con Hamlib.
 
 ## Decisiones (Manuel, 2026-11-07)
-- Placas: **ESP32 y ESP32-S3**, **Raspberry Pi Pico 2 / Pico 2 W** (RP2350, pedido después), **Raspberry Pi** (Zero 2 W, 3, 4, 5) **Waveshare ESP32-C5-Touch-LCD-3.5** (pedida 2026-11-08; Manuel eligió «rotor con pantalla») **Waveshare ESP32-S3-Touch-AMOLED-2.41** (V2, pedida 2026-11-08, mismo uso) y **Waveshare ESP32-S3-Touch-LCD-7B** (la de APRS LoRa+ Display, pedida 2026-11-08) y **Waveshare ESP32-S3-Touch-LCD-7** (sin B, pedida 2026-11-20).
+- Placas: **ESP32 y ESP32-S3**, **Raspberry Pi Pico 2 / Pico 2 W** (RP2350, pedido después), **Raspberry Pi** (Zero 2 W, 3B / 3B+, 4, 5; 3B+ y 5 pedidas expresamente el 2026-11-20) **Waveshare ESP32-C5-Touch-LCD-3.5** (pedida 2026-11-08; Manuel eligió «rotor con pantalla») **Waveshare ESP32-S3-Touch-AMOLED-2.41** (V2, pedida 2026-11-08, mismo uso) y **Waveshare ESP32-S3-Touch-LCD-7B** (la de APRS LoRa+ Display, pedida 2026-11-08) y **Waveshare ESP32-S3-Touch-LCD-7** (sin B, pedida 2026-11-20).
 - ESP32 / Pico: **control directo** (relés / puente H + potenciómetro por ADC o ADS1115) **y pasarela serie** a un controlador comercial (GS-232A/B, Rot2Prog, EasyComm II).
 - Raspberry Pi: **rotctld real de Hamlib + demonio Python** (cualquier modelo de Hamlib).
 - Enlaces: **rotctld TCP por WiFi**, **BLE propio** (protocolo JSON, para la app), **Bluetooth SPP GS-232** (tracker con ESP32 original) y **rotor por LoRa/APRS** (mensajes `P az el` con lista de indicativos y TOTP opcional).
@@ -92,6 +92,10 @@ Controlador de rotores compatible con Hamlib, manejado por el tracker APRS LoRa+
 - **Cable**: `install.sh --link-uart` (Pi 4 `dtoverlay=uart4`, Pi 5 `uart3-pi5`, GPIO8 TX / GPIO9 RX; udev `/dev/rotor-link`; Pi 3 / Zero 2 W: `/dev/ttyUSB0`) y `serialPorts` GS-232B 9600; la pantalla con `driver` 1 GS-232B. El UART0 es del GPS.
 - **App por BLE**: ya estaba (agente Just Works de BlueZ, PIN con `auth`); solo documentado. Sin `disable-bt`.
 - `docs/RASPBERRY_HATS.md` § Emparejar. **Sin probar con placas.**
+
+## Modelos de Raspberry Pi (2026-11-20; Manuel: «para raspberry pi agrega soporte para pi 3b+ y pi 5»)
+- `aprs_lora_plus_rotor/board.py`: modelo de `/proc/device-tree/model` → familia `pi3` (3B / 3B+), `pi4` (4B / 400 / CM4), `pi5` (5 / 500 / CM5), `zero2`, `other`; por familia: etiqueta del gpiochip (`pinctrl-bcm2835` / `bcm2711` / `rp1`; `stepper.pick_chip`, gpiochip 0-15: la Pi 5 con núcleo antiguo tiene el conector en gpiochip4), GPS (`/dev/serial0` mini UART, `/dev/ttyAMA0` en la 5), overlay del UART de GPIO8 / 9 (`uart4`, `uart3-pi5`, ninguno en la 3 / Zero 2 W) y tope de pasos/s de los dos motores juntos (10000 / 16000 / 20000, **estimados sin medir**; `stepper.validate`). `info.chip` = modelo, `info.family`.
+- `install.sh` usa la familia: Pi 5 con `--gps` pone `dtparam=uart0=on` y `dtparam=rtc=off` + RV-3028 (`PI5_RTC=1` deja el reloj de la Pi 5 y no pone el RV-3028); `--gadget` se salta en la Pi 3; aviso de alimentación de la Pi 5 por el HAT (regulador de 3 A del HAT, USB a 600 mA). Tabla en `docs/RASPBERRY_PI.md` § Modelos. 35 pruebas Python. Sin probar en una Pi 3B+ ni una Pi 5 (`dtparam=rtc=off` visto en configuraciones de usuarios, no en la documentación oficial).
 
 ## Manuales (2026-11-08)
 - `docs/MANUAL_ES.md`, `docs/MANUAL_EN.md` (manual de usuario) y `docs/QUICKSTART_ES.md`, `docs/QUICKSTART_EN.md` (guía rápida). Al cambiar funciones, placas o versión, actualizar los cuatro.

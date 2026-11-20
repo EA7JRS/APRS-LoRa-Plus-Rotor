@@ -316,6 +316,8 @@ cd APRS-LoRa-Plus-Rotor/raspberrypi
 sudo ./install.sh              # Zero 2 W as a USB GS-232B for the PC: sudo ./install.sh --gadget
 ```
 
+Models: **Pi 3B / 3B+, 4B / 400, 5 and Zero 2 W** (Bookworm or later). `install.sh` detects the model: on the 3B+ and the Zero 2 W the GPS uses the mini UART and there is no second UART for the screen by cable (USB-serial adapter); on the Pi 5 the GPS uses `ttyAMA0`, the screen `uart3-pi5`, and its own clock is turned off so the Uputronics one rules (`PI5_RTC=1` keeps it). Table in [RASPBERRY_PI.md](RASPBERRY_PI.md#modelos) (Spanish).
+
 1. Find your controller in `rotctl -l` (601 GS-232A, 603 GS-232B, 202 EasyComm II, 901 Rot2Prog, 903 MD-01/02, 1 Dummy for testing).
 2. In the WebUI (`http://IP:8080`) or in `/etc/aprs-lora-plus-rotor/config.json`:
    ```json
