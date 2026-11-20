@@ -184,8 +184,9 @@ namespace Lcd {
             return l;
         }
 
-        // Pantallas grandes apaisadas (1024 x 600 de la ESP32-S3-Touch-LCD-7B): la disposición de 600 x 450 a escala,
-        // con letras mayores; la brújula y los grosores con la escala vertical para que sigan redondos.
+        // Pantallas grandes apaisadas (1024 x 600 de la ESP32-S3-Touch-LCD-7B, 800 x 480 de la LCD-7): la disposición de
+        // 600 x 450 a escala, con letras mayores en la de 600 filas; la brújula y los grosores con la escala vertical para
+        // que sigan redondos.
         static Layout big(int w, int h) {
             Layout l = make(600, 450);
             const double sx = w / 600.0, sy = h / 450.0;
@@ -193,7 +194,9 @@ namespace Lcd {
             auto Y = [&](int& v) { v = (int)lround(v * sy); };
             auto R = [&](Rect& r) { const int x2 = (int)lround((r.x + r.w) * sx), y2 = (int)lround((r.y + r.h) * sy); X(r.x); Y(r.y); r.w = x2 - r.x; r.h = y2 - r.y; };
             l.W = w; l.H = h;
-            l.S = &FontS3; l.M = &FontM3; l.L = &FontL3; l.k = 1.4 * sy; l.dp = 1.4 * sy; l.smL = &FontSmL3; l.smR = &FontSmR3;
+            l.k = 1.4 * sy; l.dp = 1.4 * sy;
+            if (sy >= 1.2) { l.S = &FontS3; l.M = &FontM3; l.L = &FontL3; l.smL = &FontSmL3; l.smR = &FontSmR3; }
+            // 480 filas (sy 1,07): las letras de 600 x 450 (el S-meter con las suyas, 14 / 25 px)
             Y(l.hdrH); X(l.titleX); Y(l.titleY); Y(l.subY); X(l.logoX); l.logoY = (l.hdrH - LCD_LOGO_H) / 2;
             X(l.infoX); Y(l.infoY); Y(l.infoR); X(l.linkX); Y(l.link1Y); Y(l.link2Y);
             X(l.cx); Y(l.cy); Y(l.r); Y(l.tickLabelR);

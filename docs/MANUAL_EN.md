@@ -62,7 +62,7 @@ On the **Raspberry Pi** the rotor is run by Hamlib's `rotctld`, so **any rotor H
 | USB as a controller | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | USB gadget (Zero 2 W) |
 | Update from the WebUI | 8 MB boards | ✔ | ✔ | ✔ | ✔ | ✔ | — | `git pull` + `install.sh` |
 
-PlatformIO environments: `esp32dev`, `esp32s3`, `waveshare_c5_lcd35`, `waveshare_s3_amoled241`, `waveshare_s3_lcd7b`, `pico2w`, `pico2`.
+PlatformIO environments: `esp32dev`, `esp32s3`, `waveshare_c5_lcd35`, `waveshare_s3_amoled241`, `waveshare_s3_lcd7b`, `waveshare_s3_lcd7`, `pico2w`, `pico2`.
 
 ## 3. Installing the firmware
 
@@ -76,7 +76,7 @@ PlatformIO environments: `esp32dev`, `esp32s3`, `waveshare_c5_lcd35`, `waveshare
 
 ```sh
 cd firmware
-pio run -e esp32s3 -t upload        # or esp32dev, waveshare_c5_lcd35, waveshare_s3_amoled241, waveshare_s3_lcd7b, pico2w, pico2
+pio run -e esp32s3 -t upload        # or esp32dev, waveshare_c5_lcd35, waveshare_s3_amoled241, waveshare_s3_lcd7b, waveshare_s3_lcd7, pico2w, pico2
 ```
 
 ### Raspberry Pi
@@ -117,6 +117,7 @@ Every option is listed in [CONFIG.md](CONFIG.md). The configuration is stored on
 | ESP32-C5-Touch-LCD-3.5 | EXIO8 | EXIO9 | EXIO10 | EXIO11 | EXIO_ADC | ADS1115 | 27 / 26 | 12 / 11 |
 | ESP32-S3-Touch-AMOLED-2.41 | 38 | 39 | 40 | 41 | 1 | 7 | 47 / 48 | 44 / 43 |
 | ESP32-S3-Touch-LCD-7B | PCF8574 P0 (120) | P1 (121) | P2 (122) | P3 (123) | GPIO6 (Sensor) | ADS1115 | 8 / 9 | 44 / 43 |
+| ESP32-S3-Touch-LCD-7 | — (gateway) | — | — | — | GPIO6 (Sensor) | ADS1115 | 8 / 9 | 44 / 43; RS485 16 / 15 |
 | Pico 2 W / Pico 2 | GP6 | GP7 | GP8 | GP9 | GP26 | GP27 | GP4 / GP5 | GP1 / GP0 |
 
 All of them can be changed in the configuration; `-1` means unused. On the ESP32, use only ADC1 pins, because ADC2 does not work while WiFi is on. The boards with a screen have their own sheets: [WAVESHARE_C5_LCD35.md](WAVESHARE_C5_LCD35.md), [WAVESHARE_S3_AMOLED241.md](WAVESHARE_S3_AMOLED241.md) and [WAVESHARE_S3_LCD7B.md](WAVESHARE_S3_LCD7B.md) (in Spanish). On the 7" board the relays go through a PCF8574 board on I2C (pins 120-127, active on 0: `direct.activeHigh: false`).
@@ -208,7 +209,7 @@ At `http://APRS-Rotor.local/` (boards) or `http://IP:8080/` (Raspberry Pi). User
 
 ## 8. Touch screen
 
-**Waveshare ESP32-C5-Touch-LCD-3.5** (portrait), **ESP32-S3-Touch-AMOLED-2.41** and **ESP32-S3-Touch-LCD-7B** (landscape) boards.
+**Waveshare ESP32-C5-Touch-LCD-3.5** (portrait), **ESP32-S3-Touch-AMOLED-2.41**, **ESP32-S3-Touch-LCD-7B** and **ESP32-S3-Touch-LCD-7** (landscape; on the LCD-7 the backlight is only on or off) boards.
 
 - **Compass** (the same dial as the WebUI, the Android app, APRS LoRa+ Display and sat-aprs): ticks every 5° and numbers every 30°, N in red; blue needle with a counterweight = position; amber index on the rim and dotted line = target; red rim = the zone between the stops (when it is not a full turn); orange arc = overlap zone.
 - **Buttons**: **CCW · STOP · CW · DOWN · PARK · UP**. The movement buttons move while held.

@@ -18,6 +18,7 @@ Todos se cambian en la configuración (WebUI o app). `-1` = sin usar.
 | Waveshare ESP32-C5-Touch-LCD-3.5 (`waveshare_c5_lcd35`) | EXIO8 (108) | EXIO9 (109) | EXIO10 (110) | EXIO11 (111) | EXIO_ADC (200) | ADS1115 canal 1 | 27 / 26 | GPIO12 / GPIO11 (U0RXD / U0TXD) | — |
 | Waveshare ESP32-S3-Touch-AMOLED-2.41 (`waveshare_s3_amoled241`) | 38 | 39 | 40 | 41 | 1 | 7 | 47 / 48 | 44 / 43 | — |
 | Waveshare ESP32-S3-Touch-LCD-7B (`waveshare_s3_lcd7b`) | PCF8574 P0 (120) | P1 (121) | P2 (122) | P3 (123) | GPIO6 (conector Sensor) | ADS1115 canal 1 | 8 / 9 | 44 / 43 (conector UART) | — |
+| Waveshare ESP32-S3-Touch-LCD-7 (`waveshare_s3_lcd7`) | — (pasarela de serie: sin placa de relés, [WAVESHARE_S3_LCD7.md](WAVESHARE_S3_LCD7.md)) | — | — | — | GPIO6 (conector Sensor) | ADS1115 canal 1 | 8 / 9 | 44 / 43 (conector UART); RS485 16 / 15 | — |
 | Pico 2 W (`pico2w`) / Pico 2 (`pico2`) | GP6 | GP7 | GP8 | GP9 | GP26 | GP27 | GP4 / GP5 | GP1 / GP0 | HAT SX1262 Waveshare (opcional) |
 
 ADC: en ESP32 usa solo pines del ADC1 (el ADC2 no funciona con la WiFi encendida). En la Pico, GP26-GP28. Placas con pantalla: [WAVESHARE_C5_LCD35.md](WAVESHARE_C5_LCD35.md), [WAVESHARE_S3_AMOLED241.md](WAVESHARE_S3_AMOLED241.md) y [WAVESHARE_S3_LCD7B.md](WAVESHARE_S3_LCD7B.md).

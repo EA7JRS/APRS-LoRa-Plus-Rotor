@@ -25,7 +25,8 @@
 
 // Pantallas: 1 = ST7796 por SPI, 320 x 480 vertical (ESP32-C5-Touch-LCD-3.5)
 //            2 = RM690B0 AMOLED por QSPI, 600 x 450 apaisada (ESP32-S3-Touch-AMOLED-2.41)
-//            3 = panel RGB de 16 bits, 1024 x 600 apaisada, táctil GT911 (ESP32-S3-Touch-LCD-7B)
+//            3 = panel RGB de 16 bits, táctil GT911: 1024 x 600 (ESP32-S3-Touch-LCD-7B) u 800 x 480 (ESP32-S3-Touch-LCD-7,
+//                con LCD_W / LCD_H / LCD_HSYNC_* / LCD_VSYNC_* desde platformio.ini)
 #ifndef LCD_PANEL
     #define LCD_PANEL 1
 #endif
@@ -57,11 +58,24 @@
 #elif LCD_PANEL == 3
     #include <esp_lcd_panel_ops.h>
     #include <esp_lcd_panel_rgb.h>
-    #define LCD_W 1024
-    #define LCD_H 600
-    #define LCD_DIM_PCT 10
+    #ifndef LCD_W
+        #define LCD_W 1024
+    #endif
+    #ifndef LCD_H
+        #define LCD_H 600
+    #endif
+    #define LCD_DIM_PCT 10              // en la LCD-7 (CH422G) la luz solo se enciende o se apaga
     #ifndef LCD_PCLK_HZ
         #define LCD_PCLK_HZ 30000000    // el del ejemplo de Waveshare; bajarlo (p. ej. 21 MHz) si la imagen tiembla
+    #endif
+    // Tiempos de la 7B (ejemplo 06_LCD); la LCD-7 los cambia en platformio.ini (4 / 8 / 8, waveshare_rgb_lcd_port.c)
+    #ifndef LCD_HSYNC_PW
+        #define LCD_HSYNC_PW 162
+        #define LCD_HSYNC_BP 152
+        #define LCD_HSYNC_FP 48
+        #define LCD_VSYNC_PW 45
+        #define LCD_VSYNC_BP 13
+        #define LCD_VSYNC_FP 3
     #endif
     #ifndef LCD_TP_INT
         #define LCD_TP_INT 4
@@ -190,7 +204,7 @@ namespace LcdHw {
 
     static void busPins() {}
 #elif LCD_PANEL == 3
-    // ------------------------------------------------------------------------------------------------ panel RGB (LCD-7B)
+    // ------------------------------------------------------------------------------------------------ panel RGB (LCD-7B / LCD-7)
     // Pines y tiempos del ejemplo 06_LCD de Waveshare (rgb_lcd_port.cpp). El ESP32-S3 refresca el panel solo desde su
     // imagen en la PSRAM; aquí solo se copian las franjas que cambian.
     static esp_lcd_panel_handle_t panel = nullptr;
@@ -207,12 +221,12 @@ namespace LcdHw {
         c.timings.pclk_hz = LCD_PCLK_HZ;
         c.timings.h_res = W;
         c.timings.v_res = H;
-        c.timings.hsync_pulse_width = 162;
-        c.timings.hsync_back_porch = 152;
-        c.timings.hsync_front_porch = 48;
-        c.timings.vsync_pulse_width = 45;
-        c.timings.vsync_back_porch = 13;
-        c.timings.vsync_front_porch = 3;
+        c.timings.hsync_pulse_width = LCD_HSYNC_PW;
+        c.timings.hsync_back_porch = LCD_HSYNC_BP;
+        c.timings.hsync_front_porch = LCD_HSYNC_FP;
+        c.timings.vsync_pulse_width = LCD_VSYNC_PW;
+        c.timings.vsync_back_porch = LCD_VSYNC_BP;
+        c.timings.vsync_front_porch = LCD_VSYNC_FP;
         c.timings.flags.pclk_active_neg = 1;
         c.data_width = 16;
         c.bits_per_pixel = 16;

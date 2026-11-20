@@ -230,6 +230,7 @@ int main(int argc, char** argv) {
     run(320, 480, out);
     run(600, 450, out);
     run(1024, 600, out);
+    run(800, 480, out);                              // ESP32-S3-Touch-LCD-7 (sin B)
     run(320, 480, out, Lcd::THEME_ROTOR);
     run(600, 450, out, Lcd::THEME_ROTOR);
     run(1024, 600, out, Lcd::THEME_ROTOR);

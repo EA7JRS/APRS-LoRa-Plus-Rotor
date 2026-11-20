@@ -23,7 +23,12 @@ namespace Exio {
     #define EXIO_USB_SEL_LEVEL 0                // ESP32-S3-Touch-LCD-7B: EXIO5 bajo = USB nativo (alto = CAN)
 #endif
 
-#if EXIO_CHIP == 3
+#if EXIO_CHIP == 4
+    static const uint8_t ADDR = 0x24;           // CH422G: dirección del modo
+    static const uint8_t ADDR_OUT = 0x38;       // CH422G: dirección de las salidas IO0-7
+    static const uint16_t BOARD_OUT = 0xFF;     // todo salidas (modo 0x01)
+    static const int TP_RST = 1, LCD_RST = 3, DISP = 2;
+#elif EXIO_CHIP == 3
     static const uint8_t ADDR = 0x24;           // CH32V003 de 8 pines
     static const uint8_t R_DIR = 0x02, R_OUT = 0x03, R_IN = 0x04, R_PWM = 0x05, R_ADC = 0x06;
     static const uint16_t BOARD_OUT = 0x7E;     // EXIO1-EXIO6
@@ -43,10 +48,22 @@ namespace Exio {
 #if EXIO_CHIP == 3
     // resets sueltos, luz de fondo apagada hasta el primer dibujo, TF sin elegir, USB, LCD alimentado
     static uint16_t out_ = (1u << 1) | (1u << 3) | (1u << 4) | (EXIO_USB_SEL_LEVEL ? (1u << 5) : 0) | (1u << 6);
+#elif EXIO_CHIP == 4
+    // resets sueltos, luz apagada hasta el primer dibujo, TF sin elegir, USB
+    static uint16_t out_ = (1u << 1) | (1u << 3) | (1u << 4) | (EXIO_USB_SEL_LEVEL ? (1u << 5) : 0);
 #else
     static uint16_t out_ = (1u << 0) | (1u << 1);
 #endif
 
+#if EXIO_CHIP == 4
+    static bool chWrite(uint8_t addr, uint8_t v) {
+        Wire.beginTransmission(addr);
+        Wire.write(v);
+        return Wire.endTransmission() == 0;
+    }
+    static bool writeOut() { return chWrite(ADDR_OUT, (uint8_t)out_); }
+    static bool writeDir() { return chWrite(ADDR, 0x01); }
+#endif
 #if EXIO_CHIP == 2 || EXIO_CHIP == 3
     static bool write8(uint8_t reg, uint8_t v) {
         Wire.beginTransmission(ADDR);
@@ -62,6 +79,7 @@ namespace Exio {
 #endif
     // El programa de 16 pines espera EXIO0-7 y luego EXIO8-15; con el de 8 pines el segundo byte va al registro siguiente,
     // que se reescribe justo después (dirección -> salidas)
+#if EXIO_CHIP != 4
     [[maybe_unused]] static bool write16(uint8_t reg, uint16_t v) {
         Wire.beginTransmission(ADDR);
         Wire.write(reg); Wire.write((uint8_t)v); Wire.write((uint8_t)(v >> 8));
@@ -76,6 +94,7 @@ namespace Exio {
         v = (uint16_t)(lo | (hi << 8));
         return true;
     }
+#endif
 
     bool begin() {
         Wire.begin(EXIO_SDA, EXIO_SCL);
@@ -83,7 +102,9 @@ namespace Exio {
         Wire.beginTransmission(ADDR);
         ok_ = Wire.endTransmission() == 0;
         if (!ok_) { logf("exio: no hay expansor en 0x%02X\n", ADDR); return false; }
-    #if EXIO_CHIP == 2 || EXIO_CHIP == 3
+    #if EXIO_CHIP == 4
+        ok_ = writeDir() && writeOut();
+    #elif EXIO_CHIP == 2 || EXIO_CHIP == 3
         ok_ = writeOut() && writeDir() && writeOut();
     #else
         ok_ = write16(R_DIR, dir_) && write16(R_OUT, out_);
@@ -98,7 +119,9 @@ namespace Exio {
         const uint16_t d = dir_ | (uint16_t)(1u << n);
         if (d == dir_) return;
         dir_ = d;
-    #if EXIO_CHIP == 2 || EXIO_CHIP == 3
+    #if EXIO_CHIP == 4
+        // ya son todas salidas
+    #elif EXIO_CHIP == 2 || EXIO_CHIP == 3
         writeOut(); writeDir();
     #else
         write16(R_OUT, out_);                   // nivel primero, luego la dirección
@@ -112,7 +135,7 @@ namespace Exio {
         const uint16_t o = level ? (out_ | (uint16_t)(1u << n)) : (out_ & (uint16_t)~(1u << n));
         if (o == out_) return;
         out_ = o;
-    #if EXIO_CHIP == 2 || EXIO_CHIP == 3
+    #if EXIO_CHIP == 2 || EXIO_CHIP == 3 || EXIO_CHIP == 4
         const bool w = writeOut();
     #else
         const bool w = write16(R_OUT, out_);
@@ -121,20 +144,23 @@ namespace Exio {
     }
 
     bool read(int n) {
-    #if EXIO_CHIP == 3
+    #if EXIO_CHIP == 4
+        return n >= 0 && n <= 7 && ((out_ >> n) & 1);             // solo salidas: lo último escrito
+    #elif EXIO_CHIP == 3
         if (n < 0 || n > 7) return false;
         Wire.beginTransmission(ADDR);
         Wire.write(R_IN);
         if (Wire.endTransmission(false) != 0 || Wire.requestFrom(ADDR, (uint8_t)1) != 1) return false;
         return (Wire.read() >> n) & 1;
-    #endif
+    #else
         uint16_t v = 0;
         if (n < 0 || n > 15 || !read16(R_IN, v)) return false;   // el TCA9554 devuelve 1 byte útil
         return (v >> n) & 1;
+    #endif
     }
 
     int adc() {
-    #if EXIO_CHIP == 2
+    #if EXIO_CHIP == 2 || EXIO_CHIP == 4
         return -1;
     #else
         uint16_t v = 0;
@@ -145,6 +171,8 @@ namespace Exio {
     void backlight(uint8_t pct) {
     #if EXIO_CHIP == 2
         (void)pct;
+    #elif EXIO_CHIP == 4
+        write(DISP, pct > 0);                   // sin regulación
     #elif EXIO_CHIP == 3
         // EXIO2 enciende la luz; el PWM va al revés (0 = todo). 0 % = apagada
         if (pct > 100) pct = 100;
@@ -163,7 +191,7 @@ namespace Exio {
     }
 
     void resetLcdTouch() {
-    #if EXIO_CHIP == 3
+    #if EXIO_CHIP == 3 || EXIO_CHIP == 4
         write(TP_RST, false); write(LCD_RST, false);
         delay(20);
         write(LCD_RST, true); write(TP_RST, true);

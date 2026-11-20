@@ -60,7 +60,7 @@ En la **Raspberry Pi** el rotor lo maneja el `rotctld` de Hamlib, así que sirve
 | USB como controlador | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | USB gadget (Zero 2 W) |
 | Actualización por la WebUI | placas de 8 MB | ✔ | ✔ | ✔ | ✔ | ✔ | — | `git pull` + `install.sh` |
 
-Entornos de PlatformIO: `esp32dev`, `esp32s3`, `waveshare_c5_lcd35`, `waveshare_s3_amoled241`, `waveshare_s3_lcd7b`, `pico2w`, `pico2`.
+Entornos de PlatformIO: `esp32dev`, `esp32s3`, `waveshare_c5_lcd35`, `waveshare_s3_amoled241`, `waveshare_s3_lcd7b`, `waveshare_s3_lcd7`, `pico2w`, `pico2`.
 
 ## 3. Instalación del firmware
 
@@ -74,7 +74,7 @@ Entornos de PlatformIO: `esp32dev`, `esp32s3`, `waveshare_c5_lcd35`, `waveshare_
 
 ```sh
 cd firmware
-pio run -e esp32s3 -t upload        # o esp32dev, waveshare_c5_lcd35, waveshare_s3_amoled241, waveshare_s3_lcd7b, pico2w, pico2
+pio run -e esp32s3 -t upload        # o esp32dev, waveshare_c5_lcd35, waveshare_s3_amoled241, waveshare_s3_lcd7b, waveshare_s3_lcd7, pico2w, pico2
 ```
 
 ### Raspberry Pi
@@ -115,6 +115,7 @@ Todas las opciones están en [CONFIG.md](CONFIG.md). La configuración se guarda
 | ESP32-C5-Touch-LCD-3.5 | EXIO8 | EXIO9 | EXIO10 | EXIO11 | EXIO_ADC | ADS1115 | 27 / 26 | 12 / 11 |
 | ESP32-S3-Touch-AMOLED-2.41 | 38 | 39 | 40 | 41 | 1 | 7 | 47 / 48 | 44 / 43 |
 | ESP32-S3-Touch-LCD-7B | PCF8574 P0 (120) | P1 (121) | P2 (122) | P3 (123) | GPIO6 (Sensor) | ADS1115 | 8 / 9 | 44 / 43 |
+| ESP32-S3-Touch-LCD-7 | — (pasarela) | — | — | — | GPIO6 (Sensor) | ADS1115 | 8 / 9 | 44 / 43; RS485 16 / 15 |
 | Pico 2 W / Pico 2 | GP6 | GP7 | GP8 | GP9 | GP26 | GP27 | GP4 / GP5 | GP1 / GP0 |
 
 Todos se cambian en la configuración; `-1` significa sin usar. En el ESP32, usa solo pines del ADC1, porque el ADC2 no funciona con la WiFi encendida. Las placas con pantalla tienen su propia hoja: [WAVESHARE_C5_LCD35.md](WAVESHARE_C5_LCD35.md), [WAVESHARE_S3_AMOLED241.md](WAVESHARE_S3_AMOLED241.md) y [WAVESHARE_S3_LCD7B.md](WAVESHARE_S3_LCD7B.md). En la de 7" los relés van por una placa PCF8574 en el I2C (pines 120-127, activan con 0: `direct.activeHigh: false`).
@@ -206,7 +207,7 @@ En `http://APRS-Rotor.local/` (placas) o en `http://IP:8080/` (Raspberry Pi). Us
 
 ## 8. Pantalla táctil
 
-Placas **Waveshare ESP32-C5-Touch-LCD-3.5** (vertical), **ESP32-S3-Touch-AMOLED-2.41** y **ESP32-S3-Touch-LCD-7B** (apaisadas).
+Placas **Waveshare ESP32-C5-Touch-LCD-3.5** (vertical), **ESP32-S3-Touch-AMOLED-2.41**, **ESP32-S3-Touch-LCD-7B** y **ESP32-S3-Touch-LCD-7** (apaisadas; en la LCD-7 la luz solo se enciende o se apaga).
 
 - **Brújula** (la misma esfera que la WebUI, la app Android, APRS LoRa+ Display y sat-aprs): marcas cada 5° y números cada 30°, N en rojo; aguja azul con contrapeso = posición; índice ámbar en el borde y línea de puntos = objetivo; borde rojo = zona entre los topes (si no es una vuelta entera); arco naranja = zona de solape.
 - **Botones**: **CCW · STOP · CW · DOWN · PARK · UP**. Los de movimiento mueven mientras se mantienen pulsados.

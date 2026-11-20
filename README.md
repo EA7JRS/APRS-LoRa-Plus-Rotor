@@ -8,7 +8,7 @@ Controlador de rotores de antena **compatible con Hamlib** para el ecosistema **
 
 **Manual**: [español](docs/MANUAL_ES.md) · [English](docs/MANUAL_EN.md) · **Guía rápida / Quick start**: [ES](docs/QUICKSTART_ES.md) · [EN](docs/QUICKSTART_EN.md)
 
-**Placas**: ESP32, ESP32-S3, **Waveshare ESP32-C5-Touch-LCD-3.5**, **ESP32-S3-Touch-AMOLED-2.41** y **ESP32-S3-Touch-LCD-7B** (con pantalla táctil: mando del rotor en la propia caja), Raspberry Pi Pico 2 / Pico 2 W y Raspberry Pi (Zero 2 W, 3, 4, 5).
+**Placas**: ESP32, ESP32-S3, **Waveshare ESP32-C5-Touch-LCD-3.5**, **ESP32-S3-Touch-AMOLED-2.41**, **ESP32-S3-Touch-LCD-7B** y **ESP32-S3-Touch-LCD-7** (con pantalla táctil: mando del rotor en la propia caja), Raspberry Pi Pico 2 / Pico 2 W y Raspberry Pi (Zero 2 W, 3, 4, 5).
 
 **Esfera** (pantalla táctil y WebUI, la misma que la app, APRS LoRa+ Display y sat-aprs): aguja azul = posición, ámbar = objetivo con su índice en el borde, rojo = topes mecánicos, naranja = solape; en la WebUI la aguja gira por el lado corto.
 
@@ -26,9 +26,9 @@ Controlador de rotores de antena **compatible con Hamlib** para el ecosistema **
 
 ## Qué hace cada placa
 
-| | ESP32 | ESP32-S3 | ESP32-C5 LCD 3,5" | ESP32-S3 AMOLED 2,41" | ESP32-S3 LCD 7" | Pico 2 W | Pico 2 | Raspberry Pi |
+| | ESP32 | ESP32-S3 | ESP32-C5 LCD 3,5" | ESP32-S3 AMOLED 2,41" | ESP32-S3 LCD 7" (7B / 7) | Pico 2 W | Pico 2 | Raspberry Pi |
 |---|---|---|---|---| --- |---|---|---|
-| Control directo (relés / puente H, ADC / ADS1115) | ✔ | ✔ | relés (EXIO8-15) + EXIO_ADC / ADS1115 | ✔ | relés por PCF8574 (I2C) + GPIO6 / ADS1115 | ✔ | ✔ | — |
+| Control directo (relés / puente H, ADC / ADS1115) | ✔ | ✔ | relés (EXIO8-15) + EXIO_ADC / ADS1115 | ✔ | relés por PCF8574 (I2C) + GPIO6 / ADS1115 (solo la 7B) | ✔ | ✔ | — |
 | Pasarela serie a un controlador | ✔ | ✔ | ✔ (U0TXD / U0RXD) | ✔ (TXD / RXD) | ✔ (conector UART) | ✔ | ✔ | ✔ (rotctld de Hamlib: todos los modelos) |
 | rotctld por WiFi, JSON por TCP, WebUI | ✔ | ✔ | ✔ (WiFi 2,4 y 5 GHz) | ✔ | ✔ | ✔ | — | ✔ |
 | BLE para la app | ✔ | ✔ | ✔ | ✔ | ✔ | pendiente | — | ✔ |
@@ -58,7 +58,7 @@ PlatformIO (VS Code):
 
 ```sh
 cd firmware
-pio run -e esp32s3 -t upload          # esp32dev · esp32s3 · waveshare_c5_lcd35 · waveshare_s3_amoled241 · waveshare_s3_lcd7b · pico2w · pico2
+pio run -e esp32s3 -t upload          # esp32dev · esp32s3 · waveshare_c5_lcd35 · waveshare_s3_amoled241 · waveshare_s3_lcd7b · waveshare_s3_lcd7 · pico2w · pico2
 ```
 
 En la Pico 2 se puede copiar `firmware.uf2` arrastrándolo con BOOTSEL pulsado. La CI de GitHub compila todas las placas en cada subida y deja los binarios como artefactos.
@@ -82,6 +82,7 @@ Ver [docs/RASPBERRY_PI.md](docs/RASPBERRY_PI.md) y [docs/RASPBERRY_HATS.md](docs
 - [docs/WAVESHARE_C5_LCD35.md](docs/WAVESHARE_C5_LCD35.md): placa con pantalla táctil (conector, relés, potenciómetro, pantalla)
 - [docs/WAVESHARE_S3_AMOLED241.md](docs/WAVESHARE_S3_AMOLED241.md): placa con pantalla AMOLED apaisada
 - [docs/WAVESHARE_S3_LCD7B.md](docs/WAVESHARE_S3_LCD7B.md): placa con pantalla de 7" (la de APRS LoRa+ Display): relés por PCF8574, potenciómetro en el conector Sensor
+- [docs/WAVESHARE_S3_LCD7.md](docs/WAVESHARE_S3_LCD7.md): placa con pantalla de 7" de 800 × 480 (LCD-7 sin B): pasarela de serie o RS485, sin placa de relés
 - [docs/CAT.md](docs/CAT.md): emisoras (Icom, Yaesu, Kenwood / Elecraft) y receptores SDR (SDRplay RSPdx-R2 con SDRconnect, SDR++, gqrx): conexión, Doppler, CTCSS, PTT, rigctld
 - [docs/CONFIG.md](docs/CONFIG.md): todas las opciones de las placas
 - [docs/CONTROL_PROTOCOL.md](docs/CONTROL_PROTOCOL.md): protocolo JSON (BLE, TCP, WebUI) para la app

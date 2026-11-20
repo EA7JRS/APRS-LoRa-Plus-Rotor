@@ -4,6 +4,7 @@
  */
 
 #include "config.h"
+#include "exio.h"
 #include <LittleFS.h>
 
 RotorConfig Cfg;
@@ -34,6 +35,12 @@ namespace Config {
         c.aprs.callsign = "N0CALL-12";
     #ifdef DEF_EL_ENABLED
         c.elEnabled = DEF_EL_ENABLED;              // placas sin segundo ADC: la elevacion necesita un ADS1115
+    #endif
+    #ifdef DEF_DRIVER
+        c.driver = DEF_DRIVER;                     // ESP32-S3-Touch-LCD-7: pasarela (sin sitio en el I2C para una placa de relés)
+    #endif
+    #ifdef DEF_PCF_ADDR
+        c.pcfAddr = DEF_PCF_ADDR;
     #endif
     #ifdef DEF_ACTIVE_HIGH
         c.activeHigh = DEF_ACTIVE_HIGH;            // placas de relés por PCF8574: activan con 0
@@ -144,6 +151,16 @@ namespace Config {
             return true;
         };
         if (c.name.empty() || c.name.size() > 24) { err = "name 1-24"; return false; }
+    #if defined(EXIO_CHIP) && EXIO_CHIP == 4
+        // El CH422G de la LCD-7 contesta en 0x20-0x27 y 0x30-0x3F: un PCF8574 ahí lo confundiría
+        {
+            const bool clash = (c.pcfAddr >= 0x20 && c.pcfAddr <= 0x27) || (c.pcfAddr >= 0x30 && c.pcfAddr <= 0x3F);
+            auto pcf = [](int p) { return p >= PIN_PCF_BASE && p < PIN_PCF_BASE + 8; };
+            if (clash && (pcf(c.azPins.pinA) || pcf(c.azPins.pinB) || pcf(c.elPins.pinA) || pcf(c.elPins.pinB) || pcf(c.brakePin))) {
+                err = "direct.pcfAddr: 0x20-0x27 / 0x30-0x3F = CH422G"; return false;
+            }
+        }
+    #endif
         if (!c.pin.empty() && (c.pin.size() < 4 || c.pin.size() > 16)) { err = "pin 4-16"; return false; }
         if (c.wifiMode < 0 || c.wifiMode > 2) { err = "wifi.mode"; return false; }
         if (c.apPass.size() < 8) { err = "wifi.apPass >= 8"; return false; }

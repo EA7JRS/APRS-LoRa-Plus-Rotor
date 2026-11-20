@@ -19,6 +19,10 @@
 //   Waveshare): 0x02 dirección (1 = salida), 0x03 salidas, 0x04 entradas, 0x05 PWM de la luz de fondo invertido
 //   (0 = máximo brillo; el ejemplo no pasa del 97 %), 0x06 ADC (tensión de la batería, divisor 3:1). EXIOn = bit n.
 //   EXIO1 reset del táctil, EXIO2 luz de fondo, EXIO3 reset del LCD, EXIO4 CS de la TF, EXIO5 USB / CAN, EXIO6 VDD del LCD.
+// EXIO_CHIP 4: CH422G (ESP32-S3-Touch-LCD-7, sin B). No tiene registros: cada función es una dirección I2C a la que se escribe
+//   un byte (0x24 = modo, 0x01: IO0-7 salidas; 0x38 = salidas IO0-7). Solo salidas, sin ADC ni PWM: la luz es encendida /
+//   apagada. EXIO1 reset del táctil, EXIO2 luz (DISP), EXIO3 reset del LCD, EXIO4 CS de la TF, EXIO5 USB (bajo) / CAN (alto).
+//   Fuente: APRS LoRa+ Display (board_lcd7.cpp, probada en la placa) y waveshareteam/ESP32-S3-Touch-LCD-7.
 #include <Arduino.h>
 
 #ifndef ROTOR_HAS_EXIO
@@ -39,7 +43,7 @@ namespace Exio {
     void     write(int n, bool level);      // solo escribe si cambia
     bool     read(int n);
     int      adc();                         // -1 = error
-    void     backlight(uint8_t pct);        // 0-100 (solo CH32V)
+    void     backlight(uint8_t pct);        // 0-100 (CH32V; el CH422G solo enciende o apaga)
     void     resetLcdTouch();               // pulso en EXIO0 / EXIO1 (reset de la pantalla y del táctil)
 #endif
 }
