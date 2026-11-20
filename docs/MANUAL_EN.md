@@ -163,6 +163,8 @@ Board UART → controller. With RS-232, use a MAX3232 at 3.3 V; with 5 V TTL, a 
 
 `serial.hasEl: false` for azimuth-only rotors. `minAz`, `maxAz` and `maxEl` are the limits announced to Hamlib.
 
+**Over RS485** (two wires, half duplex): GS-232A/B, EasyComm II and Rot2Prog with `serial.rs485: true` (one frame at a time, the next after the reply) and an RS485 ↔ RS232 / TTL converter at the controller. With a transceiver without automatic direction, its DE / RE on `serial.de` (ESP32 only). On the LCD-7 / 7B: `serial.rx` 16 / `tx` 15, leaving the UART connector for CAT.
+
 More in [HARDWARE.md](HARDWARE.md) (in Spanish).
 
 ## 6. Calibration and control tuning
@@ -418,3 +420,7 @@ The formulas are the plotter's (`firmware/lib/plotter_core`: `astro`, `wmm`, `wi
 **Magnetic declination**: with a compass that only gives a magnetic heading (HDG / HDM), the box adds the declination from the **World Magnetic Model** (WMM2025, by NOAA and the British Geological Survey, valid until 2030) at the station position (`lan.magAuto`, on by default). Without a position, or with `lan.magAuto` set to `false`, it uses `lan.magVar`. The `pos` event reports the one applied in `hdg.dec`.
 
 **Beaufort force**: next to the wind on the screen («12/20 m/s F6»), in the WebUI and in the `pos` event (`wind.bf`, from the mean wind).
+
+## 21. Movement log (microSD)
+
+LCD-7 and LCD-7B: with a FAT32 card, `log.sd` writes one CSV per day (UTC) to `/rotor/YYYY-MM-DD.csv`: commands (`MOVE` with the target), position every `log.everyS` s (5) while moving, `STOP`, `MANUAL` and faults (`FAULT` / `CLEAR`, wind included). Days older than `log.keepDays` (90) are deleted. List and download at `http://<box>/sd` (link in the WebUI info line). On by default on the LCD-7; off on the 7B (the dummy CS GPIO `log.cs` 6 is the potentiometer pin: pick another). Details in [WAVESHARE_S3_LCD7.md](WAVESHARE_S3_LCD7.md#registro-de-movimientos-microsd) (Spanish).

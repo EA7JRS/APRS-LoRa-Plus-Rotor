@@ -20,6 +20,8 @@
 #include "rc_anemo.h"
 #include "rc_sky.h"
 #include "rc_rotctl_client.h"
+#include "rc_halfduplex.h"
+#include "rc_movelog.h"
 
 using namespace RC;
 
@@ -931,6 +933,66 @@ static void pump(RotctlClientRotor& c, RotctlSession& srv, FakeRotor& far, uint3
     if (!back.empty()) c.feed(back.data(), back.size(), t + 5);
 }
 
+static void testMoveLog() {
+    RC::MoveLog m; m.everyMs = 5000;
+    std::string o;
+    RC::MoveLog::Snap s{10, 0, NAN, NAN, false, true, "OK"};
+    m.update(s, 0, "T0", o);
+    CHECK(o == "T0,BOOT,10.0,0.0,,,\n");
+    o.clear(); m.update(s, 100, "T1", o); CHECK(o.empty());
+    s.taz = 90; s.tel = 20; s.moving = true;
+    m.update(s, 200, "T2", o);
+    CHECK(o == "T2,MOVE,10.0,0.0,90.0,20.0,\n");
+    o.clear(); s.az = 30; m.update(s, 3000, "T3", o); CHECK(o.empty());
+    s.az = 60; m.update(s, 5300, "T4", o); CHECK(o == "T4,POS,60.0,0.0,90.0,20.0,\n");
+    o.clear(); s.az = 90; s.el = 20; s.moving = false; s.taz = s.tel = NAN;
+    m.update(s, 7000, "T5", o); CHECK(o == "T5,STOP,90.0,20.0,,,\n");
+    o.clear(); s.moving = true; m.update(s, 8000, "T6", o); CHECK(o == "T6,MANUAL,90.0,20.0,,,\n");
+    o.clear(); s.moving = false; s.fault = "WIND"; m.update(s, 9000, "T7", o);
+    CHECK(o == "T7,FAULT,90.0,20.0,,,WIND\nT7,STOP,90.0,20.0,,,WIND\n");
+    o.clear(); s.fault = "OK"; m.update(s, 9500, "T8", o); CHECK(o == "T8,CLEAR,90.0,20.0,,,\n");
+    // sin elevacion: columnas vacias
+    RC::MoveLog a; RC::MoveLog::Snap q{5, 0, 180, NAN, true, false, "OK"};
+    o.clear(); a.update(q, 0, "A", o); o.clear(); q.taz = 200; a.update(q, 10, "B", o);
+    CHECK(o == "B,MOVE,5.0,,200.0,,\n");
+}
+
+static void testHalfDuplex() {
+    RC::HalfDuplexQueue h;
+    h.baud = 9600; h.replyMs = 250; h.gapMs = 3;
+    std::string o;
+    CHECK(h.idle(0));
+    CHECK(h.push("C2\r", true));
+    CHECK(h.push("W090 010\r", false));
+    CHECK(h.next(0, o) && o == "C2\r");                  // 3 bytes = 4 ms + 250 de espera
+    CHECK(h.waitingReply(10));
+    CHECK(!h.next(100, o));                               // sin respuesta: aún no
+    h.gotReply(120);
+    CHECK(!h.next(121, o));                               // vuelta del transceptor
+    CHECK(h.next(123, o) && o == "W090 010\r");          // 9 bytes = 10 ms + 3
+    CHECK(!h.waitingReply(124));
+    CHECK(!h.next(135, o));
+    CHECK(h.idle(136));
+    // sin respuesta: el tiempo máximo libera el bus
+    h.push("C2\r", true);
+    CHECK(h.next(200, o));
+    CHECK(!h.next(453, o) && h.busy(453));
+    CHECK(!h.busy(454));
+    // la parada se adelanta y quita lo no urgente
+    h.push("C2\r", true); h.push("W100 000\r", false);
+    h.push("S\r", false, true);
+    CHECK(h.size() == 1);
+    CHECK(h.next(500, o) && o == "S\r");
+    // cola llena
+    for (int i = 0; i < 6; i++) CHECK(h.push("C2\r", true));
+    CHECK(!h.push("C2\r", true));
+    // a 1200 baudios la trama tarda más
+    RC::HalfDuplexQueue s; s.baud = 1200; s.gapMs = 3;
+    s.push(std::string(12, 'x'), false);
+    CHECK(s.next(0, o));
+    CHECK(s.busy(102) && !s.busy(103));                   // 12 x 10 bits / 1200 = 100 ms + 3
+}
+
 static void testRotctlClient() {
     RotctlClientRotor c;
     RotctlSession srv;
@@ -995,6 +1057,8 @@ int main() {
     testSdrConnect();
     testRigctlClient();
     testRotctlClient();
+    testHalfDuplex();
+    testMoveLog();
     printf("%d comprobaciones, %d fallos\n", checks, fails);
     return fails ? 1 : 0;
 }

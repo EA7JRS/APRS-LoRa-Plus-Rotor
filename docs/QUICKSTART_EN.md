@@ -52,7 +52,9 @@ If the board cannot join your WiFi within 30 s, it opens the **APRS-Rotor** acce
 
 Default pins for each board: [HARDWARE.md](HARDWARE.md).
 
-**Serial gateway:** board UART → MAX3232 → controller (GS-232A/B, Rot2Prog, MD-01/02, EasyComm II), or RS485 transceiver → bus controllers (`serial.proto` 4, `busId`, `azId`, `elId`). Set `serial.proto` and `serial.baud`.
+**Serial gateway:** board UART → MAX3232 → controller (GS-232A/B, Rot2Prog, MD-01/02, EasyComm II), or RS485 transceiver → bus controllers (`serial.proto` 4, `busId`, `azId`, `elId`). Set `serial.proto` and `serial.baud`. GS-232 / EasyComm / Rot2Prog over RS485: `serial.rs485: true` (on the LCD-7 / 7B, `rx` 16 / `tx` 15).
+
+**microSD (LCD-7 / 7B):** movement log in `/rotor/YYYY-MM-DD.csv` (`log.sd`), download at `http://<box>/sd`.
 
 ## 5. Calibrate (direct drive only)
 

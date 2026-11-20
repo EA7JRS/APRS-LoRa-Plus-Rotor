@@ -15,7 +15,8 @@ Casi todos los GPIO van al panel. Para el rotor quedan los conectores HY2.0:
 | **Sensor** (3P) | GPIO6 (ADC1), 3V3, GND | **potenciómetro AZ** (`direct.az.adcPin` 6, en milivoltios) |
 | **I2C** (4P) | SDA GPIO8, SCL GPIO9, 3V3, GND | **placa de relés PCF8574** (pines 120-127) y ADS1115 opcional para la elevación. El bus es el del táctil (0x5D / 0x14) y el expansor (0x24): no uses esas direcciones |
 | **UART** (4P) | TX GPIO43, RX GPIO44 | **pasarela serie** al controlador (`driver` 1) **o** CAT de la emisora: la misma UART, una de las dos. Pon el conmutador *UART* de la placa en el conector |
-| RS485 | RX GPIO16, TX GPIO15 (transceptor con conmutación automática) | **pasarela al bus RS485** (`serial.proto` 4, `serial.rx` 16 / `tx` 15): controladores con encóder, uno por eje |
+| RS485 | RX GPIO16, TX GPIO15 (transceptor con conmutación automática) | **pasarela por RS485** (`serial.rx` 16 / `tx` 15): el bus propio (`serial.proto` 4, controladores con encóder, uno por eje) o GS-232A/B, EasyComm II y Rot2Prog (`serial.rs485: true`) |
+| microSD | SCK 12, MISO 13, MOSI 11, CS en EXIO4 | **registro de movimientos** (`log.sd`, de serie apagado: su CS de relleno, `log.cs` 6, es el del potenciómetro; elige otro GPIO libre). Ver [WAVESHARE_S3_LCD7.md](WAVESHARE_S3_LCD7.md#registro-de-movimientos-microsd) |
 | CAN | GPIO19 / 20 | no se usa (comparte pines con el USB) |
 
 El USB nativo (Type-C *USB*) hace de puerto serie: instalador web, registro y `usb.proto` (la placa se presenta como un GS-232B). EXIO5 queda **bajo** (USB; alto sería CAN): si el puerto USB desaparece al arrancar, compila con `-D EXIO_USB_SEL_LEVEL=1`.

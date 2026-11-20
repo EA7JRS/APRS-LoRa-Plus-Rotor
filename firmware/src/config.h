@@ -85,6 +85,8 @@ struct RotorConfig {
     bool        serHasEl = true;
     int         serPollMs = 500;
     double      serMinAz = 0, serMaxAz = 450, serMaxEl = 180;
+    bool        serRs485 = false;           // RS485 de dos hilos con GS-232 / EasyComm / Rot2Prog: una trama cada vez
+    int         serDe = -1;                 // DE / RE del transceptor (RTS de la UART); -1 = transceptor automatico (LCD-7 / 7B)
 
     // LoRa
     int         loraChip = DEF_LORA_CHIP;   // 0 ninguno, 1 SX1262, 2 SX1268, 3 SX1276, 4 SX1278
@@ -150,6 +152,12 @@ struct RotorConfig {
     int         lcdBright = 80;             // brillo 10-100 %
     int         lcdTheme = 0;               // paleta de la pantalla: 0 = la de la app Android, 1 = la de la WebUI (cabecera roja)
     int         lcdDimS = 300;              // segundos sin tocar hasta bajar el brillo al 10 % (0 = nunca)
+
+    // Registro de movimientos en la microSD (placas con ROTOR_HAS_SD)
+    bool        logSd = DEF_LOG_SD;
+    int         logCs = DEF_LOG_CS;         // GPIO de relleno para el CS de la librería (no se conecta nada)
+    int         logEveryS = 5;              // una línea cada tantos segundos mientras se mueve
+    int         logKeepDays = 90;           // borra los días más antiguos (0 = guardarlo todo)
 };
 
 extern RotorConfig Cfg;

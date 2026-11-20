@@ -161,6 +161,8 @@ UART de la placa → controlador. Con RS-232, pon un MAX3232 a 3,3 V; con TTL de
 
 `serial.hasEl: false` en rotores solo de acimut. `minAz`, `maxAz` y `maxEl` son los límites que se anuncian a Hamlib.
 
+**Por RS485** (dos hilos, semidúplex): GS-232A/B, EasyComm II y Rot2Prog con `serial.rs485: true` (una trama cada vez, la siguiente tras la respuesta) y un convertidor RS485 ↔ RS232 / TTL en el controlador. Con un transceptor sin conmutación automática, su DE / RE en `serial.de` (solo ESP32). En la LCD-7 / 7B: `serial.rx` 16 / `tx` 15, y el conector UART queda para el CAT.
+
 Más detalles en [HARDWARE.md](HARDWARE.md).
 
 ## 6. Calibración y ajuste del control
@@ -416,3 +418,7 @@ Las fórmulas son las del plotter (`firmware/lib/plotter_core`: `astro`, `wmm`, 
 **Declinación magnética**: con un compás que solo da rumbo magnético (HDG / HDM), la caja suma la declinación del **Modelo Magnético Mundial** (WMM2025, de NOAA y el British Geological Survey, válido hasta 2030) en la posición de la estación (`lan.magAuto`, de serie sí). Sin posición, o con `lan.magAuto` en `false`, usa `lan.magVar`. El evento `pos` lleva la que se aplica en `hdg.dec`.
 
 **Fuerza Beaufort**: junto al viento en la pantalla («12/20 m/s F6»), en la WebUI y en el evento `pos` (`wind.bf`, con el viento medio).
+
+## 21. Registro de movimientos (microSD)
+
+LCD-7 y LCD-7B: con una tarjeta FAT32, `log.sd` guarda un CSV por día (UTC) en `/rotor/AAAA-MM-DD.csv`: órdenes (`MOVE` con el objetivo), posición cada `log.everyS` s (5) mientras se mueve, `STOP`, `MANUAL` y fallos (`FAULT` / `CLEAR`, también el viento). Borra lo de hace más de `log.keepDays` días (90). Lista y descarga en `http://<caja>/sd` (enlace en la línea de información de la WebUI). De serie encendido en la LCD-7; en la 7B apagado (el GPIO de relleno `log.cs` 6 es el del potenciómetro: elige otro). Detalles en [WAVESHARE_S3_LCD7.md](WAVESHARE_S3_LCD7.md#registro-de-movimientos-microsd).

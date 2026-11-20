@@ -31,6 +31,7 @@ namespace Net {
 #include "cat.h"
 #include "rc_rigctld.h"
 #include "web_page.h"
+#include "sdlog.h"
 
 namespace Net {
 
@@ -90,6 +91,23 @@ namespace Net {
         webPass = Cfg.webPass.empty() ? Cfg.pin : Cfg.webPass;
         web.on("/", HTTP_GET, []() { if (authOk()) web.send(200, "text/html", WEB_PAGE); });
         web.on("/api", HTTP_POST, handleApi);
+    #if ROTOR_HAS_SD
+        // Registro de movimientos de la microSD: /sd (lista) y /sd?f=AAAA-MM-DD.csv (descarga)
+        web.on("/sd", HTTP_GET, []() {
+            if (!authOk()) return;
+            if (web.hasArg("f")) {
+                File f;
+                if (!SdLog::webOpen(web.arg("f"), f)) { web.send(404, "text/plain", "not found"); return; }
+                web.sendHeader("Content-Disposition", String("attachment; filename=\"rotor-") + web.arg("f") + "\"");
+                web.streamFile(f, "text/csv");
+                f.close();
+                return;
+            }
+            String h;
+            SdLog::webList(h);
+            web.send(200, "text/html", h);
+        });
+    #endif
         web.onNotFound([]() { web.send(404, "text/plain", "not found"); });
         updater.setup(&web, "/update", Cfg.webUser.c_str(), webPass.c_str());
         web.begin();

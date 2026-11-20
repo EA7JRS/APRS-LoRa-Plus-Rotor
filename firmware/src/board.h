@@ -81,6 +81,15 @@
 #ifndef DEF_LED
     #define DEF_LED -1
 #endif
+#ifndef ROTOR_HAS_SD
+    #define ROTOR_HAS_SD 0          // microSD por SPI con el CS en el expansor (LCD-7 / LCD-7B): registro de movimientos
+#endif
+#ifndef DEF_LOG_SD
+    #define DEF_LOG_SD 0
+#endif
+#ifndef DEF_LOG_CS
+    #define DEF_LOG_CS -1           // CS de relleno para la librería SD (el de verdad es EXIO4)
+#endif
 #ifndef DEF_CAT_RX
     #define DEF_CAT_RX -1           // UART del CAT de la emisora
 #endif

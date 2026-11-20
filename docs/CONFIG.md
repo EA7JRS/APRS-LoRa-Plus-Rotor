@@ -65,6 +65,19 @@ Cada eje:
 
 `proto` (0 GS-232A, 1 GS-232B, 2 EasyComm II, 3 Rot2Prog, 4 bus RS485), `baud`, `rx`, `tx`, `hasEl`, `pollMs` (500), `busId` / `azId` / `elId` (3 / 20 / 21: direcciones en el bus RS485), `minAz` / `maxAz` / `maxEl` (los que se anuncian a Hamlib).
 
+`rs485` (`false`): GS-232A/B, EasyComm II o Rot2Prog por un **RS485 de dos hilos** (semidúplex): una trama cada vez, la siguiente tras la respuesta (o 250 ms) o tras lo que tarda en salir. En el otro extremo, un convertidor RS485 ↔ RS232 / TTL al controlador. El bus propio (`proto` 4) ya va así. `de` (-1): GPIO del DE / RE de un transceptor sin conmutación automática (RTS de la UART en modo RS485 semidúplex; solo ESP32); -1 en la LCD-7 / 7B, cuyo transceptor conmuta solo.
+
+## `log` (registro de movimientos en la microSD; LCD-7 y LCD-7B)
+
+| Clave | Por defecto | |
+|---|---|---|
+| `sd` | `true` en la LCD-7, `false` en la 7B | un CSV por día (UTC) en `/rotor/AAAA-MM-DD.csv` de la tarjeta (FAT32); sin hora, `/rotor/nodate.csv` con los segundos desde el arranque |
+| `cs` | 6 | GPIO de relleno para el CS de la librería SD (el de verdad es EXIO4 del expansor): no se conecta nada. Es el del conector *Sensor*: con `driver` 0 y el potenciómetro ahí (lo de serie en la 7B), elige otro libre o deja `sd` en `false` |
+| `everyS` | 5 | una línea de posición cada tantos segundos mientras se mueve |
+| `keepDays` | 90 | borra los días más antiguos (0 = guardarlo todo) |
+
+Columnas: `utc,event,az,el,taz,tel,fault`. Sucesos: `BOOT`, `MOVE` (objetivo nuevo), `MANUAL` (se mueve sin objetivo), `POS`, `STOP`, `FAULT`, `CLEAR`. Se ve y se descarga en la WebUI: `http://<caja>/sd` (enlace en la línea de información). Evento `info`: `caps.sd` y `sd` (`on`, `ok`, `file`, `freeMB`, `lines`).
+
 ## `lora`
 
 `chip` (0 ninguno, 1 SX1262, 2 SX1268, 3 SX1276, 4 SX1278), `freq` (433,775), `bw` (125), `sf` (12), `cr` (5), `power` (17 dBm), `tcxo` (V; 0 sin TCXO), pines `sck`, `miso`, `mosi`, `cs`, `rst`, `irq` (DIO1 en SX126x, DIO0 en SX127x), `busy`.

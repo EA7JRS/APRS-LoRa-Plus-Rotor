@@ -13,6 +13,7 @@
 #include "exio.h"
 #include "lan.h"
 #include "rc_rotctl_client.h"
+#include "rc_halfduplex.h"
 #include <time.h>
 #if ROTOR_HAS_WIFI
     #include <WiFi.h>
@@ -118,14 +119,23 @@ namespace Drv {
         char     info_[48];
 
         void send(const std::string& s) { if (port) port->write((const uint8_t*)s.data(), s.size()); }
-        void sendBin(const uint8_t* b, size_t n) { if (port) port->write(b, n); }
+
+        // RS485 de dos hilos (serial.rs485) con GS-232 / EasyComm / Rot2Prog: una trama cada vez (rc_halfduplex.h).
+        // El bus propio (proto 4) ya va así con su cola.
+        RC::HalfDuplexQueue hd;
+        bool half() const { return Cfg.serRs485 && Cfg.serProto != RC::SP_RSBUS; }
+        void out(const std::string& s, bool reply = false, bool urgent = false) {
+            if (!half()) { send(s); return; }
+            hd.push(s, reply, urgent);
+        }
+        void outBin(const uint8_t* b, size_t n, bool reply = false, bool urgent = false) { out(std::string((const char*)b, n), reply, urgent); }
 
         bool setPos(double a, double e) override {
             taz = a; tel = e; manualDir = 0;
             switch (Cfg.serProto) {
-                case RC::SP_GS232A: case RC::SP_GS232B: send(RC::GS232::cmdSet(a, e, Cfg.serHasEl)); break;
-                case RC::SP_EASYCOMM2: send(RC::EasyComm::cmdSet(a, e)); break;
-                case RC::SP_ROT2PROG: { uint8_t f[13]; RC::Rot2Prog::frameSet(f, a, Cfg.serHasEl ? e : 0); sendBin(f, 13); break; }
+                case RC::SP_GS232A: case RC::SP_GS232B: out(RC::GS232::cmdSet(a, e, Cfg.serHasEl)); break;
+                case RC::SP_EASYCOMM2: out(RC::EasyComm::cmdSet(a, e)); break;
+                case RC::SP_ROT2PROG: { uint8_t f[13]; RC::Rot2Prog::frameSet(f, a, Cfg.serHasEl ? e : 0); outBin(f, 13); break; }
                 case RC::SP_RSBUS:
                     busPush(Cfg.serAzId, "SETPOSDG", RC::RsBus::fmtDeg(a), true);
                     if (Cfg.serHasEl) busPush(Cfg.serElId, "SETPOSDG", RC::RsBus::fmtDeg(e), true);
@@ -141,9 +151,9 @@ namespace Drv {
         bool stop() override {
             taz = tel = NAN; manualDir = 0;
             switch (Cfg.serProto) {
-                case RC::SP_GS232A: case RC::SP_GS232B: send(RC::GS232::cmdStop()); break;
-                case RC::SP_EASYCOMM2: send(RC::EasyComm::cmdStop()); break;
-                case RC::SP_ROT2PROG: { uint8_t f[13]; RC::Rot2Prog::frameSimple(f, RC::Rot2Prog::K_STOP); sendBin(f, 13); break; }
+                case RC::SP_GS232A: case RC::SP_GS232B: out(RC::GS232::cmdStop(), false, true); break;
+                case RC::SP_EASYCOMM2: out(RC::EasyComm::cmdStop(), false, true); break;
+                case RC::SP_ROT2PROG: { uint8_t f[13]; RC::Rot2Prog::frameSimple(f, RC::Rot2Prog::K_STOP); outBin(f, 13, true, true); break; }
                 case RC::SP_RSBUS:
                     busQ.clear();                                   // la parada va antes que nada
                     busPush(Cfg.serAzId, "STOP", "0", true);
@@ -168,8 +178,8 @@ namespace Drv {
             }
             taz = tel = NAN;
             manualDir = dir;
-            if (Cfg.serProto == RC::SP_EASYCOMM2) send(RC::EasyComm::cmdMove(dir));
-            else { if (pct > 0) send(RC::GS232::cmdSpeed(pct)); send(RC::GS232::cmdMove(dir)); }
+            if (Cfg.serProto == RC::SP_EASYCOMM2) out(RC::EasyComm::cmdMove(dir));
+            else { if (pct > 0) out(RC::GS232::cmdSpeed(pct)); out(RC::GS232::cmdMove(dir)); }
             return true;
         }
         uint32_t status() override {
@@ -275,7 +285,7 @@ namespace Drv {
                 if (Cfg.serProto == RC::SP_ROT2PROG) {
                     if (binLen == 0 && c != 0x57) continue;
                     bin[binLen++] = (uint8_t)c;
-                    if (binLen == 12) { double a, e; if (RC::Rot2Prog::parseReply(bin, a, e)) gotPos(a, e, Cfg.serHasEl); binLen = 0; }
+                    if (binLen == 12) { double a, e; if (RC::Rot2Prog::parseReply(bin, a, e)) gotPos(a, e, Cfg.serHasEl); binLen = 0; hd.gotReply(millis()); }
                     continue;
                 }
                 if (c == '\n' || c == '\r') {
@@ -294,21 +304,22 @@ namespace Drv {
                             }
                         }
                         line.clear();
+                        hd.gotReply(millis());
                     }
                 } else if (line.size() < 64) line += (char)c;
                 else line.clear();
             }
             const uint32_t now = millis();
-            if (now - lastPoll >= (uint32_t)Cfg.serPollMs) {
+            if (now - lastPoll >= (uint32_t)Cfg.serPollMs && (!half() || hd.idle(now))) {
                 lastPoll = now;
                 switch (Cfg.serProto) {
-                    case RC::SP_GS232A: case RC::SP_GS232B: send(RC::GS232::cmdQuery(Cfg.serHasEl)); break;
+                    case RC::SP_GS232A: case RC::SP_GS232B: out(RC::GS232::cmdQuery(Cfg.serHasEl), true); break;
                     case RC::SP_EASYCOMM2:
                         // AZ y EL alternos (Hamlib los pide por separado)
-                        send(askEl && Cfg.serHasEl ? RC::EasyComm::cmdQueryEl() : RC::EasyComm::cmdQueryAz());
+                        out(askEl && Cfg.serHasEl ? RC::EasyComm::cmdQueryEl() : RC::EasyComm::cmdQueryAz(), true);
                         askEl = !askEl;
                         break;
-                    case RC::SP_ROT2PROG: { uint8_t f[13]; RC::Rot2Prog::frameSimple(f, RC::Rot2Prog::K_STATUS); sendBin(f, 13); break; }
+                    case RC::SP_ROT2PROG: { uint8_t f[13]; RC::Rot2Prog::frameSimple(f, RC::Rot2Prog::K_STATUS); outBin(f, 13, true); break; }
                     case RC::SP_RSBUS:
                         // AZ y EL alternos; las consultas mantienen vivo al controlador mientras se mueve
                         if (busQ.size() < 2) busPush(busAskEl && Cfg.serHasEl ? Cfg.serElId : Cfg.serAzId, "GETPOSDG", "0");
@@ -317,6 +328,7 @@ namespace Drv {
                 }
             }
             if (Cfg.serProto == RC::SP_RSBUS) busPump(now);
+            else if (half()) { std::string o; if (hd.next(now, o)) send(o); }
         }
     };
     static SerialRotor serial;
@@ -330,12 +342,18 @@ namespace Drv {
             Serial2.begin(Cfg.serBaud, SERIAL_8N1, Cfg.serRx, Cfg.serTx);
             serial.port = &Serial2;
         #endif
+        // RS485 con transceptor sin conmutación automática: DE / RE en el RTS de la UART (semidúplex por hardware)
+        if (Cfg.serDe >= 0) {
+            HardwareSerial* u = static_cast<HardwareSerial*>(serial.port);
+            if (!u->setPins(-1, -1, -1, Cfg.serDe) || !u->setMode(UART_MODE_RS485_HALF_DUPLEX)) logf("serial: RS485 DE en GPIO%d no vale\n", Cfg.serDe);
+        }
     #else
         // UART0 (Serial1) o UART1 (Serial2) segun los pines elegidos
         if (Serial1.setRX(Cfg.serRx) && Serial1.setTX(Cfg.serTx)) { Serial1.begin(Cfg.serBaud); serial.port = &Serial1; }
         else if (Serial2.setRX(Cfg.serRx) && Serial2.setTX(Cfg.serTx)) { Serial2.begin(Cfg.serBaud); serial.port = &Serial2; }
         else logf("serial: pines RX %d / TX %d no valen para ninguna UART\n", Cfg.serRx, Cfg.serTx);
     #endif
+        serial.hd.baud = (uint32_t)Cfg.serBaud;
     }
 
     // =========================================================================================================================

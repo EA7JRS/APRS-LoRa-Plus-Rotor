@@ -19,7 +19,8 @@ Los mismos conectores HY2.0 que la 7B:
 | **Sensor** (3P) | GPIO6 (ADC1), 3V3, GND | **potenciómetro AZ** (`direct.az.adcPin` 6, en milivoltios) |
 | **I2C** (4P) | SDA GPIO8, SCL GPIO9, 3V3, GND | ADS1115 opcional (0x48). El bus es el del táctil (0x5D / 0x14) y el CH422G, que contesta en **0x20-0x27 y 0x30-0x3F**: no caben placas de relés con PCF8574 / PCF8574A ni MCP23017 (ver abajo) |
 | **UART** (4P) | TX GPIO43, RX GPIO44 | **pasarela serie** al controlador (`driver` 1) **o** CAT de la emisora: la misma UART, una de las dos. Pon el conmutador de la placa en *UART2* (el conector); en la otra posición va al puerto USB *UART* |
-| RS485 | RX GPIO16, TX GPIO15 | **pasarela al bus RS485** (`serial.proto` 4, `serial.rx` 16 / `tx` 15) |
+| RS485 | RX GPIO16, TX GPIO15 (transceptor con conmutación automática) | **pasarela por RS485**: el bus propio (`serial.proto` 4) o GS-232A/B, EasyComm II y Rot2Prog (`serial.rs485` true), con `serial.rx` 16 / `tx` 15 |
+| microSD | SCK 12, MISO 13, MOSI 11, CS en EXIO4 | **registro de movimientos** (`log.sd`, de serie encendido; CSV por día, descarga en `/sd` de la WebUI) |
 | CAN | GPIO19 / 20 | no se usa (comparte pines con el USB) |
 
 El USB nativo (Type-C *USB*) hace de puerto serie: instalador web, registro y `usb.proto`. EXIO5 queda **bajo** (USB; alto sería CAN).
@@ -28,11 +29,17 @@ El USB nativo (Type-C *USB*) hace de puerto serie: instalador web, registro y `u
 
 El CH422G no tiene registros: cada función es una dirección I2C, y por eso **ocupa 0x20-0x27 y 0x30-0x3F**. Ahí caen todas las direcciones de un PCF8574 (0x20-0x27), de un PCF8574A (0x38-0x3F) y de un MCP23017: **una placa de relés por I2C no se puede usar en esta placa**, y quedan pocos GPIO libres para relés.
 
-Por eso el `waveshare_s3_lcd7` arranca con **`driver` 1, pasarela serie** a un controlador comercial (GS-232A/B, Rot2Prog, EasyComm II) por el conector UART (`serial.rx` 44 / `tx` 43), o al **bus RS485** (`serial.proto` 4, `serial.rx` 16 / `tx` 15). Los pines de los relés vienen vacíos (-1). Si se pone una placa PCF8574 a la fuerza, la configuración la rechaza («direct.pcfAddr: … = CH422G»).
+Por eso el `waveshare_s3_lcd7` arranca con **`driver` 1, pasarela serie** a un controlador comercial (GS-232A/B, Rot2Prog, EasyComm II) por el conector UART (`serial.rx` 44 / `tx` 43), o por el **RS485** (`serial.rx` 16 / `tx` 15): el bus propio (`serial.proto` 4) o GS-232A/B, EasyComm II y Rot2Prog con `serial.rs485: true` (una trama cada vez; en el controlador, un convertidor RS485 ↔ RS232). Los pines de los relés vienen vacíos (-1). Si se pone una placa PCF8574 a la fuerza, la configuración la rechaza («direct.pcfAddr: … = CH422G»).
 
 Con la pasarela por el RS485, el conector UART queda libre para el **CAT** de la emisora (`cat.rx` 44 / `tx` 43).
 
 Para control directo con relés, la [LCD-7B](WAVESHARE_S3_LCD7B.md) (su expansor es un CH32V003 en 0x24 y deja sitio para un PCF8574).
+
+## Registro de movimientos (microSD)
+
+Con una tarjeta FAT32 en la ranura, la caja guarda en `/rotor/AAAA-MM-DD.csv` (un fichero por día, UTC) cada orden nueva (`MOVE` con el objetivo), la posición cada `log.everyS` segundos mientras se mueve (`POS`), la llegada o la parada (`STOP`), el mover a mano (`MANUAL`) y los fallos (`FAULT` / `CLEAR`, también el aparcado por viento). Escribe cada 10 s (o antes si se junta mucho), borra lo de hace más de `log.keepDays` días (90) y vuelve a montar la tarjeta sola si se quita y se pone. Lista y descarga: `http://<caja>/sd`. Sin hora (sin NTP ni GPS de la red) va a `nodate.csv` con los segundos desde el arranque.
+
+La tarjeta va por SPI con el CS en el EXIO4 del CH422G; la librería SD pide además un GPIO de CS, que es de relleno (`log.cs`, 6, el del conector *Sensor*, que en esta placa no se usa con la pasarela).
 
 ## Pantalla de una Raspberry Pi
 
@@ -45,6 +52,7 @@ El panel, el táctil y el CH422G están probados con APRS LoRa+ Display en esta 
 1. **Pantalla del rotor** (disposición y letras): probada en el PC (`test_host/lcd_preview`, imágenes de 800 × 480).
 2. **Conmutador UART** en la posición del conector y la pasarela serie.
 3. **`driver` 2** contra el rotctld de una Raspberry Pi (probado en el PC con el demonio de la Pi).
+4. **RS485** con GS-232 / EasyComm / Rot2Prog (`serial.rs485`) y la **microSD** (registro): la cola semidúplex y el registro, probados en el PC (`test_host`).
 
 ## Instalar
 

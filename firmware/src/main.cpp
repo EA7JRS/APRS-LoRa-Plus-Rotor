@@ -30,6 +30,7 @@
 #include "lcd_hw.h"
 #include "cat.h"
 #include "lan.h"
+#include "sdlog.h"
 
 static ProtoPort usb;
 static uint32_t  ledT = 0;
@@ -56,6 +57,7 @@ void setup() {
     Bt::begin();
     LoraAprs::begin();
     LcdHw::begin();
+    SdLog::begin();                                    // registro de movimientos en la microSD (LCD-7 / 7B)
 }
 
 void loop() {
@@ -67,6 +69,7 @@ void loop() {
     LoraAprs::loop();
     Cat::loop();
     LcdHw::loop();
+    SdLog::loop();
     serviceReboot();
     // LED: fijo moviendose, parpadeo rapido con fallo, destello lento en reposo
     if (Cfg.led >= 0) {

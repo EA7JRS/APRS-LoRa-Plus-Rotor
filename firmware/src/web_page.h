@@ -78,7 +78,7 @@ const t=document.getElementById('csm');t.textContent=v<0?'S—':(v<=9?'S'+v:'S9+
 <div class="row"><button onclick="loadCfg()">Leer</button><button onclick="saveCfg()">Guardar y reiniciar</button><a href="/update"><button>Actualizar firmware</button></a></div>
 <textarea id="cfg" spellcheck="false"></textarea>
 <p class="mut">Referencia de campos en docs/CONFIG.md del repositorio. Las contraseñas aparecen; no compartas esta página.</p>
-<div class="row mut" id="info"></div></div>
+<div class="row mut" id="info"></div><div class="row mut" id="sdrow" style="display:none"></div></div>
 <div class="c" style="grid-column:1/-1" id="about"><h3>Acerca de</h3>
 <p class="mut" id="buildInfo"></p>
 <p>APRS LoRa+ Rotor &middot; &copy; 2026 Manuel - EA7JRS</p>
@@ -142,6 +142,6 @@ function catF(){const v=parseFloat($('cfi').value);if(!(v>0))return;cmd({c:'cats
 function catT(n){if(!cat||!cat.f)return;const s=+$('cst').value;cmd({c:'catset',f:(Math.floor(cat.f/s)+n)*s+(n<0&&cat.f%s?s:0)})}
 function catTrk(){cmd({c:'cattrack',on:!(cat&&cat.tr&&cat.tr.en)})}
 async function info(){try{const r=await api([{c:'info'}]);const i=r[0];lim=i.lim;$('ver').textContent=i.ver;$('buildInfo').textContent=`Rotor ${i.ver} · ${i.board} (${i.chip})`;$('hdr').textContent=i.name+' · '+i.call;
-if(i.cat&&!cat)catInit();$('info').textContent=`${i.board} (${i.chip}) · mando: ${i.drv} · IP ${i.ip} · rotctld ${i.rotctld||'off'} · rigctld ${i.rigctld||'off'} · rango AZ ${i.lim.minAz}–${i.lim.maxAz}, EL ${i.lim.minEl}–${i.lim.maxEl}`}catch(e){}}
+if(i.cat&&!cat)catInit();$('info').textContent=`${i.board} (${i.chip}) · mando: ${i.drv} · IP ${i.ip} · rotctld ${i.rotctld||'off'} · rigctld ${i.rigctld||'off'} · rango AZ ${i.lim.minAz}–${i.lim.maxAz}, EL ${i.lim.minEl}–${i.lim.maxEl}`;if(i.caps&&i.caps.sd&&i.sd&&i.sd.on){const r=$('sdrow');r.style.display='';r.innerHTML=i.sd.ok?`microSD: ${i.sd.freeMB} MB libres · ${i.sd.lines} líneas · <a href="/sd" target="_blank">registro de movimientos</a>`:'microSD: sin tarjeta'}}catch(e){}}
 info();poll();setInterval(poll,1000);setInterval(raw,2000);
 </script></body></html>)HTML";

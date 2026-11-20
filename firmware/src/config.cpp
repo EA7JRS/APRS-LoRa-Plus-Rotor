@@ -111,6 +111,7 @@ namespace Config {
         s["proto"] = c.serProto; s["baud"] = c.serBaud; s["rx"] = c.serRx; s["tx"] = c.serTx; s["hasEl"] = c.serHasEl;
         s["busId"] = c.serBusId; s["azId"] = c.serAzId; s["elId"] = c.serElId;
         s["pollMs"] = c.serPollMs; s["minAz"] = c.serMinAz; s["maxAz"] = c.serMaxAz; s["maxEl"] = c.serMaxEl;
+        s["rs485"] = c.serRs485; s["de"] = c.serDe;
         JsonObject l = d["lora"].to<JsonObject>();
         l["chip"] = c.loraChip; l["freq"] = c.loraFreq; l["bw"] = c.loraBw; l["sf"] = c.loraSf; l["cr"] = c.loraCr;
         l["power"] = c.loraPower; l["tcxo"] = c.loraTcxo;
@@ -138,6 +139,10 @@ namespace Config {
     #if ROTOR_HAS_LCD
         JsonObject lc = d["lcd"].to<JsonObject>();
         lc["bright"] = c.lcdBright; lc["dimS"] = c.lcdDimS; lc["theme"] = c.lcdTheme;
+    #endif
+    #if ROTOR_HAS_SD
+        JsonObject lg = d["log"].to<JsonObject>();
+        lg["sd"] = c.logSd; lg["cs"] = c.logCs; lg["everyS"] = c.logEveryS; lg["keepDays"] = c.logKeepDays;
     #endif
         std::string out;
         serializeJson(d, out);
@@ -194,6 +199,21 @@ namespace Config {
         if (!(c.skyMinEl >= -5 && c.skyMinEl <= 60)) { err = "sky.minEl -5..60"; return false; }
         if (c.lcdBright < 10 || c.lcdBright > 100 || c.lcdDimS < 0) { err = "lcd.bright 10-100 / lcd.dimS >= 0"; return false; }
         if (c.lcdTheme < 0 || c.lcdTheme > 1) { err = "lcd.theme 0 (app) / 1 (rotor)"; return false; }
+        if (c.serDe < -1 || c.serDe >= 100) { err = "serial.de (GPIO de la placa o -1)"; return false; }
+        if (!ROTOR_ESP32 && c.serDe >= 0) { err = "serial.de: solo ESP32 (en la Pico, transceptor automatico)"; return false; }
+        if (c.serDe >= 0 && (c.serDe == c.serRx || c.serDe == c.serTx)) { err = "serial.de = serial.rx / tx"; return false; }
+        if (c.logEveryS < 1 || c.logEveryS > 3600 || c.logKeepDays < 0 || c.logKeepDays > 3650) { err = "log.everyS 1-3600 / log.keepDays 0-3650"; return false; }
+    #if ROTOR_HAS_SD
+        if (c.logSd) {
+            if (c.logCs < 0 || c.logCs >= 49) { err = "log.cs (GPIO libre de la placa)"; return false; }
+            const bool sensorPin = c.driver == 0 && ((c.azPins.sensor == 0 && c.azPins.adcPin == c.logCs) ||
+                                                      (c.elEnabled && c.elPins.sensor == 0 && c.elPins.adcPin == c.logCs));
+            if (sensorPin || c.logCs == c.serRx || c.logCs == c.serTx || c.logCs == c.catRx || c.logCs == c.catTx ||
+                c.logCs == c.anemoPin || c.logCs == c.serDe) { err = "log.cs: GPIO en uso (sensor, UART, anemometro)"; return false; }
+        }
+    #else
+        if (c.logSd) { err = "log.sd: esta placa no tiene microSD"; return false; }
+    #endif
         if (c.catProto < 0 || c.catProto > 6) { err = "cat.proto 0-6"; return false; }
         const bool catNet = RC::catIsNetwork(c.catProto);
         if (c.catProto && !catNet && (c.catRx < 0 || c.catTx < 0)) { err = "cat.rx / cat.tx"; return false; }
@@ -236,6 +256,7 @@ namespace Config {
         get(s, "proto", n.serProto); get(s, "baud", n.serBaud); get(s, "rx", n.serRx); get(s, "tx", n.serTx); get(s, "hasEl", n.serHasEl);
         get(s, "busId", n.serBusId); get(s, "azId", n.serAzId); get(s, "elId", n.serElId);
         get(s, "pollMs", n.serPollMs); getD(s, "minAz", n.serMinAz); getD(s, "maxAz", n.serMaxAz); getD(s, "maxEl", n.serMaxEl);
+        get(s, "rs485", n.serRs485); get(s, "de", n.serDe);
         JsonVariantConst l = d["lora"];
         get(l, "chip", n.loraChip); getD(l, "freq", n.loraFreq); getD(l, "bw", n.loraBw); get(l, "sf", n.loraSf); get(l, "cr", n.loraCr);
         get(l, "power", n.loraPower); getD(l, "tcxo", n.loraTcxo);
@@ -255,6 +276,8 @@ namespace Config {
         get(ln, "heading", n.headComp); getD(ln, "headStep", n.headStep); getD(ln, "magVar", n.headVar); get(ln, "magAuto", n.headVarAuto);
         getD(d["sky"], "step", n.skyStep); getD(d["sky"], "minEl", n.skyMinEl); get(d["sky"], "refraction", n.skyRefr);
         get(d["lcd"], "bright", n.lcdBright); get(d["lcd"], "dimS", n.lcdDimS); get(d["lcd"], "theme", n.lcdTheme);
+        JsonVariantConst lg = d["log"];
+        get(lg, "sd", n.logSd); get(lg, "cs", n.logCs); get(lg, "everyS", n.logEveryS); get(lg, "keepDays", n.logKeepDays);
         JsonVariantConst ct = d["cat"];
         get(ct, "proto", n.catProto); get(ct, "baud", n.catBaud); get(ct, "rx", n.catRx); get(ct, "tx", n.catTx); get(ct, "civ", n.catCiv);
         getS(ct, "model", n.catModel); get(ct, "pollMs", n.catPollMs); get(ct, "ptt", n.catPtt); get(ct, "pttMaxS", n.catPttMaxS); get(ct, "trackStep", n.catTrackStep);

@@ -13,6 +13,7 @@
 #include "bt.h"
 #include "cat.h"
 #include "lan.h"
+#include "sdlog.h"
 #if ROTOR_ESP32
     #include <esp_ota_ops.h>
 #endif
@@ -103,6 +104,7 @@ void RotorApiHost::info(JsonObject o) {
     caps["wind"] = true;
     caps["lan"] = ROTOR_HAS_LAN != 0;                   // red local (src/lan.cpp): viento, posicion y rumbo
     caps["sky"] = true;                                 // seguir el sol o la luna (orden "track")
+    caps["sd"] = ROTOR_HAS_SD != 0;                     // microSD con el registro de movimientos (src/sdlog.cpp)
     o["ip"] = Net::ip();
     o["rotctld"] = Cfg.rotctld ? Cfg.rotctldPort : 0;
     o["rigctld"] = (Cat::engine() && Cfg.rigctld) ? Cfg.rigctldPort : 0;
@@ -110,6 +112,9 @@ void RotorApiHost::info(JsonObject o) {
     o["up"] = millis() / 1000;
     o["utc"] = (unsigned long long)Board::utc();
     Lan::info(o);
+#if ROTOR_HAS_SD
+    SdLog::info(o["sd"].to<JsonObject>());
+#endif
 }
 
 void RotorApiHost::posExtra(JsonObject o) {
