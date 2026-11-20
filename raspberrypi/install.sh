@@ -6,16 +6,19 @@
 #   sudo ./install.sh --gadget   ademas activa el USB "gadget" serie de la Zero 2 W (/dev/ttyGS0): el PC ve un GS-232B por USB
 #   sudo ./install.sh --stepper  motores paso a paso con el Waveshare Stepper Motor HAT (python3-lgpio, driver "stepper")
 #   sudo ./install.sh --gps      Uputronics GPS/RTC HAT: UART, PPS en GPIO18, reloj RV-3028, gpsd (gps.on); reinicia la Pi
-#   (se pueden juntar: sudo ./install.sh --stepper --gps; ver docs/RASPBERRY_HATS.md por el GPIO18 de los dos HAT)
+#   sudo ./install.sh --link-uart  UART para una pantalla del rotor por cable (LCD-7 / LCD-7B): GPIO8 TX, GPIO9 RX, GS-232B
+#                                  (Pi 4 y 5; en la 3 y la Zero 2 W, adaptador USB-serie); reinicia la Pi
+#   (se pueden juntar: sudo ./install.sh --stepper --gps --link-uart; ver docs/RASPBERRY_HATS.md por el GPIO18 de los dos HAT)
 #   NO_NTP=1 sudo ./install.sh   sin tocar la hora del sistema (de serie pone NTPsec con la hora del ROA y el GPS de gpsd)
 set -e
 
-GADGET=""; STEPPER=""; GPS=""
+GADGET=""; STEPPER=""; GPS=""; LINK=""; LINKDEV=""
 for a in "$@"; do
     case "$a" in
         --gadget) GADGET=1 ;;
         --stepper) STEPPER=1 ;;
         --gps) GPS=1 ;;
+        --link-uart) LINK=1 ;;
         *) echo "opcion desconocida: $a"; exit 1 ;;
     esac
 done
@@ -86,9 +89,28 @@ EOG
     REBOOT=1
 fi
 
+if [ -n "$LINK" ]; then
+    # El UART0 (GPIO14/15) es el del GPS: la pantalla va por otro PL011 en GPIO8 (TX, pin 24) y GPIO9 (RX, pin 21),
+    # libres con los dos HAT. /dev/rotor-link apunta a el (el numero de ttyAMA cambia segun los UART activados)
+    echo "== UART para la pantalla del rotor por cable (GPIO8 TX, GPIO9 RX)"
+    MODEL=$(tr -d '\0' < /proc/device-tree/model 2>/dev/null || true)
+    KERN=""
+    case "$MODEL" in
+        *"Raspberry Pi 5"*|*"Compute Module 5"*) addcfg "dtoverlay=uart3-pi5"; KERN="1f0003c000.serial" ;;
+        *"Raspberry Pi 4"*|*"Raspberry Pi 400"*|*"Compute Module 4"*) addcfg "dtoverlay=uart4"; KERN="fe201800.serial" ;;
+        *) LINKDEV=/dev/ttyUSB0
+           echo "   $MODEL no tiene otro UART en el conector: usa un adaptador USB-serie de 3,3 V ($LINKDEV)" ;;
+    esac
+    if [ -n "$KERN" ]; then
+        echo "SUBSYSTEM==\"tty\", KERNELS==\"$KERN\", SYMLINK+=\"rotor-link\"" > /etc/udev/rules.d/90-aprs-lora-plus-rotor-link.rules
+        LINKDEV=/dev/rotor-link
+    fi
+    REBOOT=1
+fi
+
 # Configuracion: driver "stepper" y GPS propio (si se ha pedido); con los dos HAT, el STEP del motor 2 no puede ser el GPIO18
-if [ -n "$STEPPER$GPS" ]; then
-    STEPPER="$STEPPER" GPS="$GPS" python3 - "$CONF/config.json" <<'EOP'
+if [ -n "$STEPPER$GPS$LINKDEV" ]; then
+    STEPPER="$STEPPER" GPS="$GPS" LINKDEV="$LINKDEV" python3 - "$CONF/config.json" <<'EOP'
 import json, os, sys
 p = sys.argv[1]
 d = json.load(open(p))
@@ -100,6 +122,10 @@ if os.environ.get("GPS"):
     if d.get("driver") == "stepper" and st.get("step", 18) == 18:
         st["step"] = 26                                  # el cable del STEP del motor 2 al GPIO26 (docs/RASPBERRY_HATS.md)
         print("   stepper.el.step = 26 (el GPIO18 es el PPS del GPS)")
+dev = os.environ.get("LINKDEV")
+if dev and not any(sp.get("device") == dev for sp in d.setdefault("serialPorts", [])):
+    d["serialPorts"].append({"device": dev, "baud": 9600, "proto": 1})   # GS-232B: la pantalla, driver 1 GS-232B 9600
+    print("   serialPorts: " + dev + " GS-232B 9600")
 json.dump(d, open(p + ".tmp", "w"), indent=1, ensure_ascii=False)
 os.chmod(p + ".tmp", 0o600)
 os.replace(p + ".tmp", p)
@@ -126,4 +152,6 @@ echo "Listo. WebUI: http://$IP:8080  (usuario admin, contraseña = PIN 123456 ha
 echo "rotctld (Hamlib NET rotctl, modelo 2): $IP:4533   ·   modelos de Hamlib: rotctl -l"
 [ -z "$NO_NTP" ] && echo "Hora: ntpq -p (servidores del ROA; GPS y PPS si gpsd los da)"
 [ -n "$STEPPER" ] && echo "Motores: ajusta stepper.az / stepper.el (micropasos de los DIP, gear, dps) en la configuracion"
-[ -n "$REBOOT" ] && echo "GPS: reinicia la Pi (sudo reboot) para el UART, el PPS y el reloj; luego: cgps, ppstest /dev/pps0"
+[ -n "$GPS" ] && echo "GPS: reinicia la Pi (sudo reboot) para el UART, el PPS y el reloj; luego: cgps, ppstest /dev/pps0"
+[ -n "$LINKDEV" ] && echo "Pantalla por cable: $LINKDEV (GS-232B 9600); en la pantalla, driver 1, serial.proto 1, serial.baud 9600"
+[ -n "$REBOOT" ] && echo "Reinicia la Pi: sudo reboot"

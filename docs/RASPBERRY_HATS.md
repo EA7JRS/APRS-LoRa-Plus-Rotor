@@ -14,6 +14,7 @@ sudo reboot                            # con --gps: UART, PPS y reloj
 
 - `--stepper`: instala `python3-lgpio` (pulsos por `/dev/gpiochip`, también en la Pi 5) y pone `"driver": "stepper"`.
 - `--gps`: instala `gpsd`, `gpsd-clients` y `pps-tools`; añade a `config.txt` `enable_uart=1`, `dtparam=i2c_arm=on`, `dtoverlay=pps-gpio,gpiopin=18` y `dtoverlay=i2c-rtc,rv3028,backup-switchover-mode=1` (en la Pi 5 también `dtparam=uart0=on`); quita la consola del puerto serie; gpsd lee `/dev/serial0` (`/dev/ttyAMA0` en la Pi 5) y `/dev/pps0`; pone `"gps": {"on": true}`.
+- `--link-uart`: UART para una pantalla del rotor por cable ([abajo](#2-pantalla-lcd-7--lcd-7b-por-cable-gs-232b)).
 - Con las dos, si el STEP del motor 2 sigue en el GPIO18, lo cambia a **26** en la configuración (el cable de abajo).
 
 Comprobar el GPS: `cgps` (posición y satélites), `ppstest /dev/pps0` (un pulso por segundo con el GPS fijado), `ntpq -p` (`GPS` y `PPS` además del ROA) y `sudo hwclock -r` (reloj del HAT).
@@ -86,8 +87,57 @@ El STEP del motor 2 del Stepper Motor HAT y el PPS del GPS son **los dos el GPIO
 
 Con `gps.on` y un STEP, DIR, ENABLE o final de carrera en el GPIO18, la configuración da error.
 
-Pines que quedan libres con los dos HAT y el cambio a GPIO26: GPIO5, 6, 7, 8, 9, 10, 11, 23 y 25 (finales de carrera, anemómetro...).
+Pines que quedan libres con los dos HAT y el cambio a GPIO26: GPIO5, 6, 7, 8, 9, 10, 11, 23 y 25 (finales de carrera, anemómetro...; GPIO8 y 9 son los de la pantalla por cable, `--link-uart`).
+
+## Emparejar la Pi con una pantalla o con la app
+
+La Pi con los HAT no tiene pantalla. Se puede manejar a la vez desde una **pantalla del rotor** (Waveshare LCD-7 o LCD-7B con este firmware), por WiFi o por cable, y desde la **app Android** por Bluetooth. Todos ven la misma posición y cualquiera puede mover o parar.
+
+### 1. Pantalla LCD-7 / LCD-7B por WiFi (`driver` 2)
+
+La pantalla es cliente del **rotctld de la Pi** (puerto 4533, de serie): no hay que tocar nada en la Pi.
+
+1. Pi y pantalla en la misma red: la de casa (`wifi.ssid` en la pantalla) o el punto de acceso de la pantalla (la Pi entra en él como en cualquier WiFi). Mejor con la **IP de la Pi fija** (reserva en el router).
+2. En la pantalla (WebUI → Configuración, o la app):
+
+```json
+"driver": 2,
+"remote": {"host": "192.168.1.50", "port": 4533}
+```
+
+Al conectar, la pantalla pide `\dump_state` y toma los límites de la Pi (`min_az`, `max_az`, `max_el`; hasta entonces usa `serial.minAz` / `maxAz` / `maxEl`). Lee la posición cada `serial.pollMs` (500 ms) y manda `P az el`, `M` (mover a mano), `S` (parar) y `K` (aparcar). Sin respuesta en 3 s la pantalla da el fallo **LINK** y vuelve a conectar sola (cada 3 s, hasta 15 s si la Pi no contesta). Funciona igual con cualquier rotctld de Hamlib.
+
+El rotctld no tiene contraseña (como el de Hamlib): solo en una red de confianza.
+
+### 2. Pantalla LCD-7 / LCD-7B por cable (GS-232B)
+
+El UART de los pines 8 / 10 es el del GPS, así que la pantalla va por **otro UART en GPIO8 (TX) y GPIO9 (RX)**, libres con los dos HAT:
+
+```sh
+sudo ./install.sh --link-uart          # se puede juntar con --stepper --gps
+sudo reboot
+```
+
+- **Pi 4**: `dtoverlay=uart4`. **Pi 5**: `dtoverlay=uart3-pi5`. Las dos en GPIO8 / GPIO9. `install.sh` crea `/dev/rotor-link` (regla de udev: el número de `ttyAMA` cambia según los UART activados) y añade a `serialPorts` `{"device": "/dev/rotor-link", "baud": 9600, "proto": 1}`: la Pi contesta como un controlador **GS-232B**.
+- **Pi 3 y Zero 2 W**: no tienen otro UART en el conector (el segundo es el del Bluetooth). Usa un adaptador **USB-serie de 3,3 V**: `install.sh` pone `/dev/ttyUSB0`.
+
+| Pantalla (conector UART) | Raspberry Pi |
+|---|---|
+| TX (GPIO43) | pin 21 (GPIO9, RX) |
+| RX (GPIO44) | pin 24 (GPIO8, TX) |
+| GND | pin 25 (GND) |
+
+Las dos son de 3,3 V: unión directa, sin el hilo de 3V3. Cable corto (un par de metros); para más distancia, WiFi. Pon el conmutador de la pantalla en *UART2* (el conector). En la pantalla: `driver` 1, `serial.proto` 1 (GS-232B), `serial.baud` 9600, `serial.rx` 44 / `tx` 43 (los de serie en la LCD-7) y `serial.maxAz` / `maxEl` iguales a los de `stepper.az` / `stepper.el`.
+
+Con `--link-uart`, GPIO8 y GPIO9 dejan de estar libres (y el SPI0 no se puede usar).
+
+### 3. App Android por Bluetooth
+
+El BLE viene encendido (`bt.ble: true`). En la app, pestaña **Rotor** → buscar → la Pi (su `name`, `APRS-Rotor` de serie). Android pide **vincular** sin número (emparejamiento «Just Works»: la Pi no tiene pantalla); el control lo protege el **PIN de la caja** (`pin`, 123456 de serie), que la app manda con `auth`. También por WiFi: TCP 4534.
+
+- No pongas `dtoverlay=disable-bt`: quita el Bluetooth. En la Pi 3 y la 4 el GPS va por el mini UART (`/dev/serial0`) y el Bluetooth sigue con su UART; en la Pi 5 el Bluetooth va aparte.
+- Olvidar un móvil: en Android, *Bluetooth → APRS-Rotor → Olvidar*, y en la Pi `bluetoothctl devices` y `bluetoothctl remove <MAC>`.
 
 ## Sin probar
 
-Escrito con los datos de Waveshare y de Uputronics. Probado en el PC con un GPIO simulado (rampas, topes, solape, finales de carrera, posición guardada) y con mensajes de gpsd de ejemplo. **No se ha probado con las placas, motores ni un GPS de verdad.**
+Escrito con los datos de Waveshare y de Uputronics. La pantalla por WiFi probada en el PC contra el rotctld de la Pi (`\dump_state`, `p`, `P`, `M`, `S`, `K`). Probado en el PC con un GPIO simulado (rampas, topes, solape, finales de carrera, posición guardada) y con mensajes de gpsd de ejemplo. **No se ha probado con las placas, motores ni un GPS de verdad.**

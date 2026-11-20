@@ -58,7 +58,9 @@ struct RotorConfig {
     int         sppProto = 1;               // protocolo del SPP (como usbProto, 0-4)
 
     // Mando del rotor
-    int         driver = 0;                 // 0 control directo, 1 pasarela serie a un controlador
+    int         driver = 0;                 // 0 control directo, 1 pasarela serie a un controlador, 2 rotctld de otra caja por la red
+    std::string remoteHost;                 // driver 2: la otra caja (Raspberry Pi con el Stepper HAT, otra placa) o un rotctld
+    int         remotePort = 4533;
     RC::AxisCfg az, el;
     AxisPins    azPins, elPins;
     bool        elEnabled = true;

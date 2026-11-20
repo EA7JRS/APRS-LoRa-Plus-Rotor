@@ -34,12 +34,17 @@ Con la pasarela por el RS485, el conector UART queda libre para el **CAT** de la
 
 Para control directo con relés, la [LCD-7B](WAVESHARE_S3_LCD7B.md) (su expansor es un CH32V003 en 0x24 y deja sitio para un PCF8574).
 
+## Pantalla de una Raspberry Pi
+
+La LCD-7 (y la 7B) puede ser la **pantalla de la caja del rotor en una Raspberry Pi** con el Waveshare Stepper Motor HAT, que no tiene pantalla: por **WiFi** (`"driver": 2`, `"remote": {"host": "<IP de la Pi>", "port": 4533}`, cliente de su rotctld) o por **cable** (`driver` 1 GS-232B a 9600 por el conector UART, a los GPIO8 / 9 de la Pi con `install.sh --link-uart`). Detalles en [RASPBERRY_HATS.md](RASPBERRY_HATS.md#emparejar-la-pi-con-una-pantalla-o-con-la-app).
+
 ## Sin verificar en la placa
 
 El panel, el táctil y el CH422G están probados con APRS LoRa+ Display en esta placa. Del rotor, sin probar:
 
 1. **Pantalla del rotor** (disposición y letras): probada en el PC (`test_host/lcd_preview`, imágenes de 800 × 480).
 2. **Conmutador UART** en la posición del conector y la pasarela serie.
+3. **`driver` 2** contra el rotctld de una Raspberry Pi (probado en el PC con el demonio de la Pi).
 
 ## Instalar
 

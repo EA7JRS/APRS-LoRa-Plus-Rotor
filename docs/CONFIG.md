@@ -16,7 +16,8 @@ Se edita entera desde la WebUI (*Configuración*) o la app (`cfgget` / `cfgset`)
 | `usb.proto` | 1 | USB: 0 GS-232A, 1 GS-232B, 2 EasyComm II, 3 Rot2Prog, 4 rotctld, 5 registro (log) |
 | `bt.mode` | 1 | 0 apagado, 1 BLE (app), 2 SPP (ESP32 original y Pico 2 W) |
 | `bt.sppProto` | 1 | protocolo del SPP (como `usb.proto`, 0-4) |
-| `driver` | 0 | 0 control directo, 1 pasarela serie |
+| `driver` | 0 | 0 control directo, 1 pasarela serie, 2 rotctld de otra caja por la red (`remote`; placas con WiFi) |
+| `remote.host` / `port` | — / 4533 | `driver` 2: IP o nombre del rotctld (la Raspberry Pi con el Stepper HAT, otra caja, cualquier rotctld de Hamlib). Los límites salen de su `\dump_state` (hasta entonces, `serial.minAz` / `maxAz` / `maxEl`); `serial.pollMs` = cada cuánto se lee la posición. Ver [RASPBERRY_HATS.md](RASPBERRY_HATS.md#emparejar-la-pi-con-una-pantalla-o-con-la-app) |
 | `led` | según placa | LED de estado: fijo moviéndose, parpadeo rápido con fallo |
 | `lcd.bright` | 80 | brillo de la pantalla táctil, 10-100 % (solo placas con pantalla; también desde la pantalla de información) |
 | `lcd.theme` | 0 | paleta de la pantalla: 0 = la de la app Android (la misma que APRS LoRa+ Display), 1 = la de la WebUI (cabecera roja); cambia al momento |
@@ -125,6 +126,8 @@ Seguir el sol o la luna (orden `track`).
 ## `driver`, `stepper` y `gps` (solo Raspberry Pi)
 
 `driver`: `hamlib` (de serie; rotctld de Hamlib con el controlador del rotor) o `stepper` (motores paso a paso con el Waveshare Stepper Motor HAT). Detalles y montaje en [RASPBERRY_HATS.md](RASPBERRY_HATS.md).
+
+`serialPorts`: lista de puertos serie donde la Pi hace de controlador (`device`, `baud`, `proto` 0-4 como `usb.proto`). `install.sh --link-uart` añade `{"device": "/dev/rotor-link", "baud": 9600, "proto": 1}` para una pantalla del rotor por cable.
 
 | Clave | Por defecto | |
 |---|---|---|

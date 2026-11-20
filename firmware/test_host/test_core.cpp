@@ -19,6 +19,7 @@
 #include "rc_heading.h"
 #include "rc_anemo.h"
 #include "rc_sky.h"
+#include "rc_rotctl_client.h"
 
 using namespace RC;
 
@@ -922,6 +923,52 @@ static void testSky() {
     o.clear(); a2.handle("{\"c\":\"track\",\"t\":\"sun\"}", fh, o); CHECK(o[0].find("no sky") != std::string::npos);
 }
 
+// Rotor por la red: el cliente rotctld contra el rotctld del propio núcleo (la otra caja)
+static void pump(RotctlClientRotor& c, RotctlSession& srv, FakeRotor& far, uint32_t t) {
+    std::string out, back;
+    c.tick(t, out);
+    if (!out.empty()) srv.feed(out.data(), out.size(), far, back);
+    if (!back.empty()) c.feed(back.data(), back.size(), t + 5);
+}
+
+static void testRotctlClient() {
+    RotctlClientRotor c;
+    RotctlSession srv;
+    FakeRotor far; far.az = 123.4; far.el = 33; far.maxA = 540; far.maxE = 90;
+    CHECK(!c.setPos(1, 1));                                        // sin conexión no acepta
+    c.onConnect(0);
+    pump(c, srv, far, 0);                                          // \dump_state
+    CHECK(c.dumpDone() && c.maxAz() == 540 && c.maxEl() == 90 && c.hasEl());
+    pump(c, srv, far, 600);                                        // p
+    double a, e; c.getPos(a, e);
+    CHECK(c.known && fabs(a - 123.4) < 0.01 && fabs(e - 33) < 0.01 && c.linkOk(700));
+    CHECK(c.setPos(200, 45)); CHECK(c.setPos(210, 40));           // la última manda
+    pump(c, srv, far, 700);
+    CHECK(far.az == 210 && far.el == 40 && (c.status() & ST_BUSY));
+    pump(c, srv, far, 1300);                                       // p: ya está
+    CHECK(!(c.status() & ST_BUSY));
+    CHECK(c.move(MOVE_RIGHT, 50)); pump(c, srv, far, 1400);
+    CHECK(far.lastMove == MOVE_RIGHT && far.lastSpeed == 50);
+    CHECK(c.setPos(10, 0)); CHECK(c.stop());                       // la parada quita la posición pendiente
+    pump(c, srv, far, 1500);
+    CHECK(far.stopped && far.az == 210);
+    pump(c, srv, far, 1600);
+    CHECK(c.park()); pump(c, srv, far, 1700); CHECK(far.parked);
+    // sin respuesta: la orden se da por perdida y el enlace cae a los 3 s
+    std::string out; c.tick(2300, out); CHECK(out == "p\n");
+    out.clear(); c.tick(2500, out); CHECK(out.empty());            // espera la respuesta
+    out.clear(); c.tick(4000, out); CHECK(out == "p\n");          // perdida a los 1,5 s: vuelve a preguntar
+    CHECK(!c.linkOk(5000));
+    // rotctld antiguo (protocolo 0, sin "done") y acimut negativo
+    RotctlClientRotor o; o.onConnect(0);
+    std::string x; o.tick(0, x); o.feed("0\n2\n", 4, 10);
+    x.clear(); o.tick(1600, x); CHECK(o.dumpDone() && x == "p\n"); // terminado por tiempo, y a preguntar
+    o.feed("-90.000000\n10.000000\n", 21, 1610);
+    double a2, e2; o.getPos(a2, e2); CHECK(fabs(a2 - 270) < 0.01 && fabs(e2 - 10) < 0.01);
+    CHECK(o.linkOk(2000));
+    o.onDisconnect(); CHECK(!o.linkOk(2300) && !o.stop());
+}
+
 int main() {
     testRotctld();
     testGs232();
@@ -947,6 +994,7 @@ int main() {
     testCatApi();
     testSdrConnect();
     testRigctlClient();
+    testRotctlClient();
     printf("%d comprobaciones, %d fallos\n", checks, fails);
     return fails ? 1 : 0;
 }

@@ -5,6 +5,7 @@
 
 #include "config.h"
 #include "exio.h"
+#include "board.h"
 #include <LittleFS.h>
 
 RotorConfig Cfg;
@@ -104,6 +105,8 @@ namespace Config {
         dr["elEnabled"] = c.elEnabled; dr["parkAz"] = c.parkAz; dr["parkEl"] = c.parkEl; dr["reportMech"] = c.reportMech;
         putAxis(dr["az"].to<JsonObject>(), c.az, c.azPins);
         putAxis(dr["el"].to<JsonObject>(), c.el, c.elPins);
+        JsonObject rm = d["remote"].to<JsonObject>();
+        rm["host"] = c.remoteHost; rm["port"] = c.remotePort;
         JsonObject s = d["serial"].to<JsonObject>();
         s["proto"] = c.serProto; s["baud"] = c.serBaud; s["rx"] = c.serRx; s["tx"] = c.serTx; s["hasEl"] = c.serHasEl;
         s["busId"] = c.serBusId; s["azId"] = c.serAzId; s["elId"] = c.serElId;
@@ -165,7 +168,8 @@ namespace Config {
         if (c.wifiMode < 0 || c.wifiMode > 2) { err = "wifi.mode"; return false; }
         if (c.apPass.size() < 8) { err = "wifi.apPass >= 8"; return false; }
         if (c.usbProto < 0 || c.usbProto > 5 || c.sppProto < 0 || c.sppProto > 4 || c.btMode < 0 || c.btMode > 2) { err = "usb / bt"; return false; }
-        if (c.driver < 0 || c.driver > 1 || c.serProto < 0 || c.serProto > 4) { err = "driver"; return false; }
+        if (c.driver < 0 || c.driver > (ROTOR_HAS_WIFI ? 2 : 1) || c.serProto < 0 || c.serProto > 4) { err = "driver"; return false; }
+        if (c.driver == 2 && (c.remoteHost.empty() || c.remotePort < 1 || c.remotePort > 65535)) { err = "remote.host / remote.port"; return false; }
         if (c.serProto == 4) {
             for (int id : {c.serBusId, c.serAzId}) if (id < 1 || id > 254) { err = "serial.busId / azId 1-254"; return false; }
             if (c.serHasEl && (c.serElId < 1 || c.serElId > 254 || c.serElId == c.serAzId)) { err = "serial.elId"; return false; }
@@ -226,6 +230,8 @@ namespace Config {
         get(dr, "elEnabled", n.elEnabled); getD(dr, "parkAz", n.parkAz); getD(dr, "parkEl", n.parkEl); get(dr, "reportMech", n.reportMech);
         getAxis(dr["az"], n.az, n.azPins);
         getAxis(dr["el"], n.el, n.elPins);
+        JsonVariantConst rm = d["remote"];
+        getS(rm, "host", n.remoteHost); get(rm, "port", n.remotePort);
         JsonVariantConst s = d["serial"];
         get(s, "proto", n.serProto); get(s, "baud", n.serBaud); get(s, "rx", n.serRx); get(s, "tx", n.serTx); get(s, "hasEl", n.serHasEl);
         get(s, "busId", n.serBusId); get(s, "azId", n.serAzId); get(s, "elId", n.serElId);

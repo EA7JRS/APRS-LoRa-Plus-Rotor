@@ -12,7 +12,12 @@
 #include "rc_serialproto.h"
 #include "exio.h"
 #include "lan.h"
+#include "rc_rotctl_client.h"
 #include <time.h>
+#if ROTOR_HAS_WIFI
+    #include <WiFi.h>
+    #include "net.h"
+#endif
 
 namespace Drv {
 
@@ -334,6 +339,54 @@ namespace Drv {
     }
 
     // =========================================================================================================================
+    // Rotor de otra caja por la red (driver 2): cliente de su rotctld. La Raspberry Pi con el Stepper Motor HAT, otra placa
+    // o cualquier rotctld de Hamlib hace de mando; esta caja (p. ej. la LCD-7) es la pantalla y el punto de acceso de todo.
+    // =========================================================================================================================
+    static RC::RotctlClientRotor netR;
+#if ROTOR_HAS_WIFI
+    static WiFiClient netTcp;
+    static uint32_t   netNextTry = 0;
+    static uint32_t   netBackoff = 3000;                   // 3 s, hasta 15 s si no contesta (cada intento para el bucle 0,4 s)
+
+    static void netLoop() {
+        const uint32_t now = millis();
+        const bool wifi = Net::up();                        // también como punto de acceso: la Pi puede entrar en él
+        if (netR.connected() && (!netTcp.connected() || !wifi)) {
+            netTcp.stop(); netR.onDisconnect(); netNextTry = now + 3000;
+            logf("remote: %s:%d desconectado\n", Cfg.remoteHost.c_str(), Cfg.remotePort);
+        }
+        if (!netR.connected()) {
+            if (!wifi || (int32_t)(now - netNextTry) < 0) return;
+        #if ROTOR_ESP32
+            const bool ok = netTcp.connect(Cfg.remoteHost.c_str(), (uint16_t)Cfg.remotePort, 400);
+        #else
+            netTcp.setTimeout(400);
+            const bool ok = netTcp.connect(Cfg.remoteHost.c_str(), (uint16_t)Cfg.remotePort);
+        #endif
+            if (!ok) {
+                netNextTry = millis() + netBackoff;
+                if (netBackoff < 15000) netBackoff += 3000;
+                return;
+            }
+            netBackoff = 3000;
+            netTcp.setNoDelay(true);
+            netR.onConnect(now);
+            logf("remote: rotctld %s:%d\n", Cfg.remoteHost.c_str(), Cfg.remotePort);
+        }
+        char buf[128];
+        int n;
+        while ((n = netTcp.available()) > 0) {
+            n = netTcp.read((uint8_t*)buf, n > (int)sizeof(buf) ? (int)sizeof(buf) : n);
+            if (n <= 0) break;
+            netR.feed(buf, (size_t)n, now);
+        }
+        std::string out;
+        netR.tick(now, out);
+        if (!out.empty()) netTcp.write((const uint8_t*)out.data(), out.size());
+    }
+#endif
+
+    // =========================================================================================================================
     static uint32_t lastUpdate = 0;
 
     // Proteccion por viento: todo pasa por el envoltorio, que rechaza movimientos mientras esta aparcado
@@ -395,13 +448,18 @@ namespace Drv {
         anemoLastFeed = now;
         if (windG.update(anemo.avgMs(120), anemo.gustMs(120), -1, 0, "anemo", now)) { rotor().stop(); rotor().park(); }
     }
-    static RC::Rotor& realRotor() { if (Cfg.driver == 1) return serial; return direct; }
+    static RC::Rotor& realRotor() { if (Cfg.driver == 1) return serial; if (Cfg.driver == 2) return netR; return direct; }
 
     void begin() {
         windConfig();
         anemoBegin();
         if (Cfg.driver == 1) {
             openSerial();
+            return;
+        }
+        if (Cfg.driver == 2) {                              // límites hasta que conteste \dump_state
+            netR.minAz_ = Cfg.serMinAz; netR.maxAz_ = Cfg.serMaxAz; netR.maxEl_ = Cfg.serMaxEl; netR.hasEl_ = Cfg.serHasEl;
+            netR.pollMs = (uint32_t)Cfg.serPollMs;
             return;
         }
         direct.az.cfg = Cfg.az;
@@ -420,7 +478,7 @@ namespace Drv {
     }
 
     void allOff() {
-        if (Cfg.driver == 1) return;
+        if (Cfg.driver == 1 || Cfg.driver == 2) return;
         RC::AxisOut off;
         applyAxis(Cfg.azPins, off);
         if (Cfg.elEnabled) applyAxis(Cfg.elPins, off);
@@ -436,6 +494,12 @@ namespace Drv {
             skyR.tick((int64_t)time(nullptr), millis());
         }
         if (Cfg.driver == 1) { serial.poll(); return; }
+        if (Cfg.driver == 2) {
+        #if ROTOR_HAS_WIFI
+            netLoop();
+        #endif
+            return;
+        }
         if (usingAds) Ads::poll(Cfg.azPins.sensor == 1 ? Cfg.azPins.adsChannel : -1, (Cfg.elEnabled && Cfg.elPins.sensor == 1) ? Cfg.elPins.adsChannel : -1);
         const uint32_t now = millis();
         if (now - lastUpdate < 20) return;
@@ -452,6 +516,7 @@ namespace Drv {
 
     const char* name() {
         if (Cfg.driver == 1) return RC::serialProtoName(Cfg.serProto);
+        if (Cfg.driver == 2) return "rotctld (network)";
         return Cfg.outMode == 1 ? "direct (H-bridge)" : "direct (relays)";
     }
 
@@ -459,6 +524,8 @@ namespace Drv {
         uint8_t f;
         if (Cfg.driver == 1) {
             f = !serial.linkOk() ? RC::F_LINK : (Cfg.serProto == RC::SP_RSBUS ? serial.busFault() : RC::F_NONE);
+        } else if (Cfg.driver == 2) {
+            f = netR.linkOk(millis()) ? RC::F_NONE : RC::F_LINK;
         } else {
             f = direct.fault();
         }
@@ -469,6 +536,11 @@ namespace Drv {
         if (Cfg.anemoPin >= 0) {                                    // para calibrar el anemómetro: impulsos por segundo
             o["anemoHz"] = round(anemo.hz(3) * 100) / 100;
             o["anemoPulses"] = (uint32_t)anemoPulses;
+        }
+        if (Cfg.driver == 2) {
+            o["link"] = netR.linkOk(millis());
+            o["remote"] = Cfg.remoteHost;
+            return;
         }
         if (Cfg.driver == 1) {
             o["link"] = serial.linkOk();
@@ -482,6 +554,11 @@ namespace Drv {
 
     void posExtra(JsonObject o) {
         o["f"] = RC::faultText(fault());
+        if (Cfg.driver == 2) {
+            if (!isnan(netR.taz)) o["taz"] = netR.taz;
+            if (!isnan(netR.tel) && netR.hasEl()) o["tel"] = netR.tel;
+            return;
+        }
         if (Cfg.driver == 1) {
             if (!isnan(serial.taz)) o["taz"] = serial.taz;
             if (!isnan(serial.tel) && Cfg.serHasEl) o["tel"] = serial.tel;

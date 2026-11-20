@@ -93,7 +93,7 @@ Ver el [apartado 14](#14-raspberry-pi).
 | `pin` | **cámbialo**: protege la app, la WebUI y el control |
 | `wifi.mode` | `1` para entrar en tu red (`wifi.ssid`, `wifi.pass`); `2` deja el punto de acceso; `0` apaga la WiFi |
 | `aprs.call` | indicativo del rotor con SSID (por ejemplo `EA7JRS-12`) |
-| `driver` | `0` control directo, `1` pasarela serie |
+| `driver` | `0` control directo, `1` pasarela serie, `2` rotctld de otra caja por la red (`remote.host` / `remote.port`) |
 | `bt.mode` | `1` BLE (app), `2` SPP (tracker con ESP32 original), `0` apagado |
 
 4. Tras reiniciar, la WebUI está en **http://APRS-Rotor.local/** (o en la IP que le dé tu router).
@@ -332,6 +332,12 @@ sudo ./install.sh --stepper --gps && sudo reboot
 - La posición se cuenta en pasos y se guarda al parar. Se fija con **Corregir desfase** (calibración de la WebUI, *Offset* en la app) o con un final de carrera por eje (`home`, búsqueda al arrancar u orden `home`).
 - `gps.on`: la posición del GPS manda para la baliza, el sol y la luna y la declinación; la hora con PPS va a NTPsec y el reloj del HAT la guarda sin red.
 - **Los dos HAT usan el GPIO18** (STEP del motor 2 y PPS): lleva con un cable el pin 12 del Stepper HAT al pin 37 de la Pi (GPIO26) y pon `stepper.el.step: 26` (`install.sh` lo pone), o usa solo acimut.
+
+**Emparejar la Pi** (se pueden usar las tres a la vez):
+
+- **Pantalla LCD-7 / LCD-7B por WiFi**: en la pantalla, `"driver": 2` y `"remote": {"host": "<IP de la Pi>", "port": 4533}`. Es cliente del rotctld de la Pi: toma sus límites, lee la posición y manda mover, parar y aparcar; sin respuesta, fallo **LINK** y vuelve a conectar sola.
+- **Pantalla por cable**: `sudo ./install.sh --link-uart` (Pi 4: `uart4`, Pi 5: `uart3-pi5`, en GPIO8 TX / GPIO9 RX; `/dev/rotor-link` como GS-232B a 9600; Pi 3 y Zero 2 W con un adaptador USB-serie de 3,3 V). Cable: TX de la pantalla (GPIO43) al pin 21 de la Pi, RX (GPIO44) al pin 24, GND al pin 25. En la pantalla, `driver` 1, `serial.proto` 1, `serial.baud` 9600.
+- **App por Bluetooth**: pestaña Rotor → buscar → la Pi; Android pide vincular sin número y la app manda el PIN de la caja. No pongas `dtoverlay=disable-bt`.
 
 Más detalles en [RASPBERRY_PI.md](RASPBERRY_PI.md) y [RASPBERRY_HATS.md](RASPBERRY_HATS.md).
 

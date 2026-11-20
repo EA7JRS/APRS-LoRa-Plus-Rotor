@@ -17,6 +17,7 @@ Controlador de rotores compatible con Hamlib, manejado por el tracker APRS LoRa+
 ## Estructura
 - `firmware/lib/RotorCore/src/`: núcleo C++ puro, sin Arduino (`rc_rotctld.h`, `rc_serialproto.h`, `rc_control.h`, `rc_aprs.h`, `rc_api.h`). Pruebas: `firmware/test_host` (`make run ARDUINOJSON=…/ArduinoJson/src`; 386 comprobaciones).
 - `firmware/src/`: `board` (capa ESP32 / RP2350), `config` (LittleFS `/rotor_conf.json`), `drivers` (directo + pasarela), `services` (puerto serie con protocolo, anfitrión JSON), `net` (WiFi, rotctld 4533, JSON 4534, WebUI 80, OTA `/update`, mDNS), `bt_ble` (NimBLE), `bt_spp`, `lora_aprs` (RadioLib, emisión sin bloquear), `web_page.h` (la WebUI; la Raspberry la usa también).
+- Mando: `driver` 0 directo, 1 pasarela serie, 2 rotctld de otra caja por la red (ver Emparejar).
 - Entornos: `esp32dev`, `esp32s3`, `waveshare_c5_lcd35`, `waveshare_s3_amoled241`, `waveshare_s3_lcd7b`, `waveshare_s3_lcd7`, `pico2w`, `pico2`. Versiones como el tracker: espressif32 8.0.0, NimBLE 2.5.2, RadioLib 7.8.1, ArduinoJson 7.4.3; RP2350 con maxgerhardt/platform-raspberrypi (arduino-pico). `-Werror` solo en `src` (`build_src_flags`).
 - ESP32 de 4 MB: partición `huge_app.csv` (BLE + SPP + WiFi no caben con OTA): sin OTA por la WebUI.
 - `raspberrypi/aprs_lora_plus_rotor/`: demonio asyncio (stdlib + `python3-dbus-next` para BLE/SPP): `hamlib.py` (arranca y vigila `rotctld` en 127.0.0.1:4535 y es su cliente), `protocols.py`, `api.py`, `aprs.py`, `kiss.py`, `bluez.py`, `web.py`, `serialport.py` (termios), `main.py`. Pruebas: `python3 -m unittest discover -s tests` (incluye un rotctld simulado).
@@ -85,6 +86,12 @@ Controlador de rotores compatible con Hamlib, manejado por el tracker APRS LoRa+
 - `gnss.py`: `gps.on` = cliente JSON de gpsd (TPV, SKY, PPS); su posición manda sobre `lan.pos` y `aprs.lat/lon` (`Lan.own_pos`); `info.gps`, `caps.gps`. Hora: NTPsec con SHM 0 / 1 de gpsd (ya estaba), reloj RV-3028 (`dtoverlay=i2c-rtc,rv3028`).
 - **Los dos HAT chocan en el GPIO18** (STEP del motor 2 y PPS del Uputronics): la validación lo rechaza con `gps.on`; arreglo: pin 12 del Stepper HAT sin unir a la Pi y cable al pin 37 (GPIO26), `stepper.el.step` 26 (lo pone `install.sh`), o solo acimut.
 - `install.sh --stepper --gps` (lgpio; gpsd, pps-tools, UART sin consola, `pps-gpio` en 18, `uart0` en la Pi 5). Documento: `docs/RASPBERRY_HATS.md`. 31 pruebas Python (GPIO simulado, mensajes de gpsd). **Sin probar con las placas.** App (04cbddd): *Position (stepper motors)* en la pestaña Rotor (pasos, Offset, «Find limit switches» = `home`) y el GPS en los datos de la caja.
+
+## Emparejar la Pi con pantalla y app (2026-11-20; Manuel: «emparejamiento con la raspberry usando el hat», «los tres puntos»)
+- **WiFi**: `driver` 2 en las placas con WiFi = `RC::RotctlClientRotor` (`rc_rotctl_client.h`, sin Arduino): cliente del rotctld de otra caja (`remote.host` / `remote.port` 4533): `\dump_state` (protocolo 0 o 1; límites), `p` cada `serial.pollMs`, `P`, `M`, `S` urgente, `K`; una orden en vuelo, 1,5 s sin respuesta = siguiente; `linkOk` < 3 s si no `F_LINK`. `drivers.cpp` `netLoop` (WiFiClient, `Net::up()` también como punto de acceso, reintento 3 s hasta 15 s; cada intento para el bucle 0,4 s). `drv` «rotctld (network)», `caps.cal` false. Pruebas contra `RotctlSession` (467 del núcleo); probado en el PC contra el `RotctlSession` de la Pi con `StepperRotor`.
+- **Cable**: `install.sh --link-uart` (Pi 4 `dtoverlay=uart4`, Pi 5 `uart3-pi5`, GPIO8 TX / GPIO9 RX; udev `/dev/rotor-link`; Pi 3 / Zero 2 W: `/dev/ttyUSB0`) y `serialPorts` GS-232B 9600; la pantalla con `driver` 1 GS-232B. El UART0 es del GPS.
+- **App por BLE**: ya estaba (agente Just Works de BlueZ, PIN con `auth`); solo documentado. Sin `disable-bt`.
+- `docs/RASPBERRY_HATS.md` § Emparejar. **Sin probar con placas.**
 
 ## Manuales (2026-11-08)
 - `docs/MANUAL_ES.md`, `docs/MANUAL_EN.md` (manual de usuario) y `docs/QUICKSTART_ES.md`, `docs/QUICKSTART_EN.md` (guía rápida). Al cambiar funciones, placas o versión, actualizar los cuatro.

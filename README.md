@@ -29,6 +29,7 @@ Controlador de rotores de antena **compatible con Hamlib** para el ecosistema **
 | | ESP32 | ESP32-S3 | ESP32-C5 LCD 3,5" | ESP32-S3 AMOLED 2,41" | ESP32-S3 LCD 7" (7B / 7) | Pico 2 W | Pico 2 | Raspberry Pi |
 |---|---|---|---|---| --- |---|---|---|
 | Control directo (relés / puente H, ADC / ADS1115) | ✔ | ✔ | relés (EXIO8-15) + EXIO_ADC / ADS1115 | ✔ | relés por PCF8574 (I2C) + GPIO6 / ADS1115 (solo la 7B) | ✔ | ✔ | — |
+| Mando de otra caja por su rotctld (`driver` 2: p. ej. la pantalla de 7" de una Raspberry Pi con el Stepper HAT) | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | — | Hamlib modelo 2 (NET rotctl) |
 | Pasarela serie a un controlador | ✔ | ✔ | ✔ (U0TXD / U0RXD) | ✔ (TXD / RXD) | ✔ (conector UART) | ✔ | ✔ | ✔ (rotctld de Hamlib: todos los modelos) |
 | rotctld por WiFi, JSON por TCP, WebUI | ✔ | ✔ | ✔ (WiFi 2,4 y 5 GHz) | ✔ | ✔ | ✔ | — | ✔ |
 | BLE para la app | ✔ | ✔ | ✔ | ✔ | ✔ | pendiente | — | ✔ |
@@ -70,7 +71,10 @@ Primer arranque: abre el punto de acceso **APRS-Rotor** (contraseña `aprsrotor`
 ```sh
 cd raspberrypi && sudo ./install.sh                     # rotor de Hamlib por su controlador
 cd raspberrypi && sudo ./install.sh --stepper --gps     # motores paso a paso (Waveshare Stepper Motor HAT) + Uputronics GPS/RTC HAT
+cd raspberrypi && sudo ./install.sh --link-uart         # + pantalla LCD-7 / 7B por cable (GPIO8 / 9, GS-232B)
 ```
+
+La Pi con los HAT se maneja a la vez desde una pantalla LCD-7 / LCD-7B (por WiFi, `driver` 2 contra su rotctld, o por cable) y desde la app por Bluetooth: [Emparejar la Pi](docs/RASPBERRY_HATS.md#emparejar-la-pi-con-una-pantalla-o-con-la-app).
 
 Ver [docs/RASPBERRY_PI.md](docs/RASPBERRY_PI.md) y [docs/RASPBERRY_HATS.md](docs/RASPBERRY_HATS.md) (los dos HAT comparten el GPIO18: hay que mover un cable).
 

@@ -17,7 +17,7 @@
 
 Vale cualquier rotor que Hamlib conozca: el demonio no habla con el rotor, lo hace el `rotctld` real.
 
-Sin controlador: con `"driver": "stepper"` el demonio mueve él mismo dos motores paso a paso con el **Waveshare Stepper Motor HAT**, y con `gps.on` toma la posición de la estación del **Uputronics GPS/RTC HAT**. Instalación (`./install.sh --stepper --gps`), pines, mecánica, finales de carrera y el choque de los dos HAT en el GPIO18: [RASPBERRY_HATS.md](RASPBERRY_HATS.md).
+Sin controlador: con `"driver": "stepper"` el demonio mueve él mismo dos motores paso a paso con el **Waveshare Stepper Motor HAT**, y con `gps.on` toma la posición de la estación del **Uputronics GPS/RTC HAT**. Instalación (`./install.sh --stepper --gps`), pines, mecánica, finales de carrera y el choque de los dos HAT en el GPIO18: [RASPBERRY_HATS.md](RASPBERRY_HATS.md). Allí también cómo emparejarla con una pantalla LCD-7 / LCD-7B (WiFi o cable, `--link-uart`) y con la app por Bluetooth.
 
 ## Instalación
 

@@ -95,7 +95,7 @@ See [section 14](#14-raspberry-pi).
 | `pin` | **change it**: it protects the app, the WebUI and control |
 | `wifi.mode` | `1` to join your network (`wifi.ssid`, `wifi.pass`); `2` keeps the access point; `0` turns WiFi off |
 | `aprs.call` | rotor callsign with an SSID (e.g. `EA7JRS-12`) |
-| `driver` | `0` direct drive, `1` serial gateway |
+| `driver` | `0` direct drive, `1` serial gateway, `2` another box's rotctld over the network (`remote.host` / `remote.port`) |
 | `bt.mode` | `1` BLE (app), `2` SPP (tracker with the original ESP32), `0` off |
 
 4. After the restart the WebUI is at **http://APRS-Rotor.local/** (or the IP your router gives it).
@@ -334,6 +334,12 @@ sudo ./install.sh --stepper --gps && sudo reboot
 - The position is counted in steps and saved when it stops. Set it with **Corregir desfase** (offset fix: WebUI calibration, *Offset* in the app) or with one limit switch per axis (`home`, searched at start-up or with the `home` command).
 - `gps.on`: the GPS position is used for the beacon, the sun and moon and the declination; the time with PPS goes to NTPsec and the HAT's clock keeps it without a network.
 - **Both HATs use GPIO18** (motor 2 STEP and PPS): wire pin 12 of the Stepper HAT to pin 37 of the Pi (GPIO26) and set `stepper.el.step: 26` (`install.sh` does it), or use azimuth only.
+
+**Pairing the Pi** (all three can be used at the same time):
+
+- **LCD-7 / LCD-7B screen over WiFi**: on the screen, `"driver": 2` and `"remote": {"host": "<Pi IP>", "port": 4533}`. It is a client of the Pi's rotctld: it takes its limits, reads the position and sends move, stop and park; with no answer it shows the **LINK** fault and reconnects by itself.
+- **Screen by cable**: `sudo ./install.sh --link-uart` (Pi 4: `uart4`, Pi 5: `uart3-pi5`, on GPIO8 TX / GPIO9 RX; `/dev/rotor-link` as a GS-232B at 9600; Pi 3 and Zero 2 W with a 3.3 V USB-serial adapter). Wiring: screen TX (GPIO43) to Pi pin 21, RX (GPIO44) to pin 24, GND to pin 25. On the screen, `driver` 1, `serial.proto` 1, `serial.baud` 9600.
+- **App over Bluetooth**: Rotor tab → scan → the Pi; Android asks to pair with no number and the app sends the box PIN. Do not set `dtoverlay=disable-bt`.
 
 More in [RASPBERRY_PI.md](RASPBERRY_PI.md) and [RASPBERRY_HATS.md](RASPBERRY_HATS.md) (in Spanish).
 
