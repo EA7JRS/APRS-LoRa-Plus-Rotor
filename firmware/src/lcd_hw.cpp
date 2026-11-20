@@ -211,8 +211,17 @@ namespace LcdHw {
 
     static void setBright(int pct) { Exio::backlight((uint8_t)pct); }
 
+    // Los puntos se guardan con los bytes en el orden del ST7796 (alto primero, lcd_gfx.h); el panel RGB lee cada punto
+    // como un uint16_t del ESP32 (bajo primero): sin darles la vuelta salen los colores cambiados. Franja copiada y girada.
+    static uint16_t* rgbBand = nullptr;
+
     static void pushRows(int y0, int rows) {
-        esp_lcd_panel_draw_bitmap(panel, 0, y0, W, y0 + rows, shown_ + (size_t)y0 * W);
+        if (!rgbBand) rgbBand = (uint16_t*)heap_caps_malloc((size_t)W * BAND * 2, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+        if (!rgbBand || rows > BAND) return;
+        const uint16_t* s = shown_ + (size_t)y0 * W;
+        const size_t n = (size_t)rows * W;
+        for (size_t i = 0; i < n; i++) rgbBand[i] = (uint16_t)((s[i] << 8) | (s[i] >> 8));
+        esp_lcd_panel_draw_bitmap(panel, 0, y0, W, y0 + rows, rgbBand);   // copia a la imagen del panel antes de volver
     }
 
     static bool panelInit() {
