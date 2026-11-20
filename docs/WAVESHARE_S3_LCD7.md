@@ -49,7 +49,7 @@ La LCD-7 (y la 7B) puede ser la **pantalla de la caja del rotor en una Raspberry
 
 El panel, el táctil y el CH422G están probados con APRS LoRa+ Display en esta placa. Del rotor, sin probar:
 
-1. **Pantalla del rotor** (disposición y letras): probada en el PC (`test_host/lcd_preview`, imágenes de 800 × 480).
+1. **Pantalla del rotor** (disposición y letras): probada en el PC (`test_host/lcd_preview`, imágenes de 800 × 480). Manuel la ha arrancado en la placa (2026-11-20): arranque, WiFi y USB bien; los colores salían cambiados (bytes de cada punto al revés en el panel RGB), corregido en 11fad09, falta verlo en la placa. «Acerca de» con el QR del donativo (tocarlo lo amplía).
 2. **Conmutador UART** en la posición del conector y la pasarela serie.
 3. **`driver` 2** contra el rotctld de una Raspberry Pi (probado en el PC con el demonio de la Pi).
 4. **RS485** con GS-232 / EasyComm / Rot2Prog (`serial.rs485`) y la **microSD** (registro): la cola semidúplex y el registro, probados en el PC (`test_host`).

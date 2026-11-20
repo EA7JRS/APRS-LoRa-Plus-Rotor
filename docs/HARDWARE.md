@@ -21,7 +21,7 @@ Todos se cambian en la configuración (WebUI o app). `-1` = sin usar.
 | Waveshare ESP32-S3-Touch-LCD-7 (`waveshare_s3_lcd7`) | — (pasarela de serie: sin placa de relés, [WAVESHARE_S3_LCD7.md](WAVESHARE_S3_LCD7.md)) | — | — | — | GPIO6 (conector Sensor) | ADS1115 canal 1 | 8 / 9 | 44 / 43 (conector UART); RS485 16 / 15 | — |
 | Pico 2 W (`pico2w`) / Pico 2 (`pico2`) | GP6 | GP7 | GP8 | GP9 | GP26 | GP27 | GP4 / GP5 | GP1 / GP0 | HAT SX1262 Waveshare (opcional) |
 
-ADC: en ESP32 usa solo pines del ADC1 (el ADC2 no funciona con la WiFi encendida). En la Pico, GP26-GP28. Placas con pantalla: [WAVESHARE_C5_LCD35.md](WAVESHARE_C5_LCD35.md), [WAVESHARE_S3_AMOLED241.md](WAVESHARE_S3_AMOLED241.md) y [WAVESHARE_S3_LCD7B.md](WAVESHARE_S3_LCD7B.md).
+ADC: en ESP32 usa solo pines del ADC1 (el ADC2 no funciona con la WiFi encendida). En la Pico, GP26-GP28. Placas con pantalla: [WAVESHARE_C5_LCD35.md](WAVESHARE_C5_LCD35.md), [WAVESHARE_S3_AMOLED241.md](WAVESHARE_S3_AMOLED241.md), [WAVESHARE_S3_LCD7B.md](WAVESHARE_S3_LCD7B.md) y [WAVESHARE_S3_LCD7.md](WAVESHARE_S3_LCD7.md) (con microSD para el registro de movimientos, `log.sd`).
 
 **Placa de relés por I2C (PCF8574)**: en cualquier placa, los pines 120-127 son P0-P7 de un PCF8574 en el I2C de `direct.i2cSda` / `i2cScl` (dirección `direct.pcfAddr`, 0x20). Las placas de relés baratas activan con 0: `direct.activeHigh: false`. Solo nivel, sin PWM.
 
@@ -101,6 +101,8 @@ UART de la placa → controlador. Con controladores RS-232 (GS-232A/B, Rot2Prog,
 `serial.hasEl: false` para rotores solo de acimut; `minAz` / `maxAz` / `maxEl` son los que se anuncian a Hamlib.
 
 **Bus RS485 (4)**: controladores con encóder que trabajan como esclavos de un bus RS485 de texto, un controlador por eje. La placa es el maestro: `serial.busId` (su dirección, 3), `serial.azId` (20) y `serial.elId` (21, con `hasEl`). Manda `SETPOSDG`, `STOP` y pide `GETPOSDG` (AZ y EL alternos, cada `pollMs`); una trama cada vez, la siguiente tras la respuesta. Los fallos que manda el controlador (`ERR`) se ven como fallo del rotor y se borran con *Borrar fallo* (manda `SETREF:0`, sin buscar la referencia). Mover a mano = ir hacia `minAz` / `maxAz` (o 0 / `maxEl`) hasta soltar. Con encóder de más de una vuelta, pon `maxAz` (por ejemplo 420). Hace falta un transceptor RS485 a 3,3 V (MAX3485, SP3485) con conmutación automática o con DE/RE unidos al TX; la ESP32-S3-Touch-LCD-7B ya lo trae (RX 16 / TX 15). Si otro maestro comparte el bus (un mando o el PC), cada uno con su dirección.
+
+**GS-232 / EasyComm / Rot2Prog por RS485** (`serial.rs485: true`): los mismos protocolos de RS-232 por un RS485 de dos hilos (semidúplex), con un convertidor RS485 ↔ RS232 / TTL en el controlador. Una trama cada vez: tras una pregunta espera la respuesta (o 250 ms); parar va delante de todo. Transceptor con conmutación automática (LCD-7 / 7B) o con el DE / RE en `serial.de` (RTS de la UART en modo RS485, solo ESP32).
 
 ## La placa como controlador para el PC
 
