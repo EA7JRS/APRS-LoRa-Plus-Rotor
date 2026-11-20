@@ -218,7 +218,7 @@ At `http://APRS-Rotor.local/` (boards) or `http://IP:8080/` (Raspberry Pi). User
 - **Aiming**: hold the compass for half a second, drag to the heading (green needle) and release. A short tap does not move anything.
 - **Fault**: shown in red; tap it to clear it.
 - **CAT** (header button, with `cat.proto`): frequency, − / step / +, LSB · USB · CW · FM · AM · DIG, *Seguir* (Doppler), A / B and PTT while held. The CTCSS tone shows next to the radio's name. The **S-meter** is the Android app's: 9 S segments and 6 over S9 (+10 … +60 dB) in the IARU colours (green-blue, yellow, orange at S9, red), unlit ones dimmed, scale 1 3 5 7 9 / +20 +40 +60 and the reading ("S7", "S9+20") in the colour of the last segment; "S—" with no data.
-- **ⓘ**: name, callsign, board, WiFi, IP, ports, Bluetooth, uptime, **Acerca de** (about) and brightness.
+- **ⓘ**: name, callsign, board, WiFi, IP, ports, Bluetooth, uptime, microSD (LCD-7 / 7B: free space and log lines), **Acerca de** (about) with the donation QR code (paypal.me/ea7jrs; tap it to enlarge, tap again to go back) and brightness.
 - **Colours**: by default, the Android app palette (the same as APRS LoRa+ Display); with `lcd.theme` 1, the WebUI one (red header).
 - **Brightness and sleep**: `lcd.bright` and `lcd.dimS`. The LCD dims; the AMOLED turns off so it does not get burn-in. The first touch only wakes it.
 

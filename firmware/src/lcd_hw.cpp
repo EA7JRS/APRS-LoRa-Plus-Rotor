@@ -18,6 +18,7 @@
 #include "net.h"
 #include "bt.h"
 #include "lora_aprs.h"
+#include "sdlog.h"
 #include "rc_common.h"
 #include "rc_serialproto.h"
 #include "cat.h"
@@ -426,6 +427,7 @@ namespace LcdHw {
         st.bleConn = st.ble && Bt::connected();
         st.upS = millis() / 1000;
         st.bright = Cfg.lcdBright;
+        st.sd = SdLog::summary();                       // LCD-7 / 7B: registro de movimientos en la microSD
         // CAT
         RC::CatEngine* e = Cat::engine();
         st.catOn = e != nullptr;

@@ -37,7 +37,7 @@ Para control directo con relés, la [LCD-7B](WAVESHARE_S3_LCD7B.md) (su expansor
 
 ## Registro de movimientos (microSD)
 
-Con una tarjeta FAT32 en la ranura, la caja guarda en `/rotor/AAAA-MM-DD.csv` (un fichero por día, UTC) cada orden nueva (`MOVE` con el objetivo), la posición cada `log.everyS` segundos mientras se mueve (`POS`), la llegada o la parada (`STOP`), el mover a mano (`MANUAL`) y los fallos (`FAULT` / `CLEAR`, también el aparcado por viento). Escribe cada 10 s (o antes si se junta mucho), borra lo de hace más de `log.keepDays` días (90) y vuelve a montar la tarjeta sola si se quita y se pone. Lista y descarga: `http://<caja>/sd`. Sin hora (sin NTP ni GPS de la red) va a `nodate.csv` con los segundos desde el arranque.
+Con una tarjeta FAT32 en la ranura, la caja guarda en `/rotor/AAAA-MM-DD.csv` (un fichero por día, UTC) cada orden nueva (`MOVE` con el objetivo), la posición cada `log.everyS` segundos mientras se mueve (`POS`), la llegada o la parada (`STOP`), el mover a mano (`MANUAL`) y los fallos (`FAULT` / `CLEAR`, también el aparcado por viento). Escribe cada 10 s (o antes si se junta mucho), borra lo de hace más de `log.keepDays` días (90) y vuelve a montar la tarjeta sola si se quita y se pone. Lista y descarga: `http://<caja>/sd`. En la pantalla, ⓘ > *microSD*: espacio libre y líneas escritas, o «sin tarjeta». Sin hora (sin NTP ni GPS de la red) va a `nodate.csv` con los segundos desde el arranque.
 
 La tarjeta va por SPI con el CS en el EXIO4 del CH422G; la librería SD pide además un GPIO de CS, que es de relleno (`log.cs`, 6, el del conector *Sensor*, que en esta placa no se usa con la pasarela).
 

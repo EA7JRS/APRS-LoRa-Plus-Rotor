@@ -40,7 +40,8 @@ namespace SdLog {
     static RC::MoveLog mlog;
     static std::string buf;
     static String      curFile;
-    static uint32_t    lines = 0, errors = 0;
+    static uint32_t    lines = 0, errors = 0, freeMB = 0;
+    static void updateFree() { freeMB = (uint32_t)((SD.totalBytes() - SD.usedBytes()) >> 20); }   // FAT: puede tardar, solo al montar y al escribir
 
     static bool timeOk() { return time(nullptr) > 1700000000; }
 
@@ -75,8 +76,8 @@ namespace SdLog {
         mounted = SD.begin((uint8_t)Cfg.logCs, *spi, 20000000, "/sd", 5, false);
         if (!mounted) { SD.end(); return; }
         if (!SD.exists(DIR)) SD.mkdir(DIR);
-        logf("sd: %s, %llu MB libres\n", SD.cardType() == CARD_SDHC ? "SDHC" : "SD",
-             (unsigned long long)((SD.totalBytes() - SD.usedBytes()) >> 20));
+        updateFree();
+        logf("sd: %s, %lu MB libres\n", SD.cardType() == CARD_SDHC ? "SDHC" : "SD", (unsigned long)freeMB);
     }
 
     // Borra los días de hace más de log.keepDays (nombres AAAA-MM-DD.csv: se comparan como texto)
@@ -108,6 +109,7 @@ namespace SdLog {
         if (n != buf.size()) { errors++; return; }
         curFile = path;
         buf.clear();
+        updateFree();
     }
 
     void begin() {
@@ -153,12 +155,20 @@ namespace SdLog {
 
     bool ok() { return mounted; }
 
+    std::string summary() {
+        if (!Cfg.logSd) return "";
+        if (!mounted) return "sin tarjeta";
+        char t[48];
+        snprintf(t, sizeof t, "%lu MB libres · %lu líneas", (unsigned long)freeMB, (unsigned long)lines);
+        return t;
+    }
+
     void info(JsonObject o) {
         o["on"] = Cfg.logSd;
         o["ok"] = mounted;
         if (!mounted) return;
         o["file"] = curFile.c_str();
-        o["freeMB"] = (uint32_t)((SD.totalBytes() - SD.usedBytes()) >> 20);
+        o["freeMB"] = freeMB;
         o["lines"] = lines;
         if (errors) o["err"] = errors;
     }
@@ -186,7 +196,7 @@ namespace SdLog {
             const String n = s.substring(0, p);
             h += String("<li><a style='color:#3CE68A' href='/sd?f=") + n + "'>" + n + "</a> (" + s.substring(p + 1) + " bytes)</li>";
         }
-        h += String("</ul><p>") + String((unsigned long)((SD.totalBytes() - SD.usedBytes()) >> 20)) + " MB libres</p>";
+        h += String("</ul><p>") + String((unsigned long)freeMB) + " MB libres</p>";
     }
 
     bool webOpen(const String& name, fs::File& f) {
@@ -199,6 +209,7 @@ namespace SdLog {
     void begin() {}
     void loop() {}
     bool ok() { return false; }
+    std::string summary() { return ""; }
     void info(JsonObject o) { o["on"] = false; }
 #endif
 }

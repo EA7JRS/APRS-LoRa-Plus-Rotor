@@ -16,6 +16,7 @@
 #include "lcd_fonts_smeter.h"
 #include "lcd_logo.h"
 #include "lcd_splash.h"
+#include "lcd_qr.h"
 
 namespace Lcd {
 
@@ -73,6 +74,7 @@ namespace Lcd {
         bool        ble = false, bleConn = false;
         uint32_t    upS = 0;
         int         bright = 80;
+        std::string sd;                             // microSD del registro: "1820 MB libres · 245 líneas", "sin tarjeta" (vacío = sin microSD)
         // CAT (emisora)
         bool        catOn = false;                  // CAT configurado
         bool        catLink = false;                // la emisora contesta
@@ -220,6 +222,7 @@ namespace Lcd {
         const Layout L;
         enum Page { MAIN, INFO, CAT };
         Page page = MAIN;
+        bool qrBig = false;                          // INFO: el QR del donativo a toda la pantalla (se toca el QR)
 
         // Colores de la paleta elegida (lcd.theme)
         int theme = -1;
@@ -324,7 +327,8 @@ namespace Lcd {
             fb.fill(BG);
             header(fb, s);
             if (page == CAT && !s.catOn) page = MAIN;
-            if (page == MAIN) mainPage(fb, s); else if (page == INFO) infoPage(fb, s); else catPage(fb, s);
+            if (page != INFO) qrBig = false;
+            if (page == MAIN) mainPage(fb, s); else if (page == INFO) (qrBig ? qrPage(fb) : infoPage(fb, s)); else catPage(fb, s);
         }
 
         // ------------------------------------------------------------------------------------------------- toques
@@ -334,7 +338,7 @@ namespace Lcd {
             if (down && !pressed_) {                                   // empieza un toque
                 pressed_ = true; startMs_ = nowMs; held_ = -1; aiming_ = false; moveSent_ = false;
                 const int dx = x - L.infoX, dy = y - L.infoY, rr = L.infoR + 14;
-                if (dx * dx + dy * dy <= rr * rr) { page = page == INFO ? MAIN : INFO; return c; }
+                if (dx * dx + dy * dy <= rr * rr) { page = page == INFO ? MAIN : INFO; qrBig = false; return c; }
                 const Rect cb = { L.catBtn.x - 6, 0, L.catBtn.w + 12, L.hdrH };
                 if (s.catOn && cb.in(x, y)) { page = page == CAT ? MAIN : CAT; return c; }
                 if (page == CAT) return catTouch(x, y, s);
@@ -356,6 +360,8 @@ namespace Lcd {
                     if (inCompass(x, y)) { aiming_ = true; aimAz_ = bearing(x, y); return c; }
                     if (s.fault && L.status.in(x, y)) { c.cmd = Cmd::CLEAR_FAULT; return c; }
                 } else {
+                    if (qrBig) { qrBig = false; return c; }                         // cualquier toque vuelve
+                    if (qrRect_.w > 0 && qrRect_.in(x, y)) { qrBig = true; return c; }
                     if (L.brMinus.in(x, y)) { c.cmd = Cmd::BRIGHT; c.value = s.bright - 10 < 10 ? 10 : s.bright - 10; return c; }
                     if (L.brPlus.in(x, y))  { c.cmd = Cmd::BRIGHT; c.value = s.bright + 10 > 100 ? 100 : s.bright + 10; return c; }
                 }
@@ -376,6 +382,7 @@ namespace Lcd {
         }
 
         static std::string fmtFreqPublic(uint64_t hz) { return fmtFreq(hz); }
+        const Rect& qrRectPublic() const { return qrRect_; }
         bool aiming(uint32_t nowMs) const { return aiming_ && pressed_ && nowMs - startMs_ >= AIM_HOLD_MS; }
         bool busyTouch() const { return pressed_; }
         void setFrameTime(uint32_t ms) { frameMs_ = ms; }
@@ -739,6 +746,29 @@ namespace Lcd {
             catButton(fb, L.pttBtn, 105, "PTT", s.ptt, !(s.allowPtt && s.catLink), STOPC);
         }
 
+        Rect qrRect_;
+
+        // QR del donativo con su margen claro de 2 módulos; qm = puntos por módulo
+        void qr(Fb& fb, int x, int y, int qm) {
+            const int qn = LCD_QR_N + 4;
+            fb.fillRect(x, y, qn * qm, qn * qm, hex(0xFFFFFF));
+            for (int yy = 0; yy < LCD_QR_N; yy++)
+                for (int xx = 0; xx < LCD_QR_N; xx++)
+                    if (LCD_QR[yy] >> xx & 1) fb.fillRect(x + (xx + 2) * qm, y + (yy + 2) * qm, qm, qm, hex(0x000000));
+        }
+
+        // El QR grande, para leerlo con el móvil en pantallas pequeñas (se toca el QR de «Acerca de»)
+        void qrPage(Fb& fb) {
+            const LcdFont& S = *L.S;
+            const int qn = LCD_QR_N + 4, top = L.hdrH + 8, bottom = L.H - 8 - 2 * (S.height + 4);
+            int qm = (bottom - top) / qn;
+            if (qm * qn > L.W - 16) qm = (L.W - 16) / qn;
+            const int x = (L.W - qn * qm) / 2, y = top + (bottom - top - qn * qm) / 2;
+            qr(fb, x, y, qm);
+            fb.text(L.W / 2, bottom + 4, "Donativos: paypal.me/ea7jrs", S, ACC, CENTER);
+            fb.text(L.W / 2, bottom + 8 + S.height, "Toca para volver", S, MUT, CENTER);
+        }
+
         void infoLine(Fb& fb, int& y, const char* k, const std::string& v) {
             const Rect& c = L.infoCard;
             fb.text(c.x + 8, y, k, *L.S, MUT);
@@ -761,7 +791,7 @@ namespace Lcd {
             infoLine(fb, y, "IP", s.ip);
             std::string p;
             if (s.rotctld) { snprintf(t, sizeof t, "%d", s.rotctld); p = t; } else p = "apagado";
-            if (L.land) {
+            if (L.land && s.sd.empty()) {               // con la microSD, rotctld y JSON en una línea para que quepa
                 infoLine(fb, y, "rotctld", p);
                 snprintf(t, sizeof t, "%d", s.apiPort);
                 infoLine(fb, y, "JSON", s.apiPort ? t : "");
@@ -772,20 +802,42 @@ namespace Lcd {
             infoLine(fb, y, "Bluetooth", !s.ble ? "apagado" : (s.bleConn ? "BLE conectado" : "BLE esperando"));
             snprintf(t, sizeof t, "%luh %02lum · %s", (unsigned long)(s.upS / 3600), (unsigned long)(s.upS / 60 % 60), s.faultText.c_str());
             infoLine(fb, y, "Encendido", t);
+            if (!s.sd.empty()) infoLine(fb, y, "microSD", s.sd);
 
             // Acerca de (como el tracker y la WebUI)
             const Rect& ac = L.aboutCard;
             card(fb, ac, CARD);
-            int ay = ac.y + 4;
-            fb.text(ac.x + 8, ay, "Acerca de", M, MUT);
-            ay += M.height + 4;
-            const int aw = ac.w - 16, lh = S.height + (L.land ? 0 : 4);
-            auto para = [&](const std::string& txt, uint16_t c) { for (const std::string& l : wrap(S, txt, aw)) { fb.text(ac.x + 8, ay, l.c_str(), S, c); ay += lh; } };
+            // QR del donativo (como la Display): en apaisada, debajo del texto; en vertical, a la derecha del texto.
+            // El título «Acerca de» solo si cabe con el QR.
+            const int qn = LCD_QR_N + 4;                // con 2 módulos de margen claro
+            const int titleH = M.height + 4;
+            int qm = 0, qx = 0, qy = 0;
+            if (!L.land) {
+                qm = (ac.h - 12) / qn; if (qm > 3) qm = 3;
+                qx = ac.x + ac.w - 6 - qn * qm; qy = ac.y + (ac.h - qn * qm) / 2;
+            }
+            const int aw = (L.land ? ac.w : qx - ac.x) - 16, lh = S.height + (L.land ? 0 : 1);
+            std::vector<std::pair<std::string, uint16_t>> lines;
+            auto para = [&](const std::string& txt, uint16_t c) { for (const std::string& l : wrap(S, txt, aw)) lines.push_back({l, c}); };
             para("APRS LoRa+ Rotor " + s.ver, FG);
             para("© 2026 Manuel - EA7JRS", FG);
             para("ea7jrs.github.io/APRS-LoRa-Plus", ACC);
-            para(L.land ? "paypal.me/ea7jrs" : "Donativos: paypal.me/ea7jrs", ACC);   // apaisada: en una linea, cabe en la tarjeta
+            para("paypal.me/ea7jrs", ACC);
             para("GPL-3.0-or-later", MUT);                                               // fuentes DejaVu: NOTICE_FONTS.md
+            const int textH = (int)lines.size() * lh;
+            bool title;
+            if (L.land) title = ac.h - 12 - textH - titleH >= qn * 3 + 4;
+            else        title = 4 + titleH + textH <= ac.h - 4;
+            int ay = ac.y + 4;
+            if (title) { fb.text(ac.x + 8, ay, "Acerca de", M, MUT); ay += titleH; }
+            for (const auto& l : lines) { fb.text(ac.x + 8, ay, l.first.c_str(), S, l.second); ay += lh; }
+            if (L.land) {
+                const int room = ac.y + ac.h - 8 - (ay + 4);
+                qm = room / qn; if (qm * qn > ac.w - 16) qm = (ac.w - 16) / qn; if (qm > 8) qm = 8;
+                qx = ac.x + (ac.w - qn * qm) / 2; qy = ay + 4 + (room - qn * qm) / 2;
+            }
+            qrRect_ = {};
+            if (qm >= 2) { qr(fb, qx, qy, qm); qrRect_ = { qx, qy, qn * qm, qn * qm }; }
 
             // Brillo
             box(fb, L.brMinus.x, L.brMinus.y, L.brMinus.w, L.brMinus.h, (int)(10 * L.k), BTN, BTNB);

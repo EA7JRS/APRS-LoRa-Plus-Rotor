@@ -145,8 +145,23 @@ static void run(int W, int H, const std::string& out, int theme = Lcd::THEME_APP
     ui.touch(true, L.infoX, L.infoY, 8000, s);
     ui.touch(false, 0, 0, 8100, s);
     CHECK(ui.page == Lcd::Ui::INFO);
+    if (L.W >= 800) s.sd = "1820 MB libres · 245 líneas";     // LCD-7 / 7B: microSD del registro
     ui.draw(fb, s);
     writePpm(fb, p + "info.ppm");
+    s.sd.clear();
+    // QR del donativo: tocarlo lo amplía; cualquier toque vuelve
+    {
+        int qx = 0, qy = 0;
+        center(ui.qrRectPublic(), qx, qy);
+        CHECK(ui.qrRectPublic().w > 0);
+        ui.touch(true, qx, qy, 8110, s); ui.touch(false, 0, 0, 8120, s);
+        CHECK(ui.qrBig && ui.page == Lcd::Ui::INFO);
+        ui.draw(fb, s);
+        writePpm(fb, p + "qr.ppm");
+        ui.touch(true, 5, L.H - 5, 8130, s); ui.touch(false, 0, 0, 8140, s);
+        CHECK(!ui.qrBig);
+        ui.draw(fb, s);
+    }
     center(L.brMinus, x, y);
     c = ui.touch(true, x, y, 8200, s);
     CHECK(c.cmd == Lcd::Cmd::BRIGHT && c.value == 70);

@@ -216,7 +216,7 @@ Placas **Waveshare ESP32-C5-Touch-LCD-3.5** (vertical), **ESP32-S3-Touch-AMOLED-
 - **Apuntar**: mantén la brújula pulsada medio segundo, arrastra hasta el rumbo (aguja verde) y suelta. Un toque corto no mueve nada.
 - **Fallo**: aparece en rojo; tócalo para borrarlo.
 - **CAT** (botón de la cabecera, con `cat.proto`): frecuencia, − / paso / +, LSB · USB · CW · FM · AM · DIG, *Seguir* (Doppler), A / B y PTT manteniendo pulsado. El tono CTCSS se ve junto al nombre de la emisora. El **S-meter** es el de la app Android: 9 segmentos S y 6 sobre S9 (+10 … +60 dB) con los colores IARU (verde-azul, amarillo, naranja en S9, rojo), los apagados tenues, escala 1 3 5 7 9 / +20 +40 +60 y la lectura («S7», «S9+20») del color del último segmento; «S—» sin dato.
-- **ⓘ**: nombre, indicativo, placa, WiFi, IP, puertos, Bluetooth, tiempo encendida, **Acerca de** y brillo.
+- **ⓘ**: nombre, indicativo, placa, WiFi, IP, puertos, Bluetooth, tiempo encendida, microSD (LCD-7 / 7B: espacio libre y líneas del registro), **Acerca de** con el QR del donativo (paypal.me/ea7jrs; tocarlo lo amplía, otro toque vuelve) y brillo.
 - **Colores**: de serie, la paleta de la app Android (la misma que APRS LoRa+ Display); con `lcd.theme` 1, la de la WebUI (cabecera roja).
 - **Brillo y apagado**: `lcd.bright` y `lcd.dimS`. La LCD se atenúa; la AMOLED se apaga para que no queden marcas. El primer toque solo la enciende.
 

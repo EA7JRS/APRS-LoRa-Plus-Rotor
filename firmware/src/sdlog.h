@@ -9,6 +9,7 @@
 // /rotor/nodate.csv con los segundos desde el arranque. Se descarga desde la WebUI (/sd).
 #include <Arduino.h>
 #include <ArduinoJson.h>
+#include <string>
 #if ROTOR_HAS_SD
     #include <FS.h>
 #endif
@@ -18,6 +19,7 @@ namespace SdLog {
     void loop();
     void info(JsonObject o);            // estado para el evento info ("sd")
     bool ok();                          // tarjeta montada
+    std::string summary();              // para la pantalla: "1820 MB libres · 245 líneas", "sin tarjeta"; vacío = apagado
 #if ROTOR_HAS_SD
     void webList(String& html);         // lista de ficheros para la WebUI
     bool webOpen(const String& name, fs::File& f);   // nombre sin carpeta (AAAA-MM-DD.csv)
