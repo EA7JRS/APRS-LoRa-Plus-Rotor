@@ -846,6 +846,41 @@ class TestStepper(unittest.TestCase):
         self.assertAlmostEqual(r.get_pos()[0], 123.0)
         self.assertIn("no home switch", sess.handle('{"c":"home"}', H(r))[0])
 
+    def test_third_axis_inclination(self):
+        c = _stepper_cfg()
+        c["x"].update({"on": True, "micro": 1, "gear": 1.8, "dps": 30.0, "accel": 60.0})   # 1 paso/grado
+        self.g = ST.FakeGpio()
+        r = ST.StepperRotor(c, (90.0, 0.0), gpio=self.g, state_path=self.state)
+        self.assertTrue(r.has_x)
+        self.assertFalse(r.set_axis("az", 10.0))               # az / el solo por set_pos
+        self.assertTrue(r.set_axis("x", 30.0))
+        _run(r)
+        self.assertAlmostEqual(r.get_axis("x"), 30.0, places=6)
+        self.assertEqual(self.g.rises[5], 30)                  # STEP del TMC2209 (eje x)
+        self.assertEqual(self.g.level[23], 0)                  # ENABLE activo BAJO (enActive 0): 0 = activo
+        r.set_axis("x", 90.0)                                  # topes ±41.25
+        _run(r)
+        self.assertLessEqual(r.get_axis("x"), r.max_x + 1e-6)  # no pasa del tope
+        self.assertGreater(r.get_axis("x"), r.max_x - 1.0)     # pero llega cerca (1 paso/grado)
+        r.park()                                               # park centra la inclinacion
+        _run(r)
+        self.assertAlmostEqual(r.get_axis("x"), 0.0, places=3)
+        self.assertEqual(r.here("x", 10.0), "")               # Corregir desfase tambien en el eje x
+        self.assertAlmostEqual(r.get_axis("x"), 10.0, places=6)
+
+    def test_third_axis_validate(self):
+        d = json.loads(json.dumps(ST.DEFAULTS))
+        d["x"]["on"] = True
+        self.assertEqual(ST.validate(d, False, 20000), "")
+        d["x"]["step"] = 13                                    # = DIR del acimut
+        self.assertIn("az.dir", ST.validate(d, False, 20000))
+        d["x"]["step"] = 5
+        d["x"]["enActive"] = 2
+        self.assertIn("x.enActive", ST.validate(d, False, 20000))
+        d["x"]["enActive"] = 0
+        d["minX"], d["maxX"] = 10.0, 10.0
+        self.assertIn("minX", ST.validate(d, False, 20000))
+
 
 class TestGnss(unittest.TestCase):
     def test_gpsd_json(self):

@@ -52,6 +52,10 @@ def pos_event(h: ApiHost) -> str:
     d = {"e": "pos", "az": round(az, 1)}
     if r.has_el:
         d["el"] = round(el, 1)
+    if r.has_x:
+        xd = r.get_axis("x")
+        if xd is not None:
+            d["x"] = round(xd, 1)
     d["st"] = st
     d["mv"] = bool(st & ST_MOVING)
     d.update(h.pos_extra())
@@ -100,8 +104,9 @@ class ApiSession:
         if c == "info":
             r = h.rotor
             i = {"e": "info", "api": API_VERSION,
-                 "lim": {"minAz": r.min_az, "maxAz": r.max_az, "minEl": r.min_el, "maxEl": r.max_el},
-                 "hasEl": r.has_el, "pin": need_pin}
+                 "lim": {"minAz": r.min_az, "maxAz": r.max_az, "minEl": r.min_el, "maxEl": r.max_el,
+                         "minX": r.min_x, "maxX": r.max_x},
+                 "hasEl": r.has_el, "hasX": r.has_x, "pin": need_pin}
             i.update(h.info())
             i["cat"] = bool(h.cat and h.cat.rig)
             i["wind"] = h.wind is not None
@@ -153,6 +158,14 @@ class ApiSession:
             if not dr:
                 err(c, "d")
             elif r.move(dr, int(d.get("s", 0))):
+                ok(c)
+            else:
+                err(c, "rejected")
+        elif c == "axis":                                   # eje auxiliar (x = inclinacion / cross-level)
+            deg = _num(d.get("deg"))
+            if deg is None:
+                err(c, "deg")
+            elif r.set_axis(str(d.get("axis", "x")), float(deg)):
                 ok(c)
             else:
                 err(c, "rejected")

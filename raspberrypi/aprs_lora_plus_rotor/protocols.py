@@ -59,10 +59,13 @@ class Rotor:
     """Interfaz comun (la misma que RC::Rotor del firmware)."""
 
     min_az, max_az, min_el, max_el, has_el = 0.0, 360.0, 0.0, 90.0, True
+    min_x, max_x, has_x = -41.25, 41.25, False
 
     def set_pos(self, az: float, el: float) -> bool: raise NotImplementedError
     def set_az(self, az: float) -> bool: return self.set_pos(az, self.get_pos()[1])
     def get_pos(self) -> tuple[float, float]: raise NotImplementedError
+    def set_axis(self, name: str, deg: float) -> bool: return False     # eje auxiliar (x = inclinacion / cross-level)
+    def get_axis(self, name: str) -> float | None: return None
     def stop(self) -> bool: raise NotImplementedError
     def stop_az(self) -> bool: return self.stop()
     def stop_el(self) -> bool: return self.stop()

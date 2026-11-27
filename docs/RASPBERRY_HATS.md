@@ -50,7 +50,7 @@ Pines del wiki de Waveshare (`waveshare.com/wiki/Stepper_Motor_HAT`). No usa el 
 | `invert` | false | gira al revés |
 | `hold` | false | corriente con el motor parado |
 | `home`, `homeAt`, `homeDir`, `homeActive`, `homePullup` | -1, 0, -1, 0, true | final de carrera: pin (-1 = no hay), grados donde está, hacia dónde buscarlo, nivel cuando se pisa (0 = cierra a masa), resistencia de subida |
-| `on` (solo `el`) | true | sin elevación: false |
+| `on` (`el` / `x`) | true / false | activa el eje (elevación de serie sí, inclinación de serie no; ver [Tercer eje](#tercer-eje-inclinación--cross-level-tmc2209)) |
 
 Pasos por grado = `stepsRev × micro × gear / 360`. Por ejemplo, un NEMA 17 con tornillo sin fin 1:60 a 1/8 da 266,7 pasos por grado; a 4°/s son 1067 pasos por segundo. La configuración rechaza más de 20 000 pasos/s.
 
@@ -64,6 +64,37 @@ Los motores paso a paso no dicen dónde están: la caja **cuenta los pasos**.
 - **Corregir desfase** (orden `here`; *Calibración* de la WebUI o *Rotor > Calibration > Offset* de la app): con la antena apuntando a un rumbo conocido, escribe los grados y la posición pasa a valer eso.
 - **Final de carrera** (opcional, uno por eje): por ejemplo GPIO5 para el acimut y GPIO6 para la elevación, un contacto a masa. Con `homeOnStart` (de serie), la caja lo busca al arrancar a `dps` en el sentido `homeDir` y, al pisarlo, la posición pasa a `homeAt`. La orden `home` repite la búsqueda. Si recorre todo el giro más 20° sin encontrarlo, se para y da el fallo `HOME AZ` / `HOME EL`.
 - Sin posición guardada ni final de carrera, el estado es `NOPOS` hasta el primer *Corregir desfase*.
+
+### Tercer eje: inclinación / cross-level (TMC2209)
+
+Algunas antenas estabilizadas (como la del domo **Satlink FB250+**) llevan un tercer eje además de acimut y elevación: la **inclinación** o *cross-level*, que mantiene la antena a nivel. De serie está apagado (`stepper.x.on` false). Es **independiente de az/el**: no entra en rotctld (Hamlib solo maneja acimut y elevación); se manda por la API / WebUI / app con la orden `axis` (`{"c":"axis","axis":"x","deg":...}`). En estación fija se aparca al centro; en móvil (vehículo o barco) sirve para nivelar con el balanceo.
+
+El HAT Waveshare solo lleva dos DRV8825, así que el tercer eje va en un **driver aparte** (p. ej. un **TMC2209**) cableado a GPIO libres. Dos avisos:
+
+- **ENABLE al revés**: el TMC2209 es **activo bajo** (`stepper.x.enActive` 0), al contrario que el HAT Rev2.1 (activo alto). Por eso `enActive` es por eje.
+- **Micropasos**: en el TMC2209 los fijan los pines MS1 / MS2 (8 / 16 / 32 / 64). Pon `stepper.x.micro` al mismo valor. Un condensador de ~100 µF entre VM y GND evita que se queme al conectar.
+
+Pines por defecto del tercer eje (libres, sin chocar con el HAT ni con el PPS del GPS):
+
+| | Eje x = inclinación (TMC2209) |
+|---|---|
+| DIR | GPIO6 |
+| STEP | GPIO5 |
+| ENABLE | GPIO23 (activo bajo) |
+
+Mecánica igual que az/el (`stepper.x`: `stepsRev`, `micro`, `gear`, `dps`, `accel`, `invert`, `hold`, `home`…) y topes propios `stepper.minX` / `maxX` (de serie ±41,25°).
+
+#### Ejemplo: domo Satlink FB250+ (tren por correa GT2, piñón de 12 dientes)
+
+Reducción `gear` = dientes del plato / 12. Con los DIP del HAT a 1/32 (`micro` 32):
+
+| Eje | Plato | `gear` | Topes |
+|---|---|---|---|
+| Acimut (`az`) | 147 (correa; por confirmar el conteo) | 12.25 | 0–360° |
+| Elevación (`el`) | 60 | 5.0 | 0–90° |
+| Inclinación (`x`, TMC2209) | 72 | 6.0 | ±41,25° (`minX` −41.25, `maxX` 41.25) |
+
+Salen 217,8 / 88,9 / 106,7 pasos por grado; el Zero 2 W va sobrado a 4°/s. El eje x barre 82,5° de extremo a extremo (33 mm de correa).
 
 ## Uputronics GPS/RTC HAT
 

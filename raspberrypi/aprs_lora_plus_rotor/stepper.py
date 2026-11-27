@@ -33,8 +33,12 @@ PPS_GPIO = 18                      # time pulse del Uputronics GPS HAT
 MICRO = {1: (0, 0, 0), 2: (1, 0, 0), 4: (0, 1, 0), 8: (1, 1, 0), 16: (0, 0, 1), 32: (1, 0, 1)}   # MODE0, MODE1, MODE2
 
 AXIS_DEFAULTS = {
-    "az": {"on": True, "dir": 13, "step": 19, "en": 12, "mode": [16, 17, 20], "invert": False},
-    "el": {"on": True, "dir": 24, "step": 18, "en": 4, "mode": [21, 22, 27], "invert": False},
+    "az": {"on": True, "dir": 13, "step": 19, "en": 12, "mode": [16, 17, 20], "invert": False, "enActive": 1},
+    "el": {"on": True, "dir": 24, "step": 18, "en": 4, "mode": [21, 22, 27], "invert": False, "enActive": 1},
+    # 3er eje (inclinacion / cross-level), de serie apagado. TMC2209 aparte del HAT (STEP 5, DIR 6, ENABLE 23, activo
+    # BAJO -> enActive 0). Independiente de az/el: no entra en rotctld (Hamlib solo az/el); se manda por API / WebUI /
+    # app (orden "axis"). En fijo se aparca al centro; en movil (vehiculo / barco) nivela con el balanceo. Topes minX/maxX.
+    "x": {"on": False, "dir": 6, "step": 5, "en": 23, "mode": [-1, -1, -1], "invert": False, "enActive": 0},
 }
 for _k, _a in AXIS_DEFAULTS.items():
     # mecanica: pasos por vuelta del motor, micropasos (los de los DIP), vueltas del motor por vuelta de la antena,
@@ -43,7 +47,7 @@ for _k, _a in AXIS_DEFAULTS.items():
     _a.update({"stepsRev": 200, "micro": 32, "gear": 1.0, "dps": 4.0, "accel": 8.0, "hold": False,
                "home": -1, "homeAt": 0.0, "homeDir": -1, "homeActive": 0, "homePullup": True})
 DEFAULTS = {"chip": -1, "enActive": 1, "modePins": False, "homeOnStart": True, "minAz": 0.0, "maxAz": 360.0,
-            "minEl": 0.0, "maxEl": 90.0, **AXIS_DEFAULTS}
+            "minEl": 0.0, "maxEl": 90.0, "minX": -41.25, "maxX": 41.25, **AXIS_DEFAULTS}
 
 
 def validate(s: dict, gps_on: bool, max_steps: int | None = None) -> str:
@@ -52,7 +56,7 @@ def validate(s: dict, gps_on: bool, max_steps: int | None = None) -> str:
         max_steps = int(board.info()["steps"])
     used: dict[int, str] = {}
     total = 0.0
-    for ax in ("az", "el"):
+    for ax in ("az", "el", "x"):
         a = s[ax]
         if not a["on"]:
             continue
@@ -69,6 +73,8 @@ def validate(s: dict, gps_on: bool, max_steps: int | None = None) -> str:
             used[int(a["home"])] = f"{ax}.home"
         if int(a["micro"]) not in MICRO:
             return f"stepper.{ax}.micro 1 2 4 8 16 32"
+        if int(a.get("enActive", s["enActive"])) not in (0, 1):
+            return f"stepper.{ax}.enActive 0 / 1"
         if s["modePins"] and len(a["mode"]) != 3:
             return f"stepper.{ax}.mode [m0, m1, m2]"
         if not (int(a["stepsRev"]) > 0 and float(a["gear"]) > 0 and 0.05 <= float(a["dps"]) <= 90
@@ -82,6 +88,8 @@ def validate(s: dict, gps_on: bool, max_steps: int | None = None) -> str:
     if not (float(s["minAz"]) < float(s["maxAz"]) and float(s["maxAz"]) - float(s["minAz"]) <= 720
             and float(s["minEl"]) < float(s["maxEl"])):
         return "stepper: minAz < maxAz (hasta 720), minEl < maxEl"
+    if s["x"]["on"] and not float(s["minX"]) < float(s["maxX"]):
+        return "stepper: minX < maxX"
     return ""
 
 
@@ -192,7 +200,8 @@ class StepperAxis:
         gpio.output(int(c["en"]), 1 - self.en_active)                  # sin corriente hasta moverse
         if mode_pins:
             for p, b in zip(c["mode"], MICRO[int(c["micro"])]):
-                gpio.output(int(p), b)
+                if int(p) >= 0:
+                    gpio.output(int(p), b)
         if self.home_pin >= 0:
             gpio.input(self.home_pin, bool(c["homePullup"]))
 
@@ -289,12 +298,18 @@ class StepperRotor(Rotor):
         self.g = gpio if gpio is not None else Gpio(int(cfg["chip"]))
         self.min_az, self.max_az = float(cfg["minAz"]), float(cfg["maxAz"])
         self.min_el, self.max_el = float(cfg["minEl"]), float(cfg["maxEl"])
+        self.min_x, self.max_x = float(cfg["minX"]), float(cfg["maxX"])
         self.has_el = bool(cfg["el"]["on"])
+        self.has_x = bool(cfg["x"]["on"])
+        self.park_x = min(self.max_x, max(self.min_x, 0.0))      # inclinacion aparcada al centro
         wrap = self.max_az - self.min_az >= 360
-        mk = lambda n, lo, hi, w: StepperAxis(n, cfg[n], self.g, int(cfg["enActive"]), bool(cfg["modePins"]), lo, hi, w)
+        mk = lambda n, lo, hi, w: StepperAxis(n, cfg[n], self.g, int(cfg[n].get("enActive", cfg["enActive"])),
+                                              bool(cfg["modePins"]), lo, hi, w)
         self.axes = {"az": mk("az", self.min_az, self.max_az, wrap)}
         if self.has_el:
             self.axes["el"] = mk("el", self.min_el, self.max_el, False)
+        if self.has_x:
+            self.axes["x"] = mk("x", self.min_x, self.max_x, False)
         self.taz: float | None = None
         self.tel: float | None = None
         self.manual = 0
@@ -362,6 +377,20 @@ class StepperRotor(Rotor):
         az = self.axes["az"].deg % 360.0
         return az, (self.axes["el"].deg if self.has_el else 0.0)
 
+    def get_axis(self, name: str) -> float | None:
+        a = self.axes.get(name)
+        return None if a is None else a.deg
+
+    def set_axis(self, name: str, deg: float) -> bool:
+        """Posiciona un eje auxiliar (p. ej. 'x' = inclinacion / cross-level). az y el van por set_pos."""
+        a = self.axes.get(name)
+        if a is None or name in ("az", "el") or self.homing:
+            return False
+        with self._lock:
+            a.goto_deg(deg)
+        self._wake.set()
+        return True
+
     def stop(self) -> bool:
         with self._lock:
             self.taz = self.tel = None
@@ -373,7 +402,10 @@ class StepperRotor(Rotor):
         return True
 
     def park(self) -> bool:
-        return self.set_pos(*self.park_pos)
+        ok = self.set_pos(*self.park_pos)
+        if self.has_x:
+            self.set_axis("x", self.park_x)
+        return ok
 
     def move(self, direction: int, speed: int) -> bool:
         if self.homing or direction not in (MOVE_UP, MOVE_DOWN, MOVE_LEFT, MOVE_RIGHT):
@@ -409,7 +441,7 @@ class StepperRotor(Rotor):
         self.save()
         return ""
 
-    def home(self, axes=("az", "el")) -> str:
+    def home(self, axes=("az", "el", "x")) -> str:
         """Buscar el final de carrera de los ejes que lo tienen."""
         todo = [n for n in axes if n in self.axes and self.axes[n].home_pin >= 0]
         if not todo:
@@ -434,10 +466,13 @@ class StepperRotor(Rotor):
         el = self.axes.get("el")
         if el is not None and el.moving():
             s |= ST_BUSY | ST_MOVING | ST_MOVING_EL | (ST_MOVING_UP if el.v > 0 else ST_MOVING_DOWN)
+        x = self.axes.get("x")
+        if x is not None and x.moving():
+            s |= ST_BUSY | ST_MOVING
         return s
 
     def info(self) -> str:
-        return "APRS LoRa+ Rotor (stepper motors, Waveshare Stepper Motor HAT)"
+        return "APRS LoRa+ Rotor (stepper motors, Waveshare Stepper Motor HAT" + (" + TMC2209 X" if self.has_x else "") + ")"
 
     @property
     def link_ok(self) -> bool:
@@ -447,6 +482,7 @@ class StepperRotor(Rotor):
         r = {"known": self.known, "homing": bool(self.homing)}
         for n, a in self.axes.items():
             r[n + "Steps"] = a.pos
+            r[n + "Deg"] = round(a.deg, 2)
             r[n + "StepsDeg"] = round(a.spd, 3)
             if a.home_pin >= 0:
                 r[n + "Home"] = a.home_active()

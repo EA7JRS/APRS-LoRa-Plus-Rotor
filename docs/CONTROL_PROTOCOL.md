@@ -34,6 +34,7 @@ El PIN viaja en claro dentro del enlace: el BLE va cifrado; por TCP/HTTP úsalo 
 | `stop` | — | `ok` |
 | `park` | — | `ok` / `err` |
 | `move` | `d`: `cw`, `ccw`, `up`, `down` (o el número `ROT_MOVE_*` de Hamlib); `s`: velocidad 1-100 (opcional) | `ok`. Se mueve hasta `stop` o hasta el tope |
+| `axis` | `axis` (`x` = inclinación / cross-level), `deg` | `ok` / `err` (`deg`, `rejected`). Mueve un eje auxiliar, independiente de az/el (motores paso a paso de la Raspberry con `stepper.x.on`). Se recorta a `minX` / `maxX` |
 | `clear` | — | `ok`: borra el fallo (atasco, sensor) y libera el bloqueo por viento hasta la siguiente racha fuerte |
 | `cal` | `axis` (`az`/`el`), `pt` (`a`/`b`), `deg` | `ok` / `err`. Toma la lectura actual del sensor como punto de calibración (solo control directo) |
 | `here` | `axis`, `deg` | `ok` / `err`. Corrige el desfase: la posición actual pasa a valer `deg` (control directo y motores paso a paso de la Raspberry) |
@@ -55,7 +56,7 @@ Orden desconocida: `{"e":"err","c":"…","m":"unknown"}`. Línea que no es JSON:
 ### `info`
 
 ```json
-{"e":"info","api":1,"lim":{"minAz":0,"maxAz":450,"minEl":0,"maxEl":180},"hasEl":true,"pin":true,
+{"e":"info","api":1,"lim":{"minAz":0,"maxAz":450,"minEl":0,"maxEl":180},"hasEl":true,"hasX":false,"pin":true,
  "dev":"APRS LoRa+ Rotor","ver":"5.5.0","board":"esp32s3","chip":"ESP32-S3","name":"APRS-Rotor",
  "drv":"direct (relays)","call":"EA7JRS-12",
  "caps":{"wifi":true,"ble":true,"spp":false,"lora":false,"cal":true,"move":true},
@@ -76,7 +77,7 @@ GPS propio de la Raspberry (`gps.on`, `caps.gps`): `"gps":{"link":true,"fix":3,"
 {"e":"pos","az":123.4,"el":45.0,"st":38,"mv":true,"f":"OK","maz":483.4,"taz":125.0,"tel":45.0,"aprs":"EA7JRS-9: P 125 45 -> GO AZ 125 EL 45"}
 ```
 
-- `az` 0-360 (o el mecánico si *reportMech*), `el` solo si hay elevación.
+- `az` 0-360 (o el mecánico si *reportMech*), `el` solo si hay elevación, `x` solo con tercer eje (inclinación / cross-level; `hasX` en `info`).
 - `st`: banderas de estado de Hamlib (`rot_status_t`): 1 BUSY, 2 MOVING, 4 MOVING_AZ, 8 MOVING_LEFT, 16 MOVING_RIGHT, 32 MOVING_EL, 64 MOVING_UP, 128 MOVING_DOWN, 256 LIMIT_UP, 512 LIMIT_DOWN, 1024 LIMIT_LEFT, 2048 LIMIT_RIGHT, 4096 OVERLAP_UP, 16384 OVERLAP_LEFT, 65536 OVERLAP_RIGHT.
 - `f`: `OK`, `STALL AZ`, `STALL EL`, `SENSOR`, `NO LINK` (pasarela serie o rotctld sin respuesta), `WIND` (aparcado por viento).
 - `wind` (con `wind.on` o tras recibir `wx`): `{"on":true,"park":15,"lk":true,"ws":20,"wg":28.4,"wd":250,"pk":28.4,"bf":8,"age":150,"src":"OWM","hold":870}`: `lk` = aparcado, `pk` = el mayor de medio y racha, `bf` = fuerza Beaufort del viento medio, `age` = segundos de la observación, `hold` = segundos que faltan como mínimo para liberar. Con anemómetro: `"src":"anemo","local":true`, y `raw` lleva `anemoHz` y `anemoPulses` para calibrarlo.
