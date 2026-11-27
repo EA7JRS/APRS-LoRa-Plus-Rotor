@@ -46,7 +46,7 @@ for _k, _a in AXIS_DEFAULTS.items():
     # final de carrera: pin (-1 = no), donde esta (grados), hacia donde buscarlo (-1 / 1), nivel activo, pullup
     _a.update({"stepsRev": 200, "micro": 32, "gear": 1.0, "dps": 4.0, "accel": 8.0, "hold": False,
                "home": -1, "homeAt": 0.0, "homeDir": -1, "homeActive": 0, "homePullup": True})
-DEFAULTS = {"chip": -1, "enActive": 1, "modePins": False, "homeOnStart": True, "minAz": 0.0, "maxAz": 360.0,
+DEFAULTS = {"chip": -1, "enActive": 1, "modePins": False, "homeOnStart": True, "antenna": "", "minAz": 0.0, "maxAz": 360.0,
             "minEl": 0.0, "maxEl": 90.0, "minX": -41.25, "maxX": 41.25, **AXIS_DEFAULTS}
 
 

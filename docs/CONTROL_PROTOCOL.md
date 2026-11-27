@@ -20,7 +20,7 @@ Si el equipo tiene PIN (por defecto `123456`), las órdenes que mueven o configu
 {"c":"auth","pin":"123456"}          →  {"e":"ok","c":"auth"}   |   {"e":"err","c":"auth","m":"bad pin"}
 ```
 
-Sin PIN previo responden `{"e":"err","c":"pos","m":"auth required"}`. Sin exigir PIN: `info`, `get`, `raw`, `sub`.
+Sin PIN previo responden `{"e":"err","c":"pos","m":"auth required"}`. Sin exigir PIN: `info`, `get`, `raw`, `sub`, `antennas`.
 El PIN viaja en claro dentro del enlace: el BLE va cifrado; por TCP/HTTP úsalo solo en una red de confianza.
 
 ## Órdenes
@@ -40,6 +40,8 @@ El PIN viaja en claro dentro del enlace: el BLE va cifrado; por TCP/HTTP úsalo 
 | `here` | `axis`, `deg` | `ok` / `err`. Corrige el desfase: la posición actual pasa a valer `deg` (control directo y motores paso a paso de la Raspberry) |
 | `home` | — | `ok` / `err`. Busca los finales de carrera (motores paso a paso de la Raspberry con `stepper.*.home`) |
 | `raw` | — | evento `raw` |
+| `antennas` | — | evento `{"e":"antennas","list":[{"name","title","axes","desc"}]}`: antenas disponibles para el selector (motores paso a paso de la Raspberry) |
+| `antenna` | `name` | `ok` / `err` (`unknown antenna`). Carga el perfil de esa antena sobre `stepper`, pasa a `driver` `stepper`, guarda y reinicia |
 | `cfgget` | — | eventos `cfg` con la configuración entera en trozos |
 | `cfgset` | `i`, `n`, `d` | `ok` por trozo; con el último, `{"e":"ok","c":"cfgset","i":…,"done":true}` y el equipo se reinicia para aplicarla |
 | `cat` | — | evento `cat` (sin PIN) o `err` `no cat` |

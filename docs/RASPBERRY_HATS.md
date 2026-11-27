@@ -96,6 +96,31 @@ Reducción `gear` = dientes del plato / 12. Con los DIP del HAT a 1/32 (`micro` 
 
 Salen 217,8 / 88,9 / 106,7 pasos por grado; el Zero 2 W va sobrado a 4°/s. El eje x barre 82,5° de extremo a extremo (33 mm de correa).
 
+## Selector de antenas
+
+La misma caja (Raspberry + Waveshare Stepper Motor HAT) mueve **distintas antenas** con solo elegir su perfil. Cada antena es un archivo JSON con sus datos mecánicos —ejes, reducción `gear`, micropasos, topes, inversión y `enActive`— en un bloque `stepper` que se **superpone** sobre la configuración. Los pines del HAT (y los del TMC2209 del tercer eje) son fijos, así que no van en el perfil; solo cambian los datos de cada antena.
+
+- **De serie**: `fb250plus` (domo Satlink FB250+, 3 ejes) y `generic-2axis` (plantilla az/el). En `aprs_lora_plus_rotor/antennas/` del paquete.
+- **Propias**: pon tus `.json` en `/etc/aprs-lora-plus-rotor/antennas/` (con el mismo nombre que uno de serie, el tuyo manda; sobreviven a la reinstalación).
+- **Elegir**: orden `antenna` de la API / WebUI / app (`{"c":"antenna","name":"fb250plus"}`). Carga el perfil sobre `stepper`, pasa `driver` a `stepper`, guarda y reinicia. La orden `antennas` devuelve la lista para el selector; el perfil cargado queda en `stepper.antenna`.
+
+Un perfil (`fb250plus.json`):
+
+```json
+{
+  "title": "Satlink FB250+",
+  "desc": "Domo FB250+, 3 ejes, correa GT2, piñón 12T.",
+  "stepper": {
+    "minAz": 0, "maxAz": 360, "minEl": 0, "maxEl": 90, "minX": -41.25, "maxX": 41.25,
+    "az": {"on": true, "gear": 12.25, "micro": 32, "enActive": 1},
+    "el": {"on": true, "gear": 5.0,  "micro": 32, "enActive": 1},
+    "x":  {"on": true, "gear": 6.0,  "micro": 32, "enActive": 0}
+  }
+}
+```
+
+Para añadir una antena: copia uno de serie, cambia `title`, `desc`, los `gear` (dientes del plato / dientes del piñón), los topes y `micro`, y activa (`on`) los ejes que tenga. `install.sh` copia la carpeta `antennas/` del paquete.
+
 ## Uputronics GPS/RTC HAT
 
 | Pin de la Pi | Uso |

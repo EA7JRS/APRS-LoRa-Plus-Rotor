@@ -1,0 +1,12 @@
+{
+  "title": "Generica 2 ejes (tornillo sin fin)",
+  "desc": "Plantilla az/el con reduccion 1:60 y DIP del HAT a 1/32. Copiala y ajusta gear, topes y micro a tu antena. Sin tercer eje.",
+  "stepper": {
+    "antenna": "generic-2axis",
+    "minAz": 0.0, "maxAz": 360.0,
+    "minEl": 0.0, "maxEl": 90.0,
+    "az": {"on": true, "gear": 60.0, "micro": 32, "enActive": 1, "invert": false},
+    "el": {"on": true, "gear": 60.0, "micro": 32, "enActive": 1, "invert": false},
+    "x":  {"on": false}
+  }
+}

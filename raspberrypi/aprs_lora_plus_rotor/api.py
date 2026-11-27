@@ -40,6 +40,8 @@ class ApiHost:
     def raw(self) -> dict: return {}
     def here(self, axis: str, deg: float) -> str: return "only direct drive"     # Corregir desfase
     def home(self) -> str: return "no home switch"                               # buscar los finales de carrera
+    def list_antennas(self) -> list: return []                                   # selector de antenas (motores paso a paso)
+    def select_antenna(self, name: str) -> str: return "not supported"
     def clear_fault(self): pass
     def reboot(self): pass
     def pin(self) -> str: return ""
@@ -119,6 +121,9 @@ class ApiSession:
         if c == "raw":
             out.append(dumps({"e": "raw", **h.raw()}))
             return out
+        if c == "antennas":
+            out.append(dumps({"e": "antennas", "list": h.list_antennas()}))
+            return out
         if c == "sub":
             ms = int(d.get("ms", 1000))
             self.sub_ms = 0 if ms == 0 else max(ms, 200)
@@ -169,6 +174,9 @@ class ApiSession:
                 ok(c)
             else:
                 err(c, "rejected")
+        elif c == "antenna":                                # selector: cargar el perfil de una antena y reiniciar
+            e = h.select_antenna(str(d.get("name", "")))
+            ok(c) if not e else err(c, e)
         elif c == "here":
             deg = _num(d.get("deg"))
             e = "deg" if deg is None else h.here(str(d.get("axis", "az")), deg)

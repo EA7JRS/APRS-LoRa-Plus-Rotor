@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import logging
 import os
 import signal
@@ -32,7 +33,7 @@ import socket
 import sys
 import time
 
-from . import __version__, board
+from . import __version__, antennas, board
 from .api import ApiHost, ApiSession, pos_event  # noqa: F401
 from .aprs import AprsConfig, AprsControl, LORA_HEADER, status_line
 from .bluez import Bluetooth
@@ -154,6 +155,17 @@ class Daemon(ApiHost):
 
     def home(self) -> str:
         return self.base.home() if isinstance(self.base, StepperRotor) else "no home switch"
+
+    def list_antennas(self) -> list:
+        return antennas.list_antennas()
+
+    def select_antenna(self, name: str) -> str:
+        """Carga el perfil de una antena sobre la config del HAT y reinicia (los pines del HAT se conservan)."""
+        prof = antennas.get(name)
+        if prof is None:
+            return "unknown antenna"
+        patch = {"driver": "stepper", "stepper": {**prof["stepper"], "antenna": name}}
+        return self.apply_config(json.dumps(patch))
 
     def clear_fault(self):
         self.wind.release()

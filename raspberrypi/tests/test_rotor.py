@@ -11,7 +11,7 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from aprs_lora_plus_rotor import api, aprs, config, kiss, protocols as P  # noqa: E402
+from aprs_lora_plus_rotor import antennas, api, aprs, config, kiss, protocols as P  # noqa: E402
 from aprs_lora_plus_rotor import cat as C  # noqa: E402
 from aprs_lora_plus_rotor.hamlib import HamlibRotor  # noqa: E402
 from aprs_lora_plus_rotor.web import load_page  # noqa: E402
@@ -880,6 +880,47 @@ class TestStepper(unittest.TestCase):
         d["x"]["enActive"] = 0
         d["minX"], d["maxX"] = 10.0, 10.0
         self.assertIn("minX", ST.validate(d, False, 20000))
+
+
+class TestAntennas(unittest.TestCase):
+    def test_bundled_list_and_get(self):
+        names = {a["name"]: a for a in antennas.list_antennas()}
+        self.assertIn("fb250plus", names)
+        self.assertEqual(names["fb250plus"]["axes"], ["az", "el", "x"])     # FB250+ lleva 3 ejes
+        self.assertIn("generic-2axis", names)
+        self.assertEqual(names["generic-2axis"]["axes"], ["az", "el"])      # plantilla sin inclinacion
+        self.assertIsNone(antennas.get("no-existe"))
+        fb = antennas.get("fb250plus")
+        self.assertEqual(fb["stepper"]["az"]["gear"], 12.25)
+        self.assertEqual(fb["stepper"]["x"]["enActive"], 0)                 # TMC2209 activo bajo
+
+    def test_apply_profile_over_config(self):
+        c = config.Config(os.path.join(tempfile.mkdtemp(), "c.json"))
+        fb = antennas.get("fb250plus")
+        patch = json.dumps({"driver": "stepper", "stepper": {**fb["stepper"], "antenna": "fb250plus"}})
+        self.assertEqual(c.apply_json(patch), "")
+        s = c.data["stepper"]
+        self.assertTrue(s["x"]["on"])
+        self.assertEqual(s["x"]["gear"], 6.0)
+        self.assertAlmostEqual(s["minX"], -41.25)
+        self.assertEqual(s["antenna"], "fb250plus")
+        self.assertEqual(s["x"]["step"], 5)                                # los pines del HAT/TMC se conservan
+        self.assertEqual(s["az"]["dir"], 13)
+
+    def test_api_select(self):
+        class H(api.ApiHost):
+            rotor = None
+            picked = None
+            def list_antennas(self):
+                return [{"name": "fb250plus", "title": "Satlink FB250+"}]
+            def select_antenna(self, name):
+                self.picked = name
+                return "" if name == "fb250plus" else "unknown antenna"
+        h, sess = H(), api.ApiSession()
+        self.assertIn("fb250plus", sess.handle('{"c":"antennas"}', h)[0])
+        self.assertIn('"e":"ok"', sess.handle('{"c":"antenna","name":"fb250plus"}', h)[0])
+        self.assertEqual(h.picked, "fb250plus")
+        self.assertIn("unknown antenna", sess.handle('{"c":"antenna","name":"x"}', h)[0])
 
 
 class TestGnss(unittest.TestCase):

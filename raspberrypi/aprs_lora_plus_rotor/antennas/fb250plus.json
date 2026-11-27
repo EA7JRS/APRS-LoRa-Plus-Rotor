@@ -1,0 +1,13 @@
+{
+  "title": "Satlink FB250+",
+  "desc": "Domo Inmarsat FB250+ reutilizado. 3 ejes, tren por correa GT2, pinon de 12 dientes. Azimut 147T (por confirmar conteo), elevacion 60T, inclinacion 72T. DIP del HAT a 1/32; 3er eje (inclinacion) con TMC2209.",
+  "stepper": {
+    "antenna": "fb250plus",
+    "minAz": 0.0, "maxAz": 360.0,
+    "minEl": 0.0, "maxEl": 90.0,
+    "minX": -41.25, "maxX": 41.25,
+    "az": {"on": true, "gear": 12.25, "micro": 32, "enActive": 1, "invert": false},
+    "el": {"on": true, "gear": 5.0, "micro": 32, "enActive": 1, "invert": false},
+    "x":  {"on": true, "gear": 6.0, "micro": 32, "enActive": 0, "invert": false}
+  }
+}
