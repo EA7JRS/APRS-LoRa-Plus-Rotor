@@ -52,11 +52,17 @@ Capturas de la **versión 5.5.1** generadas en el PC con `firmware/test_host/lcd
 | CAT de emisora / SDR (CI-V, Yaesu, Kenwood, SDRconnect, rigctl) + rigctld 4532 | ✔ | ✔ | ✔ (UART compartida con la pasarela) | ✔ | ✔ (UART compartida con la pasarela) | ✔ | UART | ✔ (rigctld de Hamlib: todas las emisoras) |
 | Red local: viento, posición y rumbo (gpsd, NMEA, Signal K, UDP, OpenWeatherMap) | ✔ | ✔ | ✔ | ✔ | ✔ | — | — | ✔ (`lan.py`) |
 | Seguir el sol o la luna (ruido solar, EME), declinación del WMM, fuerza Beaufort | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Seguimiento de satélites (SGP4; TLE de CelesTrak / AMSAT, próximo paso, Doppler para el CAT) | — | — | — | — | — | — | — | ✔ (`sat.py`) |
+| Enlace punto a punto (apuntar a otra estación: locator, red o baliza APRS) | — | — | — | — | — | — | — | ✔ (`geo.py`) |
+| Compensación de actitud (escora / cabeceo / giro del mástil por IMU; orden `att`, tara `att zero`) | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ (2 y 3 ejes) |
 | Hora: GPS de la red y NTP `ntp.roa.es` (ROA) | ✔ | ✔ | ✔ | ✔ | ✔ | NTP | — | NTPsec (NTS del ROA, GPS / PPS de gpsd) |
 | Motores paso a paso (Waveshare Stepper Motor HAT, finales de carrera) | — | — | — | — | — | — | — | ✔ |
+| Tercer eje (inclinación / cross-level, driver TMC2209) para antenas estabilizadas (domo FB250+) | — | — | — | — | — | — | — | ✔ |
+| Perfiles de antena (selector; FB250+ 3 ejes, genérico 2 ejes, propios en `/etc/.../antennas/`) | — | — | — | — | — | — | — | ✔ |
 | GS-232 / EasyComm / Rot2Prog por RS485 semidúplex (`serial.rs485`, DE en `serial.de`) | ✔ | ✔ | ✔ | ✔ | ✔ (conector RS485) | ✔ (transceptor automático) | ✔ (transceptor automático) | — |
 | Registro de movimientos en la microSD (`log.sd`, descarga en `/sd`) | — | — | — | — | ✔ | — | — | — |
 | GPS propio con PPS y reloj (Uputronics GPS/RTC HAT) | — | — | — | — | — | — | — | ✔ |
+| GPS u-blox propio por un conector (NMEA por UART), con filtro de equipo parado y static hold (m8 / m10 / x20) | ✔ | ✔ | ✔ | ✔ | ✔ | — | — | ✔ (Uputronics) |
 | Actualización por la WebUI | placas de 8 MB | ✔ | ✔ | ✔ | ✔ | ✔ | — | `git pull` + `install.sh` |
 
 ## Versión
