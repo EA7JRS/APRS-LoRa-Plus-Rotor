@@ -9,7 +9,9 @@
 #   sudo ./install.sh --link-uart  UART para una pantalla del rotor por cable (LCD-7 / LCD-7B): GPIO8 TX, GPIO9 RX, GS-232B
 #                                  (Pi 4 y 5; en la 3 y la Zero 2 W, adaptador USB-serie); reinicia la Pi
 #   sudo ./install.sh --seatel   antena Sea Tel por RS422 (pyserial): seatel_rotctld como servicio en el puerto 4543 (ENSAYO)
-#                                (puerto con SEATEL_DEV=/dev/ttyXXX); el demonio la usa con driver hamlib model 2 (ver docs/SEATEL.md)
+#                                puerto con SEATEL_DEV=/dev/ttyXXX: adaptador USB-RS422 (/dev/ttyUSB0, por defecto) o un UART del
+#                                propio Pi con un transceptor RS422 (/dev/ttyAMA0, /dev/serial0: activa el UART y quita la consola)
+#                                el demonio la usa con driver hamlib model 2 (ver docs/SEATEL.md)
 #   (se pueden juntar: sudo ./install.sh --stepper --gps --link-uart; ver docs/RASPBERRY_HATS.md por el GPIO18 de los dos HAT)
 #   NO_NTP=1 sudo ./install.sh   sin tocar la hora del sistema (de serie pone NTPsec con la hora del ROA y el GPS de gpsd)
 #   PI5_RTC=1 sudo ./install.sh --gps   Pi 5: deja su reloj propio (con su pila) en vez del RV-3028 del Uputronics
@@ -147,6 +149,26 @@ if [ -n "$LINK" ]; then
         LINKDEV=/dev/rotor-link
     fi
     REBOOT=1
+fi
+
+# Sea Tel por un puerto serie del propio Pi (no por un adaptador USB): activa el UART y quita la consola serie
+if [ -n "$SEATEL" ]; then
+    case "$SEATEL_DEV" in
+        /dev/ttyAMA*|/dev/serial*|/dev/ttyS*)
+            echo "== Sea Tel por el puerto serie del Pi ($SEATEL_DEV): activo el UART y quito la consola serie"
+            addcfg "enable_uart=1"
+            [ "$FAM" = "pi5" ] && addcfg "dtparam=uart0=on"     # en la Pi 5, ttyAMA0 = pines 8/10
+            if command -v raspi-config >/dev/null; then
+                raspi-config nonint do_serial_cons 1
+                raspi-config nonint do_serial_hw 0
+            else
+                sed -i 's/console=serial0,[0-9]* //' "$BOOT/cmdline.txt"
+            fi
+            echo "   AVISO: el UART del Pi es TTL 3,3 V y la PCU Sea Tel es RS422: pon un transceptor TTL<->RS422 en medio (9600 8N1)."
+            echo "   AVISO: no uses el mismo UART que el GPS (--gps: ttyAMA0 / serial0) ni la pantalla por cable (--link-uart)."
+            echo "          En la Pi 5 cada UART (uart0..4) va a unos pines; elige uno libre y pon SEATEL_DEV a su /dev/ttyAMAx."
+            REBOOT=1 ;;
+    esac
 fi
 
 # Configuracion: driver "stepper" y GPS propio (si se ha pedido); con los dos HAT, el STEP del motor 2 no puede ser el GPIO18

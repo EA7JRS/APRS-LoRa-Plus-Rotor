@@ -8,13 +8,19 @@ Una antena marina **Sea Tel** (con su PCU) se maneja desde el ecosistema APRS Lo
 
 ## Conexión
 
-Conversor **USB a RS422** (p. ej. el Waveshare USB TO RS232/485/422/TTL), 9600 8N1, por las bornas RS422. En Linux aparece como `/dev/ttyUSB0`. El puerto solo admite un programa a la vez.
+La PCU habla RS422 a 9600 8N1. Dos formas de conectarla al Pi:
+
+- **Adaptador USB a RS422** (p. ej. el Waveshare USB TO RS232/485/422/TTL), por las bornas RS422. En Linux aparece como `/dev/ttyUSB0` (es el valor por defecto de `SEATEL_DEV`). La forma más sencilla.
+- **Un puerto serie (UART) del propio Pi** (Pi 3, 4, 5, Zero 2 W) con un **transceptor TTL↔RS422** en medio (el UART del Pi es TTL 3,3 V, no RS422). Pon `SEATEL_DEV=/dev/ttyAMA0` (o `/dev/serial0`): `install.sh --seatel` activa el UART y quita la consola serie. **No** uses el mismo UART que el GPS (`--gps`) ni la pantalla por cable (`--link-uart`); en la Pi 5 cada UART (uart0…4) va a unos pines, elige uno libre.
+
+El puerto solo admite un programa a la vez.
 
 ## Con la caja APRS LoRa+ Rotor (Raspberry Pi)
 
 ```sh
-sudo ./install.sh --seatel                 # instala pyserial y el servicio (puerto 4543, ENSAYO)
-SEATEL_DEV=/dev/ttyUSB0 sudo ./install.sh --seatel   # otro puerto
+sudo ./install.sh --seatel                             # USB-RS422 en /dev/ttyUSB0; servicio en 4543 (ENSAYO)
+SEATEL_DEV=/dev/ttyUSB1 sudo ./install.sh --seatel     # otro adaptador USB
+SEATEL_DEV=/dev/ttyAMA0 sudo ./install.sh --seatel     # UART del Pi (con transceptor RS422): activa el UART y reinicia
 ```
 
 El servicio `aprs-lora-plus-seatel` arranca `seatel_rotctld` en el puerto **4543** en modo **ensayo**. Cuando lo hayas probado, añade `--allow-real-motion` a su línea `ExecStart` (`sudo systemctl edit --full aprs-lora-plus-seatel`) y reinícialo. Luego, en la configuración del demonio del rotor (WebUI ⚙ > Rotor, o `config.json`):
