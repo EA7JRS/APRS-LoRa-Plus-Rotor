@@ -32,6 +32,41 @@ def base_call(c: str) -> str:
     return c.split("-")[0].upper()
 
 
+def parse_position(frame: str, call: str) -> tuple[float, float, float] | None:
+    """lat, lon, alt(m) de una baliza APRS de posicion SIN comprimir del indicativo 'call' (P2P por APRS). None si no aplica.
+
+    call con SSID = coincidencia exacta; sin SSID = cualquier SSID de ese indicativo. No soporta posicion comprimida."""
+    try:
+        src, rest = frame.split(">", 1)
+        payload = rest.split(":", 1)[1]
+    except (ValueError, IndexError):
+        return None
+    s, want = src.strip().upper(), (call or "").strip().upper()
+    if not want or (s != want if "-" in want else base_call(s) != want):
+        return None
+    if not payload:
+        return None
+    t0 = payload[0]
+    if t0 in "!=":
+        body = payload[1:]
+    elif t0 in "@/":
+        body = payload[8:]                    # salta el sello de tiempo de 7 caracteres
+    else:
+        return None
+    if len(body) < 18 or not body[0].isdigit():
+        return None                           # comprimida u otro formato: no soportado
+    try:
+        la = int(body[0:2]) + float(body[2:7]) / 60.0
+        lo = int(body[9:12]) + float(body[12:17]) / 60.0
+    except ValueError:
+        return None
+    lat = la if body[7] in "Nn" else -la
+    lon = lo if body[17] in "Ee" else -lo
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        return None
+    return lat, lon, 0.0
+
+
 @dataclass
 class Message:
     src: str = ""

@@ -33,9 +33,9 @@ import socket
 import sys
 import time
 
-from . import __version__, antennas, board
+from . import __version__, antennas, board, geo
 from .api import ApiHost, ApiSession, pos_event  # noqa: F401
-from .aprs import AprsConfig, AprsControl, LORA_HEADER, status_line
+from .aprs import AprsConfig, AprsControl, LORA_HEADER, parse_position, status_line
 from .bluez import Bluetooth
 from .cat import Cat
 from .config import DEFAULT_PATH, Config
@@ -47,7 +47,7 @@ from .web import WebServer
 from .heading import HeadingRotor
 from .lan import Lan
 from .wind import WindGuard, WindRotor
-from .sky import SkyRotor
+from .sky import SkyRotor, P2P
 from .stepper import StepperRotor
 from .gnss import OwnGps
 
@@ -70,7 +70,9 @@ class Daemon(ApiHost):
         # tracker / app / Hamlib -> sol / luna -> rumbo (barco o coche) -> viento -> rotctld de Hamlib o motores
         self.heading = HeadingRotor(WindRotor(self.base, self.wind), bool(d["lan"]["heading"]), float(d["lan"]["headStep"]))
         sk = d["sky"]
-        self.sky = SkyRotor(self.heading, float(sk["step"]), float(sk["minEl"]), bool(sk["refraction"]))
+        self.sky = SkyRotor(self.heading, float(sk["step"]), float(sk["minEl"]), bool(sk["refraction"]),
+                            curvature=bool(d["p2p"]["curv"]))
+        self.sky.peer_src = d["p2p"]["src"]
         self.rotor = self.sky
         self.lan = Lan(d["lan"], d["aprs"], self.wind, self.heading)
         self.lan.on_park = lambda: (self.rotor.stop(), self.rotor.park())
@@ -93,7 +95,7 @@ class Daemon(ApiHost):
                 "call": d["aprs"]["call"],
                 "caps": {"wifi": True, "ble": bool(d["bt"]["ble"]), "spp": bool(d["bt"]["spp"]),
                          "lora": bool(d["aprs"]["enabled"]), "cal": self.proc is None, "move": True, "cat": bool(self.cat),
-                         "wind": True, "lan": True, "sky": True, "gps": bool(d["gps"]["on"])},
+                         "wind": True, "lan": True, "sky": True, "p2p": True, "gps": bool(d["gps"]["on"])},
                 "ip": _ip(), "rotctld": d["net"]["rotctldPort"] if d["net"]["rotctld"] else 0,
                 "up": int(time.monotonic() - self.started), "utc": int(time.time()),
                 **({"hamlib": self.proc.last_error or "ok"} if self.proc else {}),
@@ -123,7 +125,34 @@ class Daemon(ApiHost):
         return e
 
     def sky_start(self, target: int) -> str:
-        return self.sky.start(target, self.lan.position())
+        if target == P2P:
+            e = self._p2p_peer()
+            if e:
+                return e
+        alt = self.gps.alt if (self.gps.position() and self.gps.alt is not None) else 0.0
+        return self.sky.start(target, self.lan.position(), alt=alt or 0.0)
+
+    def _p2p_peer(self) -> str:
+        """Carga la posicion del otro extremo segun p2p.src (fija de la config; net/aprs = ya recibida)."""
+        pp = self.cfg.data["p2p"]
+        self.sky.peer_src = pp["src"]
+        if pp["src"] == "fixed":
+            if pp["loc"]:
+                ll = geo.locator_to_latlon(pp["loc"])
+                if ll is None:
+                    return "p2p.loc invalid"
+                self.sky.set_peer(ll[0], ll[1], float(pp["alt"]), "fixed")
+            elif pp["lat"] or pp["lon"]:
+                self.sky.set_peer(float(pp["lat"]), float(pp["lon"]), float(pp["alt"]), "fixed")
+            else:
+                return "no peer position (set p2p.loc or p2p.lat/lon)"
+        elif self.sky.peer is None:
+            return "no peer position yet (app or APRS beacon of p2p.call)"
+        return ""
+
+    def set_peer(self, lat: float, lon: float, alt: float = 0.0) -> str:
+        self.sky.set_peer(lat, lon, alt, "net")              # posicion en vivo desde la app / red
+        return ""
 
     async def sky_loop(self):
         """Seguir el sol o la luna: la posicion de la estacion puede venir de la red (barco, coche)."""
@@ -257,6 +286,11 @@ class Daemon(ApiHost):
             return
         if tnc2.encode("latin-1", "replace").startswith(LORA_HEADER):
             tnc2 = tnc2[3:]
+        pp = self.cfg.data["p2p"]                             # P2P por APRS: baliza de posicion del otro extremo
+        if pp["src"] == "aprs" and pp["call"]:
+            peer = parse_position(tnc2, pp["call"])
+            if peer:
+                self.sky.set_peer(peer[0], peer[1], peer[2], "aprs")
         mine, tx = self.aprs.on_frame(tnc2, rot=self.rotor)
         if mine:
             log.info("APRS: %s", self.aprs.last_result)

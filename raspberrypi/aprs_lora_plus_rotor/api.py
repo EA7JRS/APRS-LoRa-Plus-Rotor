@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 import time
 
-from . import sky
+from . import geo, sky
 from .protocols import ST_BUSY, ST_MOVING, parse_move_dir
 
 API_VERSION = 1
@@ -32,6 +32,7 @@ class ApiHost:
     sky = None          # sky.SkyRotor o None
 
     def sky_start(self, target: int) -> str: return "no sky"
+    def set_peer(self, lat: float, lon: float, alt: float = 0.0) -> str: return "no sky"   # P2P: otra estacion
 
     def info(self) -> dict: return {}
     def pos_extra(self) -> dict: return {}
@@ -262,6 +263,17 @@ class ApiSession:
                     err(c, e)
                 else:
                     ok(c)
+        elif c == "peer":                               # P2P: posicion de la otra estacion {lat,lon,alt} o {loc}
+            if d.get("loc"):
+                ll = geo.locator_to_latlon(str(d["loc"]))
+                lat, lon = ll if ll else (None, None)
+            else:
+                lat, lon = _num(d.get("lat")), _num(d.get("lon"))
+            if lat is None or lon is None:
+                err(c, "lat/lon or loc")
+            else:
+                e = h.set_peer(float(lat), float(lon), float(_num(d.get("alt")) or 0.0))
+                ok(c) if not e else err(c, e)
         elif c == "reboot":
             ok(c)
             h.reboot()

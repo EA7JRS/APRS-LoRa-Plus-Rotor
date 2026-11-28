@@ -11,7 +11,7 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from aprs_lora_plus_rotor import antennas, api, aprs, config, kiss, protocols as P  # noqa: E402
+from aprs_lora_plus_rotor import antennas, api, aprs, config, geo, kiss, protocols as P, sky  # noqa: E402
 from aprs_lora_plus_rotor import cat as C  # noqa: E402
 from aprs_lora_plus_rotor.hamlib import HamlibRotor  # noqa: E402
 from aprs_lora_plus_rotor.web import load_page  # noqa: E402
@@ -921,6 +921,76 @@ class TestAntennas(unittest.TestCase):
         self.assertIn('"e":"ok"', sess.handle('{"c":"antenna","name":"fb250plus"}', h)[0])
         self.assertEqual(h.picked, "fb250plus")
         self.assertIn("unknown antenna", sess.handle('{"c":"antenna","name":"x"}', h)[0])
+
+
+class TestGeo(unittest.TestCase):
+    def test_bearing_distance(self):
+        b, d = geo.great_circle(0, 0, 0, 1)            # 1 grado al este en el ecuador
+        self.assertAlmostEqual(b, 90.0, places=4)
+        self.assertAlmostEqual(d / 1000, 111.19, places=0)
+
+    def test_elevation(self):
+        _, el, _ = geo.azel(0, 0, 0, 0, 0.0899, 0, True)   # 10 km a nivel: curvatura -> ligeramente negativa
+        self.assertTrue(-0.5 < el < 0.0)
+        _, el2, _ = geo.azel(0, 0, 0, 0, 0.018, 100, True)  # +100 m a ~2 km
+        self.assertAlmostEqual(el2, 2.85, places=1)
+
+    def test_locator(self):
+        self.assertEqual(geo.latlon_to_locator(40.4168, -3.7038, 6), "IN80DK")
+        ll = geo.locator_to_latlon("IN80DK")
+        self.assertAlmostEqual(ll[0], 40.44, places=1)
+        self.assertAlmostEqual(ll[1], -3.71, places=1)
+        self.assertIsNone(geo.locator_to_latlon("ABCD"))   # formato invalido
+
+
+class TestP2P(unittest.TestCase):
+    class Fake:
+        has_el = True
+        min_el, max_el, min_az, max_az = 0.0, 90.0, 0.0, 360.0
+        link_ok = True
+        def __init__(self):
+            self.calls = []
+        def set_pos(self, az, el):
+            self.calls.append((round(az, 1), round(el, 1))); return True
+        def set_az(self, az):
+            self.calls.append((round(az, 1), None)); return True
+        def stop(self): return True
+        def park(self): return True
+        def stop_az(self): return True
+        def move(self, *a, **k): return True
+
+    def test_points_at_peer(self):
+        f = self.Fake()
+        sr = sky.SkyRotor(f, step=0.5, period=0.0)
+        sr.set_peer(0.0, 1.0, 0.0, "fixed")                # otra estacion al este
+        self.assertEqual(sr.start(sky.P2P, (0.0, 0.0), now=1.0), "")
+        self.assertAlmostEqual(f.calls[-1][0], 90.0, places=0)
+        ev = sr.info_event()
+        self.assertEqual(ev["t"], "p2p")
+        self.assertIn("km", ev)
+
+    def test_needs_peer(self):
+        sr = sky.SkyRotor(self.Fake(), period=0.0)
+        self.assertIn("peer", sr.start(sky.P2P, (0.0, 0.0), now=1.0))
+
+    def test_peer_update_reaims(self):
+        f = self.Fake()
+        sr = sky.SkyRotor(f, step=0.5, period=0.0)
+        sr.set_peer(0.0, 1.0, 0.0)
+        sr.start(sky.P2P, (0.0, 0.0), now=1.0)
+        n0 = len(f.calls)
+        sr.set_peer(1.0, 0.0, 0.0)                          # ahora al norte
+        sr.tick(now=1.0)
+        self.assertGreater(len(f.calls), n0)
+        self.assertAlmostEqual(f.calls[-1][0], 0.0, places=0)
+
+    def test_aprs_beacon_parse(self):
+        fr = "EA7JRS-12>APZLRR:!3736.45N/00059.07Wr estado"
+        p = aprs.parse_position(fr, "EA7JRS")
+        self.assertIsNotNone(p)
+        self.assertAlmostEqual(p[0], 37.6075, places=2)
+        self.assertAlmostEqual(p[1], -0.9845, places=2)
+        self.assertIsNone(aprs.parse_position(fr, "EB1XYZ"))
 
 
 class TestGnss(unittest.TestCase):

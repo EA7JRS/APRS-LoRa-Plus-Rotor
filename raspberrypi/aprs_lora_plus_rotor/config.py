@@ -10,7 +10,7 @@ import json
 import os
 
 from .aprs import b32key
-from . import stepper
+from . import geo, stepper
 
 from . import __version__ as VERSION
 MASK = "********"
@@ -46,6 +46,9 @@ DEFAULTS["wind"] = {"on": False, "park": 15.0, "resume": 10.0, "hold": 15}   # p
 DEFAULTS["lan"] = {"kind": 0, "host": "", "port": 10110, "udp": 0, "owmKey": "", "wind": True, "pos": True,
                    "heading": False, "headStep": 3.0, "magVar": 0.0, "magAuto": True}
 DEFAULTS["sky"] = {"step": 1.0, "minEl": 0.0, "refraction": True}   # seguir el sol o la luna (orden "track")
+# Enlace punto a punto (P2P): apuntar a otra estacion (orden "track" p2p). src: fixed (loc/coords), net (app), aprs (baliza
+# del indicativo "call"). La posicion propia sale del GPS / lan / fija; la del otro extremo, de src. curv = curvatura terrestre.
+DEFAULTS["p2p"] = {"src": "fixed", "lat": 0.0, "lon": 0.0, "alt": 0.0, "loc": "", "call": "", "curv": True}
 # Que mueve el rotor: "hamlib" (rotctld de Hamlib con un controlador) o "stepper" (motores paso a paso en la propia Pi con
 # el Waveshare Stepper Motor HAT, stepper.py; docs/RASPBERRY_HATS.md)
 DEFAULTS["driver"] = "hamlib"
@@ -122,6 +125,13 @@ def validate(c: dict) -> str:
         sk = c["sky"]
         if not 0.1 <= float(sk["step"]) <= 20 or not -5 <= float(sk["minEl"]) <= 60:
             return "sky.step 0.1-20 / sky.minEl -5..60"
+        pp = c["p2p"]
+        if pp["src"] not in ("fixed", "net", "aprs"):
+            return "p2p.src fixed / net / aprs"
+        if pp["loc"] and geo.locator_to_latlon(pp["loc"]) is None:
+            return "p2p.loc (locator Maidenhead)"
+        if not (-90 <= float(pp["lat"]) <= 90 and -180 <= float(pp["lon"]) <= 180):
+            return "p2p.lat / p2p.lon"
         a = c["aprs"]
         if not 1 <= len(a["call"]) <= 9:
             return "aprs.call"
