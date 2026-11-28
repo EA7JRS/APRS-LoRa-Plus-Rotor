@@ -44,7 +44,8 @@ Capturas de la **versión 5.5.1** generadas en el PC con `firmware/test_host/lcd
 | Mando de otra caja por su rotctld (`driver` 2: p. ej. la pantalla de 7" de una Raspberry Pi con el Stepper HAT) | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | — | Hamlib modelo 2 (NET rotctl) |
 | Pasarela serie a un controlador | ✔ | ✔ | ✔ (U0TXD / U0RXD) | ✔ (TXD / RXD) | ✔ (conector UART) | ✔ | ✔ | ✔ (rotctld de Hamlib: todos los modelos) |
 | rotctld por WiFi, JSON por TCP, WebUI | ✔ | ✔ | ✔ (WiFi 2,4 y 5 GHz) | ✔ | ✔ | ✔ | — | ✔ |
-| BLE para la app | ✔ | ✔ | ✔ | ✔ | ✔ | pendiente | — | ✔ |
+| Muestra en la WebUI y la pantalla el objetivo seguido desde la app (estación APRS, baliza CW, puntería del tracker) | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | — | ✔ |
+| BLE para la app (se puede apagar en la WebUI: ⚙ > Estación) | ✔ | ✔ | ✔ | ✔ | ✔ | pendiente | — | ✔ |
 | SPP (GS-232) para el tracker | ✔ | — | — | — | — | ✔ | — | ✔ |
 | LoRa APRS | con módulo SX127x / SX126x | con módulo SX127x / SX126x | — | — | — | HAT SX1262 | HAT SX1262 | por TNC KISS |
 | Pantalla táctil (mando local; «Acerca de» con el QR del donativo) | — | — | ✔ (vertical) | ✔ (apaisada) | ✔ (7", apaisada) | — | — | — |

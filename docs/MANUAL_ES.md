@@ -53,7 +53,8 @@ En la **Raspberry Pi** el rotor lo maneja el `rotctld` de Hamlib, así que sirve
 | Control directo | ✔ | ✔ | relés + 1 ADC (o ADS1115) | ✔ | relés PCF8574 (I2C) + 1 ADC (o ADS1115) | ✔ | ✔ | — |
 | Pasarela serie | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | cualquier modelo de Hamlib |
 | WiFi (rotctld, JSON, WebUI) | ✔ | ✔ | ✔ (2,4 y 5 GHz) | ✔ | ✔ | ✔ | — | ✔ |
-| BLE para la app | ✔ | ✔ | ✔ | ✔ | ✔ | pendiente | — | ✔ |
+| BLE para la app (se puede apagar en ⚙ > Estación) | ✔ | ✔ | ✔ | ✔ | ✔ | pendiente | — | ✔ |
+| Muestra el objetivo seguido desde la app (WebUI y pantalla) | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | — | ✔ |
 | Bluetooth SPP (GS-232) para el tracker | ✔ | — | — | — | — | ✔ | — | ✔ |
 | LoRa APRS | módulo externo | módulo externo | — | — | — | HAT SX1262 | HAT SX1262 | TNC KISS |
 | Pantalla táctil | — | — | ✔ vertical | ✔ apaisada | ✔ apaisada 7" | — | — | — |

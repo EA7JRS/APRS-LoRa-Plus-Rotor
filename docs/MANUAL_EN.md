@@ -55,7 +55,8 @@ On the **Raspberry Pi** the rotor is run by Hamlib's `rotctld`, so **any rotor H
 | Direct drive | ✔ | ✔ | relays + 1 ADC (or ADS1115) | ✔ | PCF8574 relays (I2C) + 1 ADC (or ADS1115) | ✔ | ✔ | — |
 | Serial gateway | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | any Hamlib model |
 | WiFi (rotctld, JSON, WebUI) | ✔ | ✔ | ✔ (2.4 and 5 GHz) | ✔ | ✔ | ✔ | — | ✔ |
-| BLE for the app | ✔ | ✔ | ✔ | ✔ | ✔ | pending | — | ✔ |
+| BLE for the app (can be turned off in ⚙ > Estación) | ✔ | ✔ | ✔ | ✔ | ✔ | pending | — | ✔ |
+| Shows the target followed from the app (WebUI and screen) | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | — | ✔ |
 | Bluetooth SPP (GS-232) for the tracker | ✔ | — | — | — | — | ✔ | — | ✔ |
 | LoRa APRS | external module | external module | — | — | — | SX1262 HAT | SX1262 HAT | KISS TNC |
 | Touch screen | — | — | ✔ portrait | ✔ landscape | ✔ landscape 7" | — | — | — |
