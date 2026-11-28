@@ -41,7 +41,7 @@ CONF=/etc/aprs-lora-plus-rotor
 echo "== Paquetes (Hamlib, D-Bus para Bluetooth)"
 apt-get update
 apt-get install -y libhamlib-utils python3 python3-dbus-next bluez
-[ -n "$STEPPER" ] && apt-get install -y python3-lgpio
+[ -n "$STEPPER" ] && apt-get install -y python3-lgpio python3-smbus python3-serial   # lgpio, encoder AS5600 (I2C), TMC2209 (UART)
 [ -n "$GPS" ] && apt-get install -y gpsd gpsd-clients pps-tools
 [ -n "$SEATEL" ] && apt-get install -y python3-serial      # pyserial para la PCU Sea Tel por RS422
 

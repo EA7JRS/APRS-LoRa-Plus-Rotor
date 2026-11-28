@@ -22,7 +22,7 @@ import os
 import threading
 import time
 
-from . import board, encoder
+from . import board, encoder, tmc2209
 from .protocols import (MOVE_DOWN, MOVE_LEFT, MOVE_RIGHT, MOVE_UP, ST_BUSY, ST_MOVING, ST_MOVING_AZ, ST_MOVING_DOWN,
                         ST_MOVING_EL, ST_MOVING_LEFT, ST_MOVING_RIGHT, ST_MOVING_UP, Rotor)
 
@@ -50,6 +50,10 @@ for _k, _a in AXIS_DEFAULTS.items():
     # corrige la posicion al angulo medido. addr 54 = 0x36; mux = direccion del TCA9548A (-1 = sin mux), muxCh su canal.
     _a["enc"] = {"on": False, "bus": 1, "addr": 54, "mux": -1, "muxCh": 0, "cpr": 4096, "sign": 1, "offset": 0.0,
                  "tol": 2.0, "correct": False}
+    # TMC2209 por UART (p. ej. el driver del 3er eje): fija corriente, micropasos y StallGuard sin jumpers. Para homing
+    # sensorless, cablea su salida DIAG a un GPIO y pon ese pin en "home" con homeActive 1: el stall hace de fin de carrera.
+    _a["tmc"] = {"on": False, "port": "/dev/ttyUSB1", "baud": 115200, "addr": 0, "irun": 16, "ihold": 8, "delay": 1,
+                 "sgthrs": 80, "tcoolthrs": 1000, "spread": False}      # el micropaso es el del eje (stepper.<eje>.micro)
 DEFAULTS = {"chip": -1, "enActive": 1, "modePins": False, "homeOnStart": True, "antenna": "", "minAz": 0.0, "maxAz": 360.0,
             "minEl": 0.0, "maxEl": 90.0, "minX": -41.25, "maxX": 41.25, **AXIS_DEFAULTS}
 
@@ -90,6 +94,12 @@ def validate(s: dict, gps_on: bool, max_steps: int | None = None) -> str:
                 return f"stepper.{ax}.enc: cpr > 0, tol > 0, sign -1 / 1"
             if not (8 <= int(ec["addr"]) <= 119) or int(ec["mux"]) not in range(-1, 120) or not 0 <= int(ec["muxCh"]) <= 7:
                 return f"stepper.{ax}.enc: addr 8-119, mux -1 o 8-119, muxCh 0-7"
+        tc = a.get("tmc", {})
+        if tc.get("on"):
+            if not (0 <= int(tc["irun"]) <= 31 and 0 <= int(tc["ihold"]) <= 31):
+                return f"stepper.{ax}.tmc: irun/ihold 0-31"
+            if not (0 <= int(tc["addr"]) <= 3 and 0 <= int(tc["sgthrs"]) <= 255 and int(tc["tcoolthrs"]) >= 0):
+                return f"stepper.{ax}.tmc: addr 0-3, sgthrs 0-255, tcoolthrs >= 0"
         total += StepperAxis.rate(a)
     if total > max_steps:
         return f"stepper: {total:.0f} pasos/s entre los dos motores; esta Pi da {max_steps} (baja dps o micro)"
@@ -139,6 +149,14 @@ def _default_encoder(ec: dict, bus_cache: dict):
     if n not in bus_cache:
         bus_cache[n] = encoder.open_bus(n)
     return encoder.As5600(bus_cache[n], int(ec["addr"]), int(ec["mux"]), int(ec["muxCh"]))
+
+
+def _default_tmc(tc: dict, port_cache: dict):
+    """Construye un TMC2209 real (UART) para un eje, reutilizando el puerto abierto. Solo en la Raspberry."""
+    key = (tc["port"], int(tc["baud"]))
+    if key not in port_cache:
+        port_cache[key] = tmc2209.open_port(tc["port"], int(tc["baud"]))
+    return tmc2209.Tmc2209(port_cache[key], int(tc["addr"]))
 
 
 # ---- GPIO ---------------------------------------------------------------------------------------------------------------
@@ -340,12 +358,13 @@ class StepperRotor(Rotor):
     """Rotor con dos motores paso a paso. Misma interfaz que HamlibRotor."""
 
     def __init__(self, cfg: dict, park: tuple[float, float] = (0.0, 0.0), gpio=None, state_path: str = STATE_PATH,
-                 enc_make=None):
+                 enc_make=None, tmc_make=None):
         self.cfg = cfg
         self.park_pos = park
         self.state_path = state_path
         self.g = gpio if gpio is not None else Gpio(int(cfg["chip"]))
         self._enc_make = enc_make if enc_make is not None else _default_encoder
+        self._tmc_make = tmc_make if tmc_make is not None else _default_tmc
         self.min_az, self.max_az = float(cfg["minAz"]), float(cfg["maxAz"])
         self.min_el, self.max_el = float(cfg["minEl"]), float(cfg["maxEl"])
         self.min_x, self.max_x = float(cfg["minX"]), float(cfg["maxX"])
@@ -380,6 +399,19 @@ class StepperRotor(Rotor):
                 if _rdr is not None:
                     self.encoders[_n] = (_rdr, encoder.EncoderCheck(int(_ec["cpr"]), int(_ec["sign"]),
                                          float(_ec["offset"]), float(_ec["tol"])), bool(_ec.get("correct")))
+        self.tmc: dict = {}                           # eje -> TMC2209 (corriente, micropasos, StallGuard)
+        self._tmc_port: dict = {}
+        for _n, _a in self.axes.items():
+            _tc = _a.c.get("tmc", {})
+            if _tc.get("on"):
+                try:
+                    _drv = self._tmc_make(_tc, self._tmc_port)
+                    _drv.configure(int(_tc["irun"]), int(_tc["ihold"]), int(_a.c["micro"]), int(_tc["sgthrs"]),
+                                   int(_tc["tcoolthrs"]), int(_tc["delay"]), bool(_tc["spread"]))
+                    self.tmc[_n] = _drv
+                    log.info("TMC2209 %s: IRUN %d, 1/%d, SGTHRS %d", _n, int(_tc["irun"]), int(_a.c["micro"]), int(_tc["sgthrs"]))
+                except Exception as _e:  # noqa: BLE001
+                    log.warning("TMC2209 %s: %s", _n, _e)
         self.homing: dict[str, float] = {}           # eje -> grados recorridos buscando el final de carrera
         self._lock = threading.Lock()
         self._wake = threading.Event()
@@ -599,6 +631,15 @@ class StepperRotor(Rotor):
                     self.save()
                 elif not self.fault:
                     self.fault = "ENCODER " + n.upper()
+
+    def sg(self) -> dict:
+        """Lectura de StallGuard (SG_RESULT) de cada eje con TMC2209, para afinar el umbral sgthrs del homing sensorless."""
+        out = {}
+        for n, drv in self.tmc.items():
+            v = drv.sg_result()
+            if v is not None:
+                out[n] = v
+        return out
 
     def clear(self):
         self.fault = ""

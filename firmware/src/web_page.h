@@ -84,7 +84,8 @@ const t=document.getElementById('csm');t.textContent=v<0?'S—':(v<=9?'S'+v:'S9+
 <div class="row"><label class="mut">RA ° <input id="h1ra" type="number" step="0.01" style="width:90px"></label><label class="mut">Dec ° <input id="h1dec" type="number" step="0.01" style="width:90px"></label></div>
 <div class="row"><label class="mut">gal l ° <input id="h1l" type="number" step="0.1" style="width:80px"></label><label class="mut">gal b ° <input id="h1b" type="number" step="0.1" style="width:80px"></label></div>
 <div class="row"><button onclick="h1Track()">Seguir (sidéreo)</button><button onclick="cmd({c:'track',t:'off'})">Dejar</button></div>
-<p class="mut">Apunta y sigue un punto fijo del cielo con el giro sidéreo de la Tierra (línea de hidrógeno 1420 MHz, solo recepción). Escribe RA/Dec (J2000) o coordenadas galácticas l/b, o elige una fuente. Para un barrido por deriva, apunta y luego «Dejar»: el cielo cruza el haz solo.</p></div>
+<div class="row"><button onclick="drRun(true)">Barrido por deriva</button><button onclick="drRun(false)">Parar</button><span class="mut" id="drOut" style="margin-left:6px"></span></div>
+<p class="mut">Apunta y sigue un punto fijo del cielo con el giro sidéreo de la Tierra (línea de hidrógeno 1420 MHz, solo recepción). Escribe RA/Dec (J2000) o coordenadas galácticas l/b, o elige una fuente. El <b>barrido por deriva</b> recorre declinaciones en el meridiano (ajustes <code>drift</code>): en cada una se queda fija mientras el cielo cruza el haz y registra el apuntado en un CSV.</p></div>
 <p class="mut">Mantén pulsado CW / CCW / UP / DOWN para mover a mano.</p></div>
 
 <div id="rightcol" style="display:flex;flex-direction:column;gap:12px">
@@ -126,7 +127,14 @@ const t=document.getElementById('csm');t.textContent=v<0?'S—':(v<=9?'S'+v:'S9+
 <div style="border-top:1px solid var(--bd);margin:10px 0 6px"></div><b class="mut">Calibrar con Inmarsat</b>
 <div class="row"><label class="mut">Longitud sat. <input id="inmLon" type="number" step="0.1" style="width:90px"></label><button onclick="inmPoint(false)">Apuntar</button><button onclick="inmPoint(true)">Fijar aquí</button></div>
 <div class="row mut" id="inmOut"></div>
-<p class="mut">Apunta al satélite Inmarsat geoestacionario con la posición del GPS. Afina a mano hasta el máximo de señal de su baliza y pulsa «Fijar aquí»: el cero de acimut y elevación se corrige a los grados calculados. Longitud del satélite en grados (E +, O −); 25 = I-4 F2 (EMEA). Necesita posición GPS.</p></div>
+<p class="mut">Apunta al satélite Inmarsat geoestacionario con la posición del GPS. Afina a mano hasta el máximo de señal de su baliza y pulsa «Fijar aquí»: el cero de acimut y elevación se corrige a los grados calculados. Longitud del satélite en grados (E +, O −); 25 = I-4 F2 (EMEA). Necesita posición GPS.</p>
+<div style="border-top:1px solid var(--bd);margin:10px 0 6px"></div><div class="row"><button onclick="sgRead()">Leer StallGuard (TMC2209)</button><span class="mut" id="sgOut" style="margin-left:8px"></span></div>
+<p class="mut">Lectura de StallGuard de los ejes con driver TMC2209, para afinar el umbral <code>sgthrs</code> del homing sensorless (busca el final de carrera por el bloqueo del motor, sin interruptor). Ver RASPBERRY_HATS.md.</p>
+<div style="border-top:1px solid var(--bd);margin:10px 0 6px"></div><b class="mut">Modelo de apuntado</b>
+<div class="row"><select id="ptRef"><option value="sun">Sol</option><option value="moon">Luna</option><option value="inmarsat">Inmarsat</option></select><button onclick="ptAdd()">Añadir referencia</button><button onclick="ptFit()">Ajustar</button></div>
+<div class="row"><label class="mut"><input type="checkbox" id="ptOn" onchange="ptEnable(this.checked)" style="width:auto"> Aplicar el modelo</label><button onclick="ptClear()">Borrar referencias</button><button onclick="pkRun(true)">Auto-pico (SDR)</button><button onclick="pkRun(false)">Parar</button></div>
+<div class="row mut" id="ptOut"></div>
+<p class="mut">Apunta a una referencia conocida (Sol, Luna, Inmarsat), afina a mano hasta centrarla y pulsa «Añadir referencia»; repite con 3 o más y pulsa «Ajustar» para corregir el desalineado mecánico del montaje. Con una sonda de potencia del SDR configurada (<code>peak</code>), «Auto-pico» afina solo barriendo una rejilla.</p></div>
 
 <div class="c adv" style="display:none" id="catRotor"><h3>Rotor</h3>
 <div id="rotPi" style="display:none">
@@ -228,13 +236,23 @@ function advClose(){$('advOvl').style.display='none'}
 document.addEventListener('keydown',function(e){if(e.key==='Escape'){advClose();satClose()}});
 async function cfgGet(){const r=await api([{c:'cfgget'}]);return JSON.parse(r.map(x=>x.d).join(''))}
 async function cfgPut(o){const t=JSON.stringify(o),n=Math.ceil(t.length/180),L=[];for(let i=0;i<n;i++)L.push({c:'cfgset',i,n,d:t.substr(i*180,180)});const r=await api(L);const e=r.find(x=>x.e=='err');alert(e?('Error: '+e.m):'Guardado. Reiniciando…')}
-async function antLoad(){try{const r=await api([{c:'antennas'}]);const L=(r[0]&&r[0].list)||[];const s=$('selAnt');s.innerHTML=L.length?L.map(function(a){return '<option value="'+sEsc(a.name)+'">'+sEsc(a.title||a.name)+'</option>'}).join(''):'<option value="">(sin antenas / no es paso a paso)</option>'}catch(e){}try{const c=await cfgGet();if(c.inmarsat&&c.inmarsat.lon!=null&&$('inmLon').value==='')$('inmLon').value=c.inmarsat.lon}catch(e){}}
+async function antLoad(){try{const r=await api([{c:'antennas'}]);const L=(r[0]&&r[0].list)||[];const s=$('selAnt');s.innerHTML=L.length?L.map(function(a){return '<option value="'+sEsc(a.name)+'">'+sEsc(a.title||a.name)+'</option>'}).join(''):'<option value="">(sin antenas / no es paso a paso)</option>'}catch(e){}try{const c=await cfgGet();if(c.inmarsat&&c.inmarsat.lon!=null&&$('inmLon').value==='')$('inmLon').value=c.inmarsat.lon}catch(e){}ptInfo()}
 function antApply(v){if(v&&confirm('¿Cargar la antena «'+v+'» y reiniciar el equipo?'))cmd({c:'antenna',name:v})}
 // Ayuda de configuracion del Waveshare Stepper Motor HAT (DIP de microstepping, alimentacion y corriente); solo con motores paso a paso.
+// Modelo de apuntado: anadir referencias (Sol/Luna/Inmarsat), ajustar, activar; y auto-pico con el SDR.
+async function ptAdd(){var r=await api([{c:'pointadd',target:$('ptRef').value}]);var o=r[0]||{};$('ptOut').textContent=(o.e!='err')?('referencias: '+o.n):('Error: '+({'no position':'sin posición GPS'}[o.m]||o.m||'?'));ptInfo()}
+async function ptFit(){var r=await api([{c:'pointfit'}]);var o=r[0]||{};$('ptOut').textContent=(o.e!='err')?('ajustado · '+o.n+' ref · RMS '+o.rms+'°'):('Error: '+({'no points':'no hay referencias'}[o.m]||o.m||'?'));ptInfo()}
+function ptClear(){cmd({c:'pointclear'});setTimeout(ptInfo,200)}
+function ptEnable(on){cmd({c:'pointset',on:on})}
+async function ptInfo(){try{var r=await api([{c:'pointinfo'}]);var o=r[0]||{};$('ptOn').checked=!!o.on}catch(e){}}
+async function pkRun(on){var r=await api([{c:'peak',on:on}]);var o=r[0]||{};$('ptOut').textContent=(o.e=='err')?('Error: '+({'no probe (configura peak.host)':'configura la sonda del SDR (peak.host)'}[o.m]||o.m)):(on?'auto-pico en marcha…':'parado')}
+// StallGuard del TMC2209: lee SG_RESULT de los ejes para afinar el umbral de homing sensorless.
+async function sgRead(){var r=await api([{c:'sg'}]);var o=r[0]||{};var ks=Object.keys(o).filter(function(k){return k!='e'&&k!='c'});$('sgOut').textContent=ks.length?ks.map(function(k){return k.toUpperCase()+': '+o[k]}).join(' · '):'sin TMC2209';}
 // Radioastronomia H1: seguir un punto fijo del cielo (RA/Dec J2000 o coordenadas galacticas l/b) con el giro sidereo.
 function h1Toggle(){var p=$('h1p');p.style.display=(p.style.display==='none'||!p.style.display)?'':'none'}
 function h1Pre(){var v=$('h1pre').value;if(!v)return;var k=v.charAt(0),xy=v.slice(1).split(',');if(k=='g'){$('h1l').value=xy[0];$('h1b').value=xy[1];$('h1ra').value='';$('h1dec').value=''}else{$('h1ra').value=xy[0];$('h1dec').value=xy[1];$('h1l').value='';$('h1b').value=''}}
 function h1Track(){var o={c:'track',t:'radec'},ra=parseFloat($('h1ra').value),dec=parseFloat($('h1dec').value),l=parseFloat($('h1l').value),b=parseFloat($('h1b').value);if(!isNaN(l)&&!isNaN(b)){o.l=l;o.b=b;o.name='l'+l+' b'+b}else if(!isNaN(ra)&&!isNaN(dec)){o.ra=ra;o.dec=dec;o.name='RA'+ra.toFixed(1)}else return alert('Escribe RA/Dec o coordenadas galácticas l/b');cmd(o);poll()}
+async function drRun(on){var r=await api([{c:'drift',on:on}]);var o=r[0]||{};$('drOut').textContent=(o.e=='err')?('Error: '+({'no position':'sin posición GPS','nothing above horizon':'nada sobre el horizonte'}[o.m]||o.m)):(on?'barrido en marcha…':'parado')}
 // Calibracion con Inmarsat: apunta al satelite geoestacionario (GPS) y, tras afinar al maximo de la baliza, fija el cero.
 async function inmPoint(fix){var o2={c:'inmarsat',fix:!!fix};var lon=parseFloat($('inmLon').value);if(!isNaN(lon))o2.lon=lon;var r=await api([o2]);var o=r[0]||{};if(o.az!=null&&o.e!='err'){$('inmOut').innerHTML='AZ '+o.az+'° · EL '+o.el+'° · '+o.km+' km'+(fix?' · <span class="okc">cero fijado</span>':' · apuntando');}else{var M={'no position':'sin posición GPS','below horizon':'el satélite está bajo el horizonte','only direct drive':'solo con motores paso a paso'};$('inmOut').textContent='Error: '+(M[o.m]||o.m||'?')+(o.az!=null?' (AZ '+o.az+'° EL '+o.el+'°)':'');}}
 // Calibracion de ganancia de los motores paso a paso: marca el punto A, se mueve a mano al B y calcula la reduccion real.
@@ -306,6 +324,8 @@ var T=pos.trk;if(T){$('trkc').style.display='';var NM={sun:'☀ Sol',moon:'☾ L
 $('aprs').textContent=pos.aprs?('APRS: '+pos.aprs):'';
 var H=pos.hdg;if(H&&H.v!=null){$('hdgInfo').style.display='';$('hdgInfo').innerHTML='Rumbo '+H.v.toFixed(1)+'°'+(H.dec!=null?' · decl '+(H.dec>=0?'+':'')+H.dec+'°':'')+(H.on?' · <span class="okc">azimut verdadero</span>':'')+(H.old?' · <span class="bad">rumbo viejo</span>':'');}else $('hdgInfo').style.display='none';
 var AT=pos.att;if(AT&&AT.r!=null){$('attInfo').style.display='';$('attInfo').innerHTML='Escora '+AT.r.toFixed(1)+'° · cabeceo '+AT.p.toFixed(1)+'°'+(AT.y?' · giro '+AT.y.toFixed(1)+'°':'')+(AT.lvl?' · <span class="okc">nivelando (cross-level)</span>':'')+(AT.old?' · <span class="bad">actitud vieja</span>':'');}else $('attInfo').style.display='none';
+if(pos.peak&&$('ptOut')){var pk=pos.peak;$('ptOut').textContent=pk.running?('auto-pico… '+(pk.n||0)+' lecturas'):(pk.done?('pico: Δaz '+(pk.daz!=null?pk.daz:'?')+'° Δel '+(pk['del']!=null?pk['del']:'?')+'°'+(pk.err?' ('+pk.err+')':'')):'');}
+if(pos.drift&&$('drOut')){var dp=pos.drift;$('drOut').textContent=dp.running?('barrido '+(dp.i||0)+'/'+(dp.n||0)+(dp.dec!=null?' · dec '+dp.dec+'°':'')):(dp.done?('barrido terminado'+(dp.err?' ('+dp.err+')':'')):'');}
 draw()}catch(e){$('st').textContent='sin conexión'}}
 async function raw(){try{const r=await api([{c:'raw'}]);$('raz').textContent=r[0].az!=null?r[0].az.toFixed(0):'-';$('rel').textContent=r[0].el!=null?r[0].el.toFixed(0):'-';$('ru').textContent=r[0].unit||''}catch(e){}}
 async function loadCfg(){const r=await api([{c:'cfgget'}]);$('cfg').value=JSON.stringify(JSON.parse(r.map(x=>x.d).join('')),null,1)}

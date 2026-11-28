@@ -1104,6 +1104,26 @@ class TestStepper(unittest.TestCase):
         self.assertAlmostEqual(r2.axes["az"].deg, 108.0, delta=0.3)
         self.assertEqual(r2.fault, "")
 
+    def test_stepper_tmc(self):
+        class FakeDrv:
+            cfg = None
+            def configure(s, *a):
+                s.cfg = a
+            def sg_result(s):
+                return 123
+        made = {}
+
+        def mk(tc, cache):
+            made["x"] = FakeDrv()
+            return made["x"]
+        c = _stepper_cfg()
+        c["x"] = {**ST.DEFAULTS["x"], "on": True, "micro": 1, "gear": 1.8, "dps": 30.0, "accel": 60.0}
+        c["x"]["tmc"] = {**ST.DEFAULTS["x"]["tmc"], "on": True, "irun": 20, "sgthrs": 90}
+        r = ST.StepperRotor(c, (0.0, 0.0), gpio=ST.FakeGpio(), state_path=self.state, tmc_make=mk)
+        self.assertIn("x", r.tmc)
+        self.assertEqual(made["x"].cfg[:5], (20, 8, 1, 90, 1000))     # irun, ihold, micro, sgthrs, tcoolthrs
+        self.assertEqual(r.sg(), {"x": 123})
+
     def test_hat_dips_and_info(self):
         c = _stepper_cfg()
         c["az"]["micro"], c["el"]["micro"] = 16, 32
@@ -1115,6 +1135,158 @@ class TestStepper(unittest.TestCase):
         self.assertEqual(ST.hat_dips({**c, "modePins": True}), {"software": True})
         info = ST.hat_info(c)
         self.assertEqual(set(info), {"dips", "supply", "current", "decay", "enable"})
+
+
+class TestTmc2209(unittest.TestCase):
+    def test_crc_and_datagrams(self):
+        from aprs_lora_plus_rotor import tmc2209 as T
+        self.assertEqual(T.crc8(b""), 0)
+        self.assertEqual(T.crc8(bytes([0, 0, 0])), 0)
+        self.assertEqual(T.crc8(bytes([1])), 0x89)                   # derivado a mano del polinomio 0x07 (LSB primero)
+        d = T.write_datagram(0, T.IHOLD_IRUN, 0x00010203)
+        self.assertEqual(len(d), 8)
+        self.assertEqual((d[0], d[1], d[2]), (0x05, 0, T.IHOLD_IRUN | 0x80))
+        self.assertEqual(d[3:7], bytes([0, 1, 2, 3]))
+        self.assertEqual(d[7], T.crc8(d[:7]))
+        self.assertEqual(T.read_request(0, T.SG_RESULT)[2], T.SG_RESULT)
+        val = 0x12345678
+        reply = bytes([0x05, 0xFF, T.SG_RESULT, 0x12, 0x34, 0x56, 0x78])
+        reply += bytes([T.crc8(reply)])
+        self.assertEqual(T.parse_read_reply(b"\x05\x00\x41\x00" + reply), val)   # con el eco de la peticion delante
+        self.assertIsNone(T.parse_read_reply(b"sin respuesta valida"))
+
+    def test_configure_and_sg(self):
+        from aprs_lora_plus_rotor import tmc2209 as T
+
+        class FakePort:
+            def __init__(s):
+                s.writes = []
+                s.reply = b""
+            def write(s, d):
+                s.writes.append(bytes(d))
+            def read(s, n):
+                return s.reply
+            def reset_input_buffer(s):
+                pass
+        p = FakePort()
+        drv = T.Tmc2209(p, 0)
+        drv.configure(16, 8, 16, 80, 1000)
+        self.assertEqual(len(p.writes), 5)                           # GCONF, IHOLD_IRUN, CHOPCONF, TCOOLTHRS, SGTHRS
+        self.assertEqual(p.writes[0][2], T.GCONF | 0x80)
+        self.assertEqual(p.writes[4][2], T.SGTHRS | 0x80)
+        val = 0x000000AB
+        reply = bytes([0x05, 0xFF, T.SG_RESULT, 0, 0, 0, 0xAB])
+        p.reply = reply + bytes([T.crc8(reply)])
+        self.assertEqual(drv.sg_result(), val)
+        self.assertEqual(T.chopconf(16) >> 24 & 0xF, 4)              # 1/16 -> MRES 4
+
+
+class TestPointing(unittest.TestCase):
+    def test_model_fit(self):
+        from aprs_lora_plus_rotor import pointing as PT
+        true = PT.PointingModel({"ia": 1.5, "ca": 0.8, "np": -0.5, "ie": -0.7, "tf": 0.3})
+        sky = [(30, 10), (120, 25), (210, 40), (300, 55), (80, 70), (200, 15)]
+        pts = [(sa, se, *true.apply(sa, se)) for sa, se in sky]
+        m = PT.PointingModel.fit(pts)
+        for sa, se in sky:
+            ma, me = m.apply(sa, se)
+            ta, te = true.apply(sa, se)
+            self.assertAlmostEqual((ma - ta + 180) % 360 - 180, 0.0, places=3)
+            self.assertAlmostEqual(me - te, 0.0, places=3)
+        self.assertLess(m.residual(pts), 1e-3)
+        m1 = PT.PointingModel.fit([(100.0, 30.0, 101.0, 29.0)])       # un punto: solo indices
+        self.assertAlmostEqual(m1.p["ia"], 1.0, places=3)
+        self.assertAlmostEqual(m1.p["ie"], -1.0, places=3)
+
+    def test_pointing_rotor(self):
+        from aprs_lora_plus_rotor import pointing as PT
+        f = FakeRotor()
+        f.az, f.el = 0.0, 0.0
+        pr = PT.PointingRotor(f, PT.PointingModel({"ia": 2.0, "ie": -1.0}), enabled=True)
+        pr.set_pos(100.0, 30.0)
+        self.assertAlmostEqual(f.az, 102.0)                          # aplica la correccion al mandar
+        self.assertAlmostEqual(f.el, 29.0)
+        a, e = pr.get_pos()
+        self.assertAlmostEqual(a, 100.0)                             # informa el cielo real (inverso)
+        self.assertAlmostEqual(e, 30.0)
+        pr.enabled = False
+        pr.set_pos(100.0, 30.0)
+        self.assertAlmostEqual(f.az, 100.0)
+
+    def test_api_pointing(self):
+        class H(api.ApiHost):
+            rotor = None
+            def point_add(s, d):
+                return "", {"n": 1, "sky": [180.0, 45.0], "rotor": [181.0, 44.0]}
+            def point_fit(s):
+                return "", {"params": {"ia": 1.0}, "rms": 0.0, "n": 2}
+            def point_clear(s):
+                return {"n": 0}
+            def point_info(s):
+                return {"on": True, "n": 2}
+        h, sess = H(), api.ApiSession()
+        self.assertIn('"e":"ok"', sess.handle('{"c":"pointadd","target":"sun"}', h)[0])
+        self.assertIn('"rms":0', sess.handle('{"c":"pointfit"}', h)[0])
+        self.assertIn('"e":"point"', sess.handle('{"c":"pointinfo"}', h)[0])
+
+
+class TestPeak(unittest.TestCase):
+    def test_raster_and_best(self):
+        from aprs_lora_plus_rotor import peak as PK
+        g = PK.raster(1.0, 0.5)                                   # -1,-0.5,0,0.5,1 en cada eje -> 25 puntos
+        self.assertEqual(len(g), 25)
+        self.assertIn((0.0, 0.0), g)
+        import math
+        samples = [(da, de, 100.0 * math.exp(-((da - 0.5) ** 2 + (de + 0.5) ** 2) / 0.05)) for (da, de) in g]
+        da, de, pmax = PK.best(samples)                          # pico estrecho (haz de antena): centroide sobre el máximo
+        self.assertAlmostEqual(da, 0.5, delta=0.1)
+        self.assertAlmostEqual(de, -0.5, delta=0.1)
+        self.assertGreater(pmax, 99.0)
+
+    def test_api_peak(self):
+        class H(api.ApiHost):
+            rotor = None
+            started = stopped = False
+            def peak_start(s):
+                s.started = True
+                return ""
+            def peak_stop(s):
+                s.stopped = True
+        h, sess = H(), api.ApiSession()
+        self.assertIn('"e":"ok"', sess.handle('{"c":"peak","on":true}', h)[0])
+        self.assertTrue(h.started)
+        sess.handle('{"c":"peak","on":false}', h)
+        self.assertTrue(h.stopped)
+
+
+class TestDrift(unittest.TestCase):
+    def test_plan(self):
+        from aprs_lora_plus_rotor import drift as DR
+        az, el = DR.meridian_azel(40.0, 40.0)
+        self.assertEqual((az, round(el)), (180.0, 90))               # dec = lat: cenit, al sur
+        self.assertEqual(DR.meridian_azel(40.0, 60.0)[0], 0.0)       # dec > lat: al norte
+        self.assertAlmostEqual(DR.meridian_azel(40.0, 10.0)[1], 60.0)
+        p = DR.plan(40.0, 0.0, 60.0, 10.0)
+        self.assertEqual(len(p), 7)
+        self.assertEqual((p[0][0], p[-1][0]), (0.0, 60.0))
+        p2 = DR.plan(40.0, -60.0, -40.0, 10.0)                       # dec -60 no culmina sobre el horizonte: se descarta
+        self.assertEqual(len(p2), 2)
+        self.assertTrue(all(el >= 0 for _, _, el in p2))
+
+    def test_api(self):
+        class H(api.ApiHost):
+            rotor = None
+            started = stopped = False
+            def drift_start(s):
+                s.started = True
+                return ""
+            def drift_stop(s):
+                s.stopped = True
+        h, sess = H(), api.ApiSession()
+        self.assertIn('"e":"ok"', sess.handle('{"c":"drift","on":true}', h)[0])
+        self.assertTrue(h.started)
+        sess.handle('{"c":"drift","on":false}', h)
+        self.assertTrue(h.stopped)
 
 
 class TestAntennas(unittest.TestCase):

@@ -67,6 +67,16 @@ DEFAULTS["att"] = {"on": False, "step": 0.5, "staleS": 5.0, "rollSign": 1, "pitc
 # Calibracion apuntando a un satelite geoestacionario Inmarsat (orden "inmarsat"): con la posicion GPS calcula az/el al
 # satelite en la longitud "lon" (E+, O-); se afina a mano al maximo de la baliza y se fija el cero. 25 = I-4 F2 (EMEA).
 DEFAULTS["inmarsat"] = {"lon": 25.0, "name": "Inmarsat I-4 F2 (25°E)"}
+# Modelo de apuntado multipunto (pointing.py): corrige el desalineado mecanico con referencias de posicion conocida (Sol,
+# Luna, Inmarsat, estrella). points = lista de [az_cielo, el_cielo, az_rotor, el_rotor]; ia/ca/np/ie/tf = coeficientes.
+DEFAULTS["pointing"] = {"on": False, "ia": 0.0, "ca": 0.0, "np": 0.0, "ie": 0.0, "tf": 0.0, "points": []}
+# Auto-pico con el SDR (peak.py): barre una rejilla y lleva la antena al maximo de potencia que lee una sonda por la red
+# (kind 'line' = una linea con el numero; 'rigctl' = 'l STRENGTH' a un rigctld). span = medio lado, step = paso (grados).
+DEFAULTS["peak"] = {"host": "", "port": 0, "kind": "line", "query": "", "span": 3.0, "step": 0.5, "dwell": 1.0}
+# Barrido por deriva para radioastronomia (drift.py): apunta al meridiano a cada declinacion y espera dwell segundos
+# mientras el cielo cruza el haz; registra el apuntado en un CSV. La latitud sale del GPS / posicion.
+DEFAULTS["drift"] = {"decStart": 0.0, "decEnd": 60.0, "decStep": 5.0, "dwell": 300.0,
+                     "csv": "/var/lib/aprs-lora-plus-rotor/drift.csv"}
 DEFAULTS["driver"] = "hamlib"
 DEFAULTS["stepper"] = copy.deepcopy(stepper.DEFAULTS)
 # GPS propio (Uputronics GPS/RTC HAT con gpsd): su posicion manda sobre lan.pos y aprs.lat / aprs.lon (gnss.py)
@@ -144,6 +154,17 @@ def validate(c: dict) -> str:
             return "lan.headStep 0.5-45 / lan.magVar -90..90"
         if not -180.0 <= float(c["inmarsat"]["lon"]) <= 180.0:
             return "inmarsat.lon -180..180"
+        pm = c["pointing"]
+        for kk in ("ia", "ca", "np", "ie", "tf"):
+            float(pm[kk])
+        if not isinstance(pm["points"], list) or any(not (isinstance(q, list) and len(q) == 4) for q in pm["points"]):
+            return "pointing.points: lista de [az,el,az,el]"
+        pk = c["peak"]
+        if not (0 <= int(pk["port"]) <= 65535 and 0.1 <= float(pk["span"]) <= 45 and 0.05 <= float(pk["step"]) <= float(pk["span"])):
+            return "peak: port, span 0.1-45, step 0.05-span"
+        dr = c["drift"]
+        if not (-90 <= float(dr["decStart"]) <= 90 and -90 <= float(dr["decEnd"]) <= 90 and float(dr["decStep"]) > 0 and float(dr["dwell"]) > 0):
+            return "drift: decStart/decEnd -90..90, decStep > 0, dwell > 0"
         if c["driver"] not in ("hamlib", "stepper"):
             return "driver hamlib | stepper"
         if c["driver"] == "stepper":

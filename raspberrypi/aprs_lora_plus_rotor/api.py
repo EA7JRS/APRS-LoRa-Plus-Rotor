@@ -46,10 +46,20 @@ class ApiHost:
     def home(self) -> str: return "no home switch"                               # buscar los finales de carrera
     def list_antennas(self) -> list: return []                                   # selector de antenas (motores paso a paso)
     def select_antenna(self, name: str) -> str: return "not supported"
+    def sg_read(self) -> dict: return {}                                         # StallGuard (SG_RESULT) de los ejes con TMC2209
     def cal_mark(self, axis: str) -> str: return "only direct drive"             # calibracion de ganancia: marcar punto A
     def cal_gain(self, axis: str, deg: float) -> dict | None: return None        # calcular 'gear' real con los grados A->B
     def apply_gain(self, axis: str, gear: float) -> str: return "not supported"  # guardar la 'gear' calculada y reiniciar
     def point_inmarsat(self, lon, fix: bool) -> tuple[str, dict]: return "not supported", {}   # apuntar / fijar cero con Inmarsat
+    def point_add(self, d: dict) -> tuple[str, dict]: return "not supported", {}    # modelo de apuntado: anadir una referencia
+    def point_fit(self) -> tuple[str, dict]: return "not supported", {}             # ajustar el modelo a las referencias
+    def point_clear(self) -> dict: return {}                                        # borrar las referencias
+    def point_enable(self, on: bool): pass                                          # activar / desactivar el modelo
+    def point_info(self) -> dict: return {}                                         # estado del modelo de apuntado
+    def peak_start(self) -> str: return "not supported"                             # auto-pico con el SDR: arrancar el barrido
+    def peak_stop(self): pass                                                       # auto-pico: parar
+    def drift_start(self) -> str: return "not supported"                            # barrido por deriva (H1): arrancar
+    def drift_stop(self): pass                                                       # barrido por deriva: parar
     def list_sats(self, group=None, active: bool = False) -> list: return []     # satelites del TLE con su proximo paso
     def sat_info(self) -> dict: return {}
     def select_sat(self, key: str) -> str: return "no sky"
@@ -136,6 +146,12 @@ class ApiSession:
             return out
         if c == "antennas":
             out.append(dumps({"e": "antennas", "list": h.list_antennas()}))
+            return out
+        if c == "sg":                                       # StallGuard de los ejes con TMC2209 (para afinar sgthrs)
+            out.append(dumps({"e": "sg", **h.sg_read()}))
+            return out
+        if c == "pointinfo":                                # estado del modelo de apuntado (solo lectura)
+            out.append(dumps({"e": "point", **h.point_info()}))
             return out
         if c == "sats":                                     # lista de satelites (nombre, az/el, proximo paso); grp = categoria, act = solo activos
             grp = d.get("grp") or None
@@ -319,6 +335,31 @@ class ApiSession:
         elif c == "inmarsat":                           # calibracion: apuntar / fijar el cero con un satelite Inmarsat
             e, dd = h.point_inmarsat(_num(d.get("lon")), bool(d.get("fix")))
             ok(c, **dd) if not e else out.append(dumps({"e": "err", "c": c, "m": e, **dd}))
+        elif c == "pointadd":                           # modelo de apuntado: anadir una referencia (az/el o target sun/moon/inmarsat)
+            e, dd = h.point_add(d)
+            ok(c, **dd) if not e else err(c, e)
+        elif c == "pointfit":                           # ajustar el modelo a las referencias y activarlo
+            e, dd = h.point_fit()
+            ok(c, **dd) if not e else err(c, e)
+        elif c == "pointclear":
+            ok(c, **h.point_clear())
+        elif c == "pointset":                           # activar / desactivar el modelo
+            h.point_enable(bool(d.get("on")))
+            ok(c)
+        elif c == "peak":                               # auto-pico con el SDR: {"on":true} arranca, {"on":false} para
+            if d.get("on") is False:
+                h.peak_stop()
+                ok(c)
+            else:
+                e = h.peak_start()
+                ok(c) if not e else err(c, e)
+        elif c == "drift":                              # barrido por deriva (H1): {"on":true} arranca, {"on":false} para
+            if d.get("on") is False:
+                h.drift_stop()
+                ok(c)
+            else:
+                e = h.drift_start()
+                ok(c) if not e else err(c, e)
         elif c == "reboot":
             ok(c)
             h.reboot()

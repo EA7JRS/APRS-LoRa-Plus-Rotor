@@ -172,6 +172,22 @@ Calibración apuntando a un satélite geoestacionario Inmarsat (orden `inmarsat`
 | `inmarsat.lon` | 25.0 | longitud del satélite en grados (E +, O −); 25 = I-4 F2 (EMEA) |
 | `inmarsat.name` | Inmarsat I-4 F2 (25°E) | nombre para mostrar |
 
+## `pointing` y `peak`
+
+Modelo de apuntado multipunto (corrige el desalineado mecánico) y auto-pico con el SDR. Ver [POINTING.md](POINTING.md).
+
+| Clave | Por defecto | |
+|---|---|---|
+| `pointing.on` | false | aplicar el modelo a todo el apuntado |
+| `pointing.ia` / `ca` / `np` / `ie` / `tf` | 0 | coeficientes (índice az, colimación, no-perpendicularidad, índice el, flexión); los calcula el ajuste |
+| `pointing.points` | `[]` | referencias `[az_cielo, el_cielo, az_rotor, el_rotor]` |
+| `peak.host` / `port` | "" / 0 | sonda de potencia del SDR por la red (vacío = sin auto-pico) |
+| `peak.kind` / `query` | line / "" | `line` (una línea con el número) o `rigctl` (`l STRENGTH` a un rigctld); `query` a enviar |
+| `peak.span` / `step` / `dwell` | 3 / 0.5 / 1 | medio lado y paso de la rejilla (grados) y segundos de espera por punto |
+| `drift.decStart` / `decEnd` / `decStep` | 0 / 60 / 5 | barrido por deriva (H1): declinaciones (grados) y paso |
+| `drift.dwell` | 300 | segundos fijo en cada declinación mientras el cielo cruza el haz |
+| `drift.csv` | `/var/lib/aprs-lora-plus-rotor/drift.csv` | registro del apuntado del barrido (utc, dec, az, el) |
+
 ## `att` (solo Raspberry Pi)
 
 Compensación de actitud en plataforma móvil (coche / barco) o si el mástil gira con el viento (orden `att`). Ver [ATTITUDE.md](ATTITUDE.md).
@@ -201,6 +217,7 @@ Compensación de actitud en plataforma móvil (coche / barco) o si el mástil gi
 | `stepper.antenna` | "" | perfil de antena cargado por el selector (ver [RASPBERRY_HATS.md](RASPBERRY_HATS.md#selector-de-antenas)) |
 | `stepper.modePins` | false | micropasos por GPIO (solo con las resistencias de 0 Ω del reverso; si no, los DIP) |
 | `stepper.az.enc` / `el.enc` / `x.enc` | apagado (`on` false) | encoder magnético AS5600 por eje: `bus` (I²C), `addr` 54 (0x36), `mux` (dirección del TCA9548A, -1 = sin mux), `muxCh` 0-7, `cpr` 4096, `sign`, `offset`, `tol` 2.0 (° de aviso), `correct` (corregir la posición al ángulo medido en vez de solo avisar) |
+| `stepper.x.tmc` (o `az.tmc` / `el.tmc`) | apagado (`on` false) | TMC2209 por UART: `port`, `baud` 115200, `addr` 0-3, `irun` / `ihold` (0-31), `delay`, `sgthrs` (0-255, StallGuard), `tcoolthrs`, `spread`. El micropaso es el del eje (`micro`). Para homing sensorless, cablea DIAG a un GPIO y ponlo en `home` con `homeActive` 1 |
 | `stepper.homeOnStart` | true | buscar los finales de carrera al arrancar |
 | `stepper.chip` | -1 | `/dev/gpiochipN` (-1 = el del conector de 40 pines) |
 | `gps.on` | false | GPS propio por gpsd: su posición manda sobre `lan.pos` y `aprs.lat` / `aprs.lon` |

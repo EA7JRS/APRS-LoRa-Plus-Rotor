@@ -13,7 +13,9 @@ Las fuentes del cielo se dan en coordenadas **ecuatoriales** (ascensión recta R
 
 ## Barrido por deriva (drift scan)
 
-Para un barrido por deriva, **apunta** a la zona y luego para el seguimiento (**Dejar**): la antena se queda fija y el cielo cruza el haz solo con la rotación terrestre. Es la forma más sencilla de barrer la línea H1 a lo largo de una franja de declinación constante.
+Para un barrido por deriva **suelto**, apunta a la zona y para el seguimiento (**Dejar**): la antena se queda fija y el cielo cruza el haz solo con la rotación terrestre, a declinación constante.
+
+Para un **barrido automático** por varias declinaciones, pulsa **Barrido por deriva** (botón del panel 📡 H1, o la orden `drift`): la caja apunta al **meridiano** a cada declinación del rango `drift` (de `decStart` a `decEnd` con paso `decStep`), se queda fija `drift.dwell` segundos mientras el cielo cruza el haz, y salta a la siguiente. Registra el apuntado (hora UTC, declinación, az, el) en `drift.csv`, para casarlo luego con lo que grabe el receptor. Necesita posición (GPS) para calcular las elevaciones; las declinaciones que no culminan sobre el horizonte se saltan.
 
 ## Nivelación en móvil
 

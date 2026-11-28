@@ -90,6 +90,12 @@ Pines por defecto del tercer eje (libres, sin chocar con el HAT ni con el PPS de
 
 Mecánica igual que az/el (`stepper.x`: `stepsRev`, `micro`, `gear`, `dps`, `accel`, `invert`, `hold`, `home`…) y topes propios `stepper.minX` / `maxX` (de serie ±41,25°).
 
+#### TMC2209 por UART: corriente, micropasos y homing sensorless
+
+En vez de fijar la corriente con el potenciómetro y los micropasos con jumpers, puedes **configurar el TMC2209 por UART**: conecta su patilla `PDN_UART` a un puerto serie de la Pi (con una resistencia de ~1 kΩ en serie para el medio dúplex) y activa `stepper.x.tmc`. La caja le fija al arrancar la corriente (`irun` / `ihold`, 0-31), los micropasos (los de `stepper.x.micro`) y **StallGuard** (`sgthrs`, `tcoolthrs`). Config: `port`, `baud` 115200, `addr` 0-3, `irun`, `ihold`, `delay`, `sgthrs`, `tcoolthrs`, `spread` (ver [CONFIG.md](CONFIG.md)); necesita `python3-serial`.
+
+**Homing sensorless** (sin final de carrera): con StallGuard, el TMC2209 pone su salida **DIAG** a 1 cuando el motor se bloquea (al topar). Cablea DIAG a un GPIO libre y pon ese pin en `stepper.x.home` con `homeActive` 1: el `home` normal lleva el eje contra el tope y el stall hace de final de carrera. Afina `sgthrs` para que dispare al topar pero no en marcha normal: en la WebUI, menú ⚙ > **Antena** > *Leer StallGuard* (o la orden `sg`) muestra el `SG_RESULT` de cada eje mientras mueves.
+
 #### Nivelación automática con el balanceo (cross-level)
 
 En móvil (vehículo o barco), el eje de inclinación puede **nivelar solo** con la escora. Enciende la compensación de actitud (`att.on`) con una IMU que dé escora y cabeceo (orden `att`, o la que mande la app / el tracker), y activa `att.level`. Con ello, el eje X gira para **cancelar la escora** (el balanceo) hasta su tope, y el acimut / elevación afinan el resto de la inclinación; así la antena sigue apuntando al objetivo aunque la base se mueva. `att.xSign` (−1 / 1) calibra el sentido del eje si nivela al revés. En la WebUI, cuando está nivelando, la línea de actitud lo indica («nivelando (cross-level)»). En estación fija deja `att.level` apagado: el eje se aparca al centro. (Requiere una antena con tercer eje, `stepper.x.on`.)
