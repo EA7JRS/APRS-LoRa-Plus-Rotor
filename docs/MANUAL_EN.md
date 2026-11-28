@@ -210,8 +210,8 @@ At `http://APRS-Rotor.local/` (boards) or `http://IP:8080/` (Raspberry Pi). User
 | **Configuración** (configuration) | the whole file: *Leer* (read), edit, *Guardar y reiniciar* (save and restart); passwords show as `********` and are left unchanged |
 | **Actualizar firmware** (update firmware) | upload a `firmware.bin` |
 | **Acerca de** (about) | version, board and © 2026 Manuel - EA7JRS |
-| **Aspecto** (appearance) | header button: **Automatic** (system), **Light** or **Dark**; remembered in the browser, like the other EA7JRS WebUIs. The dial stays dark. |
-| **Coordinates / Units** | in the same header menu: **coordinate format** (Decimal, DMS degrees-minutes-seconds, DM degrees-decimal-minutes / nautical) and **units** (Metric, Imperial, Nautical; altitude in m / ft and distances in km / mi / NM). Remembered in the browser. |
+| **Aspecto** (appearance) | header button ◐: **Automatic** (day/night by sunrise/sunset at your position, like sat-aprs; without a position yet, 07–19 h), **Light** or **Dark**; remembered in the browser, like the other EA7JRS WebUIs. The dial stays dark. |
+| **Coordinates / Units** | in the same header menu: **coordinate format** (Decimal, DMS degrees-minutes-seconds, DM degrees-decimal-minutes / nautical) and **units** (Metric, Imperial, Nautical; altitude in m / ft and distances in km / mi / NM), and a button that **shows or hides** the Calibration, Configuration and About cards (hidden by default). Remembered in the browser. |
 
 ## 8. Touch screen
 

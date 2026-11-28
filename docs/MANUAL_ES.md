@@ -208,8 +208,8 @@ En `http://APRS-Rotor.local/` (placas) o en `http://IP:8080/` (Raspberry Pi). Us
 | **Configuración** | el fichero entero: *Leer*, editar, *Guardar y reiniciar*; las contraseñas aparecen como `********` y no se tocan |
 | **Actualizar firmware** | subir un `firmware.bin` |
 | **Acerca de** | versión, placa y © 2026 Manuel - EA7JRS |
-| **Aspecto** | botón de la cabecera: **Automático** (el del sistema), **Claro** u **Oscuro**; se recuerda en el navegador, como las demás WebUI de EA7JRS. La esfera se queda oscura. |
-| **Coordenadas / Unidades** | en el mismo menú de la cabecera: **formato de coordenadas** (Decimal, GMS grados-minutos-segundos, GM grados-minutos náutico) y **unidades** (Métrico, Imperial, Náutico; la altura en m / ft y las distancias en km / mi / NM). Se recuerdan en el navegador. |
+| **Aspecto** | botón de la cabecera ◐: **Automático** (día/noche por el orto y el ocaso en tu posición, como sat-aprs; sin posición aún, de 7 a 19 h), **Claro** u **Oscuro**; se recuerda en el navegador, como las demás WebUI de EA7JRS. La esfera se queda oscura. |
+| **Coordenadas / Unidades** | en el mismo menú de la cabecera: **formato de coordenadas** (Decimal, GMS grados-minutos-segundos, GM grados-minutos náutico) y **unidades** (Métrico, Imperial, Náutico; la altura en m / ft y las distancias en km / mi / NM), y un botón que **muestra u oculta** las tarjetas Calibración, Configuración y Acerca de (ocultas de serie). Se recuerda en el navegador. |
 
 ## 8. Pantalla táctil
 
