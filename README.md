@@ -59,6 +59,7 @@ Capturas de la **versión 5.5.1** generadas en el PC con `firmware/test_host/lcd
 | Motores paso a paso (Waveshare Stepper Motor HAT, finales de carrera) | — | — | — | — | — | — | — | ✔ |
 | Tercer eje (inclinación / cross-level, driver TMC2209) para antenas estabilizadas (domo FB250+) | — | — | — | — | — | — | — | ✔ |
 | Perfiles de antena (selector; FB250+ 3 ejes, genérico 2 ejes, propios en `/etc/.../antennas/`) | — | — | — | — | — | — | — | ✔ |
+| Antena marina **Sea Tel** por RS422 (`seatel_rotctld`, [docs/SEATEL.md](docs/SEATEL.md)) | — | — | — | — | — | — | — | ✔ (driver hamlib model 2) |
 | GS-232 / EasyComm / Rot2Prog por RS485 semidúplex (`serial.rs485`, DE en `serial.de`) | ✔ | ✔ | ✔ | ✔ | ✔ (conector RS485) | ✔ (transceptor automático) | ✔ (transceptor automático) | — |
 | Registro de movimientos en la microSD (`log.sd`, descarga en `/sd`) | — | — | — | — | ✔ | — | — | — |
 | GPS propio con PPS y reloj (Uputronics GPS/RTC HAT) | — | — | — | — | — | — | — | ✔ |

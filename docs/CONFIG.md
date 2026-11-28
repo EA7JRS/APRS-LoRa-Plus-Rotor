@@ -200,6 +200,7 @@ Compensación de actitud en plataforma móvil (coche / barco) o si el mástil gi
 | `stepper.minX` / `maxX` | -41.25 / 41.25 | topes del 3er eje |
 | `stepper.antenna` | "" | perfil de antena cargado por el selector (ver [RASPBERRY_HATS.md](RASPBERRY_HATS.md#selector-de-antenas)) |
 | `stepper.modePins` | false | micropasos por GPIO (solo con las resistencias de 0 Ω del reverso; si no, los DIP) |
+| `stepper.az.enc` / `el.enc` / `x.enc` | apagado (`on` false) | encoder magnético AS5600 por eje: `bus` (I²C), `addr` 54 (0x36), `mux` (dirección del TCA9548A, -1 = sin mux), `muxCh` 0-7, `cpr` 4096, `sign`, `offset`, `tol` 2.0 (° de aviso), `correct` (corregir la posición al ángulo medido en vez de solo avisar) |
 | `stepper.homeOnStart` | true | buscar los finales de carrera al arrancar |
 | `stepper.chip` | -1 | `/dev/gpiochipN` (-1 = el del conector de 40 pines) |
 | `gps.on` | false | GPS propio por gpsd: su posición manda sobre `lan.pos` y `aprs.lat` / `aprs.lon` |

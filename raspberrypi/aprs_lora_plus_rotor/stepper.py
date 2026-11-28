@@ -22,7 +22,7 @@ import os
 import threading
 import time
 
-from . import board
+from . import board, encoder
 from .protocols import (MOVE_DOWN, MOVE_LEFT, MOVE_RIGHT, MOVE_UP, ST_BUSY, ST_MOVING, ST_MOVING_AZ, ST_MOVING_DOWN,
                         ST_MOVING_EL, ST_MOVING_LEFT, ST_MOVING_RIGHT, ST_MOVING_UP, Rotor)
 
@@ -46,6 +46,10 @@ for _k, _a in AXIS_DEFAULTS.items():
     # final de carrera: pin (-1 = no), donde esta (grados), hacia donde buscarlo (-1 / 1), nivel activo, pullup
     _a.update({"stepsRev": 200, "micro": 32, "gear": 1.0, "dps": 4.0, "accel": 8.0, "hold": False,
                "home": -1, "homeAt": 0.0, "homeDir": -1, "homeActive": 0, "homePullup": True})
+    # encoder magnetico AS5600 opcional por eje (lazo abierto con comprobacion): detecta pasos perdidos y, con correct,
+    # corrige la posicion al angulo medido. addr 54 = 0x36; mux = direccion del TCA9548A (-1 = sin mux), muxCh su canal.
+    _a["enc"] = {"on": False, "bus": 1, "addr": 54, "mux": -1, "muxCh": 0, "cpr": 4096, "sign": 1, "offset": 0.0,
+                 "tol": 2.0, "correct": False}
 DEFAULTS = {"chip": -1, "enActive": 1, "modePins": False, "homeOnStart": True, "antenna": "", "minAz": 0.0, "maxAz": 360.0,
             "minEl": 0.0, "maxEl": 90.0, "minX": -41.25, "maxX": 41.25, **AXIS_DEFAULTS}
 
@@ -80,6 +84,12 @@ def validate(s: dict, gps_on: bool, max_steps: int | None = None) -> str:
         if not (int(a["stepsRev"]) > 0 and float(a["gear"]) > 0 and 0.05 <= float(a["dps"]) <= 90
                 and 0.1 <= float(a["accel"]) <= 500 and int(a["homeDir"]) in (-1, 1)):
             return f"stepper.{ax}: stepsRev > 0, gear > 0, dps 0.05-90, accel 0.1-500, homeDir -1 / 1"
+        ec = a.get("enc", {})
+        if ec.get("on"):
+            if not (int(ec["cpr"]) > 0 and float(ec["tol"]) > 0 and int(ec["sign"]) in (-1, 1)):
+                return f"stepper.{ax}.enc: cpr > 0, tol > 0, sign -1 / 1"
+            if not (8 <= int(ec["addr"]) <= 119) or int(ec["mux"]) not in range(-1, 120) or not 0 <= int(ec["muxCh"]) <= 7:
+                return f"stepper.{ax}.enc: addr 8-119, mux -1 o 8-119, muxCh 0-7"
         total += StepperAxis.rate(a)
     if total > max_steps:
         return f"stepper: {total:.0f} pasos/s entre los dos motores; esta Pi da {max_steps} (baja dps o micro)"
@@ -121,6 +131,14 @@ def hat_info(cfg: dict) -> dict:
     """Ayuda de configuracion del Waveshare Stepper Motor HAT para la WebUI / app (solo informativo)."""
     return {"dips": hat_dips(cfg), "supply": HAT_SUPPLY, "current": HAT_CURRENT,
             "decay": HAT_DECAY, "enable": HAT_ENABLE}
+
+
+def _default_encoder(ec: dict, bus_cache: dict):
+    """Construye un lector AS5600 real (I2C) para un eje, reutilizando el bus abierto. Solo en la Raspberry."""
+    n = int(ec.get("bus", 1))
+    if n not in bus_cache:
+        bus_cache[n] = encoder.open_bus(n)
+    return encoder.As5600(bus_cache[n], int(ec["addr"]), int(ec["mux"]), int(ec["muxCh"]))
 
 
 # ---- GPIO ---------------------------------------------------------------------------------------------------------------
@@ -321,11 +339,13 @@ def _spin(s: float):
 class StepperRotor(Rotor):
     """Rotor con dos motores paso a paso. Misma interfaz que HamlibRotor."""
 
-    def __init__(self, cfg: dict, park: tuple[float, float] = (0.0, 0.0), gpio=None, state_path: str = STATE_PATH):
+    def __init__(self, cfg: dict, park: tuple[float, float] = (0.0, 0.0), gpio=None, state_path: str = STATE_PATH,
+                 enc_make=None):
         self.cfg = cfg
         self.park_pos = park
         self.state_path = state_path
         self.g = gpio if gpio is not None else Gpio(int(cfg["chip"]))
+        self._enc_make = enc_make if enc_make is not None else _default_encoder
         self.min_az, self.max_az = float(cfg["minAz"]), float(cfg["maxAz"])
         self.min_el, self.max_el = float(cfg["minEl"]), float(cfg["maxEl"])
         self.min_x, self.max_x = float(cfg["minX"]), float(cfg["maxX"])
@@ -346,6 +366,20 @@ class StepperRotor(Rotor):
         self.fault = ""
         self.known = self._load()
         self._cal: dict | None = None                # calibracion de ganancia: {axis, pos} del punto de partida
+        self.encoders: dict = {}                      # eje -> (lector AS5600, EncoderCheck, correct)
+        self._enc_deg: dict[str, float] = {}          # ultimo angulo medido por eje
+        self._enc_bus: dict = {}                      # cache de buses I2C abiertos
+        for _n, _a in self.axes.items():
+            _ec = _a.c.get("enc", {})
+            if _ec.get("on"):
+                try:
+                    _rdr = self._enc_make(_ec, self._enc_bus)
+                except Exception as _e:  # noqa: BLE001
+                    log.warning("encoder %s: %s", _n, _e)
+                    _rdr = None
+                if _rdr is not None:
+                    self.encoders[_n] = (_rdr, encoder.EncoderCheck(int(_ec["cpr"]), int(_ec["sign"]),
+                                         float(_ec["offset"]), float(_ec["tol"])), bool(_ec.get("correct")))
         self.homing: dict[str, float] = {}           # eje -> grados recorridos buscando el final de carrera
         self._lock = threading.Lock()
         self._wake = threading.Event()
@@ -539,9 +573,32 @@ class StepperRotor(Rotor):
             r[n + "StepsDeg"] = round(a.spd, 3)
             if a.home_pin >= 0:
                 r[n + "Home"] = a.home_active()
+            if n in self._enc_deg:
+                r[n + "Enc"] = self._enc_deg[n]
         if self.fault:
             r["fault"] = self.fault
         return r
+
+    def check_encoders(self):
+        """Al parar un eje con encoder: compara el angulo medido con la cuenta de pasos; avisa o corrige la posicion."""
+        if not (self.encoders and self.known):
+            return
+        for n, (rdr, chk, correct) in self.encoders.items():
+            a = self.axes.get(n)
+            if a is None:
+                continue
+            raw = rdr.raw()
+            if raw is None:
+                continue
+            self._enc_deg[n] = round(chk.measured_deg(raw), 2)
+            if chk.lost(raw, a.deg):
+                if correct:
+                    before = a.deg
+                    a.set_deg(chk.corrected(raw, a.deg))
+                    log.info("encoder %s: %.1f -> %.1f (pasos perdidos)", n, before, a.deg)
+                    self.save()
+                elif not self.fault:
+                    self.fault = "ENCODER " + n.upper()
 
     def clear(self):
         self.fault = ""
@@ -617,6 +674,7 @@ class StepperRotor(Rotor):
             idle = all(a.target is None and a.v == 0 for a in self.axes.values())
             if idle and self._saved_at == 0.0:
                 self._saved_at = now
+                self.check_encoders()                         # al parar: comprueba pasos perdidos con el encoder
                 self.save()
         return nxt
 

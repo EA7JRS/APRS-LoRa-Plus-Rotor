@@ -1054,6 +1054,56 @@ class TestStepper(unittest.TestCase):
                 return None
         self.assertIn("mark first", sess.handle('{"c":"calstep","axis":"az","deg":90}', H2())[0])
 
+    def test_encoder_check(self):
+        from aprs_lora_plus_rotor import encoder as E
+        c = E.EncoderCheck(cpr=4096, sign=1, offset=0.0, tol=2.0)
+        raw90 = round(90 / 360 * 4096)
+        self.assertAlmostEqual(c.measured_deg(raw90), 90.0, delta=0.1)
+        self.assertFalse(c.lost(raw90, 90.3))
+        self.assertTrue(c.lost(raw90, 95.0))
+        self.assertAlmostEqual(c.corrected(raw90, 95.0), 90.0, delta=0.2)      # corrige a lo medido
+        self.assertAlmostEqual(c.corrected(raw90, 455.0), 450.0, delta=0.3)    # conserva la vuelta (solape az)
+        self.assertAlmostEqual(E.wrap180(190.0), -170.0)
+
+    def test_encoder_fault_and_correct(self):
+        class FakeEnc:
+            def __init__(s):
+                s.v = 0
+            def raw(s):
+                return s.v
+        box = {}
+
+        def mk(ec, cache):
+            e = FakeEnc()
+            box["az"] = e
+            return e
+        c = _stepper_cfg()
+        c["az"]["enc"] = {**ST.DEFAULTS["az"]["enc"], "on": True, "tol": 2.0, "correct": False}
+        r = ST.StepperRotor(c, (0.0, 0.0), gpio=ST.FakeGpio(), state_path=self.state, enc_make=mk)
+        r.here("az", 100.0)
+        box["az"].v = round(100 / 360 * 4096)                 # encoder coincide: sin fallo
+        r.check_encoders()
+        self.assertEqual(r.fault, "")
+        self.assertIn("azEnc", r.raw())
+        box["az"].v = round(110 / 360 * 4096)                 # 10 grados de diferencia: pasos perdidos
+        r.check_encoders()
+        self.assertEqual(r.fault, "ENCODER AZ")
+
+        c2 = _stepper_cfg()
+        c2["az"]["enc"] = {**ST.DEFAULTS["az"]["enc"], "on": True, "correct": True}
+        box2 = {}
+
+        def mk2(ec, cache):
+            e = FakeEnc()
+            box2["az"] = e
+            return e
+        r2 = ST.StepperRotor(c2, (0.0, 0.0), gpio=ST.FakeGpio(), state_path=self.state + "2", enc_make=mk2)
+        r2.here("az", 100.0)
+        box2["az"].v = round(108 / 360 * 4096)                # con correct: la posicion salta a lo medido
+        r2.check_encoders()
+        self.assertAlmostEqual(r2.axes["az"].deg, 108.0, delta=0.3)
+        self.assertEqual(r2.fault, "")
+
     def test_hat_dips_and_info(self):
         c = _stepper_cfg()
         c["az"]["micro"], c["el"]["micro"] = 16, 32
