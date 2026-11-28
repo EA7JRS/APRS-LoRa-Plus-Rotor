@@ -69,7 +69,8 @@ const t=document.getElementById('csm');t.textContent=v<0?'S—':(v<=9?'S'+v:'S9+
 <canvas id="cmp" width="260" height="260"></canvas>
 <div class="row" style="justify-content:space-around"><div style="text-align:center"><div class="mut">Az</div><div class="big" style="position:relative;display:inline-block"><span id="az">--</span><span style="position:absolute;left:100%;top:.16em;font-size:.4em;line-height:1;color:var(--mut)">°</span></div></div><div style="text-align:center" id="elbox"><div class="mut">El</div><div class="big" style="position:relative;display:inline-block"><span id="el">--</span><span style="position:absolute;left:100%;top:.16em;font-size:.4em;line-height:1;color:var(--mut)">°</span></div></div></div>
 <div class="row mut" style="justify-content:space-around"><span id="tgt"></span><span id="st"></span></div>
-<div class="row mut" id="aprs"></div></div>
+<div class="row mut" id="aprs"></div>
+<div class="row mut" id="hdgInfo" style="display:none"></div></div>
 
 <div class="c"><h3>Mando</h3>
 <div class="row"><input id="gaz" type="number" step="0.1" placeholder="AZ"><input id="gel" type="number" step="0.1" placeholder="EL"><button onclick="go()">Ir</button></div>
@@ -234,7 +235,9 @@ if(pos.el!=null){$('el').textContent=pos.el.toFixed(2)}else $('elbox').style.dis
 $('tgt').textContent=pos.taz!=null?('→ '+pos.taz.toFixed(1)+(pos.tel!=null?' / '+pos.tel.toFixed(1):'')):'';
 $('st').innerHTML=(pos.mv?'moviendo · ':'')+'<span class="f '+(pos.f=='OK'?'okc':'bad')+'">'+pos.f+'</span>'+(pos.maz!=null&&pos.maz>=360?' · solape':'')+(pos.wind&&pos.wind.ws!=null?' · viento '+pos.wind.ws+(pos.wind.wg!=null?'/'+pos.wind.wg:'')+' m/s'+(pos.wind.bf!=null?' F'+pos.wind.bf:'')+(pos.wind.lk?' (aparcado)':''):'')+(pos.trk?' · '+({sun:'☀ sol',moon:'☾ luna',p2p:'📡 P2P',sat:'🛰 '+(pos.trk.name||'sat')}[pos.trk.t]||pos.trk.t)+(pos.trk.below?' (bajo el horizonte)':''):'');
 var T=pos.trk;if(T){$('trkc').style.display='';var NM={sun:'☀ Sol',moon:'☾ Luna',p2p:'Estación (P2P)',sat:'🛰 '+(T.name||'SAT')};$('trkName').textContent=NM[T.t]||T.t;$('trkAz').textContent=T.az!=null?T.az.toFixed(2):'--';$('trkEl').textContent=T.el!=null?T.el.toFixed(2):'--';var ex=(T.km!=null?' · '+fmtDist(T.km):'');if(T.t=='sat'){ex+=(T.maxel!=null?' · máx '+T.maxel+'°':'')+(T.los?' · LOS '+T.los:'')}$('trkInfo').innerHTML=T.below?('<span class="bad">bajo el horizonte, esperando</span>'):('<span class="okc">siguiendo</span>'+ex);}else $('trkc').style.display='none';rcSync();
-$('aprs').textContent=pos.aprs?('APRS: '+pos.aprs):'';draw()}catch(e){$('st').textContent='sin conexión'}}
+$('aprs').textContent=pos.aprs?('APRS: '+pos.aprs):'';
+var H=pos.hdg;if(H&&H.v!=null){$('hdgInfo').style.display='';$('hdgInfo').innerHTML='Rumbo '+H.v.toFixed(1)+'°'+(H.dec!=null?' · decl '+(H.dec>=0?'+':'')+H.dec+'°':'')+(H.on?' · <span class="okc">azimut verdadero</span>':'')+(H.old?' · <span class="bad">rumbo viejo</span>':'');}else $('hdgInfo').style.display='none';
+draw()}catch(e){$('st').textContent='sin conexión'}}
 async function raw(){try{const r=await api([{c:'raw'}]);$('raz').textContent=r[0].az!=null?r[0].az.toFixed(0):'-';$('rel').textContent=r[0].el!=null?r[0].el.toFixed(0):'-';$('ru').textContent=r[0].unit||''}catch(e){}}
 async function loadCfg(){const r=await api([{c:'cfgget'}]);$('cfg').value=JSON.stringify(JSON.parse(r.map(x=>x.d).join('')),null,1)}
 async function saveCfg(){let t;try{t=JSON.stringify(JSON.parse($('cfg').value))}catch(e){return alert('JSON no válido')}
