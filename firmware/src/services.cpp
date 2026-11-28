@@ -104,6 +104,7 @@ void RotorApiHost::info(JsonObject o) {
     caps["wind"] = true;
     caps["lan"] = ROTOR_HAS_LAN != 0;                   // red local (src/lan.cpp): viento, posicion y rumbo
     caps["sky"] = true;                                 // seguir el sol o la luna (orden "track")
+    caps["att"] = true;                                 // compensacion de actitud (orden "att"; escora / cabeceo / giro del mastil)
     caps["sd"] = ROTOR_HAS_SD != 0;                     // microSD con el registro de movimientos (src/sdlog.cpp)
     o["ip"] = Net::ip();
     o["rotctld"] = Cfg.rotctld ? Cfg.rotctldPort : 0;
@@ -147,6 +148,11 @@ RC::Rig* RotorApiHost::rig() { return Cat::engine(); }
 RC::CatTracker* RotorApiHost::catTracker() { return Cat::engine() ? &Cat::tracker() : nullptr; }
 RC::WindGuard* RotorApiHost::wind() { return &Drv::wind(); }
 RC::SkyRotor* RotorApiHost::sky() { return &Drv::sky(); }
+RC::AttitudeRotor* RotorApiHost::attitude() { return &Drv::attitude(); }
+void RotorApiHost::saveAttZero(double r, double p, double y) {
+    Cfg.attRollZero = r; Cfg.attPitchZero = p; Cfg.attYawZero = y;
+    Config::save();
+}
 bool RotorApiHost::skyStart(int target, std::string& err) { return Drv::skyStart(target, err); }
 bool RotorApiHost::catPttAllowed() { return Cfg.catPtt && Cat::engine() && !Cat::engine()->receiver(); }
 

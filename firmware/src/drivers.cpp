@@ -410,10 +410,12 @@ namespace Drv {
     // Proteccion por viento: todo pasa por el envoltorio, que rechaza movimientos mientras esta aparcado
     static RC::WindGuard   windG;
     static RC::WindRotor   windR(windG);
-    static RC::HeadingRotor headR;                          // clientes -> sol / luna -> rumbo -> viento -> rotor
+    static RC::HeadingRotor headR;                          // clientes -> sol / luna -> rumbo -> actitud -> viento -> rotor
+    static RC::AttitudeRotor attR;                          // escora / cabeceo / giro del mastil (plataforma movil)
     static RC::SkyRotor    skyR;
     RC::WindGuard& wind() { return windG; }
     RC::HeadingRotor& heading() { return headR; }
+    RC::AttitudeRotor& attitude() { return attR; }
     RC::SkyRotor& sky() { return skyR; }
 
     bool skyStart(int target, std::string& err) {
@@ -432,6 +434,11 @@ namespace Drv {
         windG.local = Cfg.anemoPin >= 0;
         headR.enabled = Cfg.headComp;
         headR.stepDeg = Cfg.headStep;
+        attR.enabled = Cfg.attOn;
+        attR.stepDeg = Cfg.attStep;
+        attR.staleMs = (uint32_t)(Cfg.attStaleS * 1000);
+        attR.rollSign = Cfg.attRollSign; attR.pitchSign = Cfg.attPitchSign; attR.yawSign = Cfg.attYawSign;
+        attR.rollZero = Cfg.attRollZero; attR.pitchZero = Cfg.attPitchZero; attR.yawZero = Cfg.attYawZero;
         skyR.stepDeg = Cfg.skyStep;
         skyR.lowEl = Cfg.skyMinEl;
         skyR.refraction = Cfg.skyRefr;
@@ -530,7 +537,7 @@ namespace Drv {
         outPin(Cfg.brakePin, direct.az.out().brakeRelease || (Cfg.elEnabled && direct.el.out().brakeRelease));
     }
 
-    RC::Rotor& rotor() { windR.attach(&realRotor()); headR.attach(&windR); skyR.attach(&headR); return skyR; }
+    RC::Rotor& rotor() { windR.attach(&realRotor()); attR.attach(&windR); headR.attach(&attR); skyR.attach(&headR); return skyR; }
 
     const char* name() {
         if (Cfg.driver == 1) return RC::serialProtoName(Cfg.serProto);

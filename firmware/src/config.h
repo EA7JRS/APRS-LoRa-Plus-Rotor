@@ -143,6 +143,14 @@ struct RotorConfig {
     double      headVar = 0.0;              // declinacion (grados, E positiva) para un compas que solo da rumbo magnetico (HDG / HDM)
     bool        headVarAuto = true;         // declinacion del Modelo Magnetico Mundial (WMM) en la posicion de la estacion; headVar sin posicion
 
+    // Compensacion de actitud (escora / cabeceo / giro del mastil) para plataforma movil o mastil girado por el viento (rc_attitude.h).
+    // La actitud llega por la orden "att" (de una IMU; app). Signos para calibrar la IMU; la tara ("att zero") fija el cero del montaje.
+    bool        attOn = false;
+    double      attStep = 0.5;              // grados de cambio de actitud para volver a apuntar
+    double      attStaleS = 5.0;            // sin actitud nueva en este tiempo: dato viejo
+    int         attRollSign = 1, attPitchSign = 1, attYawSign = 1;
+    double      attRollZero = 0.0, attPitchZero = 0.0, attYawZero = 0.0;    // cero del montaje (tara)
+
     // Seguir el sol o la luna (orden "track", lib/RotorCore/src/rc_sky.h)
     double      skyStep = 1.0;              // grados de cambio para volver a apuntar
     double      skyMinEl = 0.0;             // por debajo de esta elevacion espera

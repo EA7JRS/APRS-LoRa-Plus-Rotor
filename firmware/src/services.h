@@ -47,6 +47,8 @@ public:
     uint32_t        nowMs() override { return millis(); }
     RC::WindGuard*  wind() override;
     RC::SkyRotor*   sky() override;
+    RC::AttitudeRotor* attitude() override;
+    void            saveAttZero(double r, double p, double y) override;
     bool            skyStart(int target, std::string& err) override;
 };
 extern RotorApiHost ApiHost;

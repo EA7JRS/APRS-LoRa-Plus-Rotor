@@ -13,6 +13,7 @@
 #include "rc_wind.h"
 #include "rc_anemo.h"
 #include "rc_heading.h"
+#include "rc_attitude.h"
 #include "rc_sky.h"
 
 namespace Drv {
@@ -30,6 +31,7 @@ namespace Drv {
     RC::WindGuard& wind();                      // proteccion por viento (Drv::rotor() ya la respeta)
     void        windConfig();                   // copia wind.* de la configuracion
     RC::HeadingRotor& heading();                // compensacion del rumbo (rotor en un barco o un coche; src/lan.cpp le da el rumbo)
+    RC::AttitudeRotor& attitude();              // compensacion de actitud (escora / cabeceo / giro del mastil, de una IMU por la orden "att")
     RC::SkyRotor& sky();                        // seguir el sol o la luna (por fuera de todo: Drv::rotor() es este)
     bool        skyStart(int target, std::string& err);   // con la posicion de la estacion (Lan::position) y la hora del sistema
     void        setAnemoLocal(bool lanMeasured); // viento medido por la red: el tiempo de la app ("wx") deja de contar

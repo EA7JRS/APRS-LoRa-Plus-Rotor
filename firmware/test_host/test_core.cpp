@@ -458,6 +458,54 @@ static void testHeading() {
     NEAR(angDiff(350, 10), 20, 1e-9); NEAR(norm360(-725), 355, 1e-9);
 }
 
+// Host con compensacion de actitud: el rotor va detras de AttitudeRotor, como en el firmware
+struct AttHost : FakeHost {
+    AttitudeRotor a;
+    uint32_t t = 1000;
+    double savedR = 999, savedP = 999, savedY = 999;
+    AttHost() { a.attach(&r); a.enabled = true; }
+    Rotor& rotor() override { return a; }
+    AttitudeRotor* attitude() override { return &a; }
+    void saveAttZero(double rr, double pp, double yy) override { savedR = rr; savedP = pp; savedY = yy; }
+    uint32_t nowMs() override { return t; }
+    const char* pin() override { return ""; }
+};
+
+// Compensacion de actitud (escora / cabeceo / giro del mastil): matematica, cadena y orden "att"
+static void testAttitude() {
+    double am, em, az, el;
+    AttitudeRotor::aim(123, 45, 0, 0, 0, am, em); NEAR(am, 123, 1e-9); NEAR(em, 45, 1e-9);     // 0,0,0 no cambia
+    AttitudeRotor::aim(80, 20, 15, -8, 5, am, em);
+    AttitudeRotor::unaim(am, em, 15, -8, 5, az, el); NEAR(az, 80, 1e-9); NEAR(el, 20, 1e-9);   // ida y vuelta exacta
+    AttitudeRotor::aim(0, 0, 20, 0, 0, am, em); NEAR(am, 0, 1e-9); NEAR(em, 0, 1e-9);           // objetivo en el eje de balanceo: sin cambio
+    AttitudeRotor::aim(90, 0, 20, 0, 0, am, em); NEAR(em, 20, 1e-9);                            // a estribor en el horizonte: sube 20 al escorar 20
+    // cadena: apagado pasa tal cual; encendido transforma y getPos devuelve nivelado
+    FakeRotor f; AttitudeRotor a; a.attach(&f);
+    CHECK(a.setPos(100, 30) && f.az == 100 && !a.active());
+    a.enabled = true; a.setAttitude(20, 5, 0, 1000); CHECK(a.active());
+    a.setPos(90, 0); a.getPos(az, el); NEAR(az, 90, 1e-6); NEAR(el, 0, 1e-6);
+    // tara: parte de escora y cabeceo 0
+    AttitudeRotor b; FakeRotor f2; b.attach(&f2); b.enabled = true; b.setAttitude(20, 5, 0, 1000);
+    double zr, zp, zy; b.tare(zr, zp, zy); NEAR(zr, 20, 1e-9); NEAR(zp, 5, 1e-9);
+    NEAR(b.roll(), 0, 1e-9); NEAR(b.pitch(), 0, 1e-9);
+    b.setAttitude(22, 5, 0, 2000); NEAR(b.roll(), 2, 1e-9);
+    // signos y dato viejo
+    AttitudeRotor c; FakeRotor f3; c.attach(&f3); c.yawSign = -1; c.enabled = true; c.setAttitude(0, 0, 10, 1000);
+    NEAR(c.yaw(), -10, 1e-9);
+    CHECK(!c.stale(5000) && c.stale(6001) && c.ageS(6001) == 5);
+    // orden "att" por el API: fija la actitud y la tara
+    AttHost h; ApiSession s; std::vector<std::string> o;
+    s.handle("{\"c\":\"att\",\"r\":10,\"p\":-4,\"y\":2}", h, o);
+    CHECK(o.size() == 1 && o[0].find("\"ok\"") != std::string::npos);
+    NEAR(h.a.roll(), 10, 1e-9); NEAR(h.a.pitch(), -4, 1e-9); NEAR(h.a.yaw(), 2, 1e-9);
+    o.clear(); s.handle("{\"c\":\"att\",\"zero\":true}", h, o);
+    CHECK(o.size() == 1 && o[0].find("\"ok\"") != std::string::npos);
+    NEAR(h.a.roll(), 0, 1e-9); NEAR(h.savedR, 10, 1e-9); NEAR(h.savedP, -4, 1e-9);     // la tara se guarda en la configuracion
+    o.clear(); s.handle("{\"c\":\"get\"}", h, o);
+    CHECK(o.size() == 1); JsonDocument pe; deserializeJson(pe, o[0]);
+    CHECK(pe["att"]["on"].as<bool>() && pe["att"]["r"].as<double>() == 0.0);           // el evento pos lleva "att"
+}
+
 // Anemómetro de cazoletas: impulsos -> viento, medio, racha
 static void testAnemo() {
     Anemometer a;
@@ -1043,6 +1091,7 @@ int main() {
     testApi();
     testWind();
     testHeading();
+    testAttitude();
     testSky();
     testAnemo();
     testCatCiv();

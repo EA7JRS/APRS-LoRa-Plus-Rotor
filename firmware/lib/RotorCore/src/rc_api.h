@@ -26,6 +26,7 @@
 #include "rc_cat.h"
 #include "rc_wind.h"
 #include "rc_sky.h"
+#include "rc_attitude.h"
 #include "wind.h"          // plotter_core: beaufort()
 
 namespace RC {
@@ -54,6 +55,8 @@ namespace RC {
         virtual uint32_t    nowMs() { return 0; }
         virtual WindGuard*  wind() { return nullptr; }                      // proteccion por viento (nullptr = sin ella)
         virtual SkyRotor*   sky() { return nullptr; }                       // seguir el sol o la luna (nullptr = sin ello)
+        virtual AttitudeRotor* attitude() { return nullptr; }               // compensacion de actitud (nullptr = sin ella)
+        virtual void        saveAttZero(double r, double p, double y) { (void)r; (void)p; (void)y; }   // guarda la tara en la configuracion
         // Empieza a seguir (SKY_SUN / SKY_MOON) o para (SKY_OFF); el anfitrion pone la posicion de la estacion y la hora
         virtual bool        skyStart(int target, std::string& err) { (void)target; err = "no sky"; return false; }
     };
@@ -196,6 +199,19 @@ namespace RC {
                 if (h.skyStart(t, e)) ok(out, c); else err(out, c, e.c_str());
                 return;
             }
+            if (c == "att") {                                   // actitud: {"c":"att","r":escora,"p":cabeceo,"y":giro} o {"c":"att","zero":true}
+                AttitudeRotor* a = h.attitude();
+                if (!a) { err(out, c, "no attitude"); return; }
+                if (in["zero"].is<bool>() && in["zero"].as<bool>()) {
+                    double zr, zp, zy; a->tare(zr, zp, zy);     // la actitud actual pasa a ser el cero del montaje
+                    h.saveAttZero(zr, zp, zy);
+                    ok(out, c); return;
+                }
+                if (!in["r"].is<double>() && !in["p"].is<double>() && !in["y"].is<double>()) { err(out, c, "r"); return; }
+                a->setAttitude(in["r"] | 0.0, in["p"] | 0.0, in["y"] | 0.0, h.nowMs());
+                ok(out, c);
+                return;
+            }
             if (c == "reboot") { ok(out, c); h.reboot(); return; }
             err(out, c, "unknown");
         }
@@ -214,7 +230,23 @@ namespace RC {
             h.posExtra(d.as<JsonObject>());
             windInfo(h, d);
             skyInfo(h, d);
+            attInfo(h, d);
             return dump(d);
+        }
+
+        // "att":{"on":proteccion activa,"r":escora,"p":cabeceo,"y":giro del mastil,"age":s,"old":dato viejo}; sin dato ni activa, nada
+        static void attInfo(ApiHost& h, JsonDocument& d) {
+            AttitudeRotor* a = h.attitude();
+            if (!a || (!a->enabled && !a->have())) return;
+            JsonObject o = d["att"].to<JsonObject>();
+            o["on"] = a->enabled;
+            if (!a->have()) return;
+            const uint32_t now = h.nowMs();
+            o["r"] = round1(a->roll());
+            o["p"] = round1(a->pitch());
+            o["y"] = round1(a->yaw());
+            o["age"] = a->ageS(now);
+            if (a->stale(now)) o["old"] = true;
         }
 
         // "wind":{"ws","wg","wd","pk","age","src","lk":aparcado,"hold":s hasta poder liberar,"on":proteccion activa,"park":m/s}

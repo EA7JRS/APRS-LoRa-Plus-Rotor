@@ -134,6 +134,10 @@ namespace Config {
         ln["owmKey"] = secrets ? c.owmKey : (c.owmKey.empty() ? std::string() : std::string(MASK));
         ln["wind"] = c.lanWind; ln["pos"] = c.lanPos; ln["heading"] = c.headComp; ln["headStep"] = c.headStep; ln["magVar"] = c.headVar;
         ln["magAuto"] = c.headVarAuto;
+        JsonObject at = d["att"].to<JsonObject>();
+        at["on"] = c.attOn; at["step"] = c.attStep; at["staleS"] = c.attStaleS;
+        at["rollSign"] = c.attRollSign; at["pitchSign"] = c.attPitchSign; at["yawSign"] = c.attYawSign;
+        at["rollZero"] = c.attRollZero; at["pitchZero"] = c.attPitchZero; at["yawZero"] = c.attYawZero;
         JsonObject sk = d["sky"].to<JsonObject>();
         sk["step"] = c.skyStep; sk["minEl"] = c.skyMinEl; sk["refraction"] = c.skyRefr;
     #if ROTOR_HAS_LCD
@@ -197,6 +201,8 @@ namespace Config {
         if (!(c.headVar >= -90 && c.headVar <= 90)) { err = "lan.magVar -90..90"; return false; }
         if (!(c.skyStep >= 0.1 && c.skyStep <= 20)) { err = "sky.step 0.1-20"; return false; }
         if (!(c.skyMinEl >= -5 && c.skyMinEl <= 60)) { err = "sky.minEl -5..60"; return false; }
+        if (!(c.attStep >= 0.1 && c.attStep <= 20)) { err = "att.step 0.1-20"; return false; }
+        if (!(c.attStaleS >= 0.5 && c.attStaleS <= 120)) { err = "att.staleS 0.5-120"; return false; }
         if (c.lcdBright < 10 || c.lcdBright > 100 || c.lcdDimS < 0) { err = "lcd.bright 10-100 / lcd.dimS >= 0"; return false; }
         if (c.lcdTheme < 0 || c.lcdTheme > 1) { err = "lcd.theme 0 (app) / 1 (rotor)"; return false; }
         if (c.serDe < -1 || c.serDe >= 100) { err = "serial.de (GPIO de la placa o -1)"; return false; }
@@ -275,6 +281,10 @@ namespace Config {
         getSecret(ln, "owmKey", n.owmKey); get(ln, "wind", n.lanWind); get(ln, "pos", n.lanPos);
         get(ln, "heading", n.headComp); getD(ln, "headStep", n.headStep); getD(ln, "magVar", n.headVar); get(ln, "magAuto", n.headVarAuto);
         getD(d["sky"], "step", n.skyStep); getD(d["sky"], "minEl", n.skyMinEl); get(d["sky"], "refraction", n.skyRefr);
+        JsonVariantConst at = d["att"];
+        get(at, "on", n.attOn); getD(at, "step", n.attStep); getD(at, "staleS", n.attStaleS);
+        get(at, "rollSign", n.attRollSign); get(at, "pitchSign", n.attPitchSign); get(at, "yawSign", n.attYawSign);
+        getD(at, "rollZero", n.attRollZero); getD(at, "pitchZero", n.attPitchZero); getD(at, "yawZero", n.attYawZero);
         get(d["lcd"], "bright", n.lcdBright); get(d["lcd"], "dimS", n.lcdDimS); get(d["lcd"], "theme", n.lcdTheme);
         JsonVariantConst lg = d["log"];
         get(lg, "sd", n.logSd); get(lg, "cs", n.logCs); get(lg, "everyS", n.logEveryS); get(lg, "keepDays", n.logKeepDays);
