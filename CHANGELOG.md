@@ -2,7 +2,7 @@
 
 Mismo número de versión en todos los repositorios del proyecto (tracker, rotor, app, gateway).
 
-## 5.5.0
+## 5.5.1
 
 - **Raspberry Pi — tercer eje (inclinación / cross-level)** con un driver aparte (**TMC2209**, STEP 5 / DIR 6 / ENABLE 23, activo bajo), para antenas estabilizadas como el domo **Satlink FB250+**. Independiente de az/el (rotctld sigue manejando solo az/el), con `enActive` por eje y topes `minX`/`maxX` (±41,25°). Se manda con la orden `axis` (API / WebUI / app); en móvil, para nivelar el balanceo.
 - **Selector de antenas**: un archivo JSON por antena con sus datos mecánicos (ejes, `gear`, micropasos, topes, `enActive`) que se superpone sobre `stepper`. La misma caja mueve distintas antenas eligiendo su perfil. De serie `fb250plus` (domo FB250+, 3 ejes) y `generic-2axis`; los del usuario en `/etc/aprs-lora-plus-rotor/antennas/`. Órdenes `antennas` (lista) y `antenna` (elegir). Ver `docs/RASPBERRY_HATS.md`.
