@@ -67,7 +67,7 @@ const t=document.getElementById('csm');t.textContent=v<0?'S—':(v<=9?'S'+v:'S9+
 <main>
 <div class="c"><h3>Posición</h3>
 <canvas id="cmp" width="260" height="260"></canvas>
-<div class="row" style="justify-content:space-around"><div style="text-align:center"><div class="mut">Az</div><div><span class="big" id="az">--</span><sup style="font-size:.5em">°</sup></div></div><div style="text-align:center" id="elbox"><div class="mut">El</div><div><span class="big" id="el">--</span><sup style="font-size:.5em">°</sup></div></div></div>
+<div class="row" style="justify-content:space-around"><div style="text-align:center"><div class="mut">Az</div><div><span class="big" id="az">--</span><span style="font-size:.42em;vertical-align:top;line-height:1">°</span></div></div><div style="text-align:center" id="elbox"><div class="mut">El</div><div><span class="big" id="el">--</span><span style="font-size:.42em;vertical-align:top;line-height:1">°</span></div></div></div>
 <div class="row mut" style="justify-content:space-around"><span id="tgt"></span><span id="st"></span></div>
 <div class="row mut" id="aprs"></div></div>
 
@@ -87,7 +87,7 @@ const t=document.getElementById('csm');t.textContent=v<0?'S—':(v<=9?'S'+v:'S9+
 
 <div class="c" id="trkc" style="display:none">
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><h3 style="margin:0">Objetivo</h3><span id="trkName" style="font-size:18px">—</span></div>
-<div class="row" style="justify-content:space-around;margin:4px 0"><div style="text-align:center"><div class="mut">Az</div><div><span style="font-size:24px;color:var(--fg);font-variant-numeric:tabular-nums" id="trkAz">--</span><sup style="font-size:.5em;color:var(--mut)">°</sup></div></div><div style="text-align:center"><div class="mut">El</div><div><span style="font-size:24px;color:var(--fg);font-variant-numeric:tabular-nums" id="trkEl">--</span><sup style="font-size:.5em;color:var(--mut)">°</sup></div></div></div>
+<div class="row" style="justify-content:space-around;margin:4px 0"><div style="text-align:center"><div class="mut">Az</div><div><span style="font-size:24px;color:var(--fg);font-variant-numeric:tabular-nums" id="trkAz">--</span><span style="font-size:.42em;vertical-align:top;line-height:1;color:var(--mut)">°</span></div></div><div style="text-align:center"><div class="mut">El</div><div><span style="font-size:24px;color:var(--fg);font-variant-numeric:tabular-nums" id="trkEl">--</span><span style="font-size:.42em;vertical-align:top;line-height:1;color:var(--mut)">°</span></div></div></div>
 <div class="mut" id="trkInfo" style="font-size:13px"></div></div>
 </div>
 
