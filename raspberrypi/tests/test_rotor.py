@@ -900,6 +900,18 @@ class TestStepper(unittest.TestCase):
         d["minX"], d["maxX"] = 10.0, 10.0
         self.assertIn("minX", ST.validate(d, False, 20000))
 
+    def test_hat_dips_and_info(self):
+        c = _stepper_cfg()
+        c["az"]["micro"], c["el"]["micro"] = 16, 32
+        d = ST.hat_dips(c)
+        self.assertFalse(d["software"])
+        self.assertEqual(d["az"]["dip"], {"D0": 0, "D1": 0, "D2": 1})   # 1/16 = M2
+        self.assertEqual(d["el"]["dip"], {"D3": 1, "D4": 0, "D5": 1})   # 1/32 = M0 + M2
+        self.assertEqual(d["az"]["micro"], 16)
+        self.assertEqual(ST.hat_dips({**c, "modePins": True}), {"software": True})
+        info = ST.hat_info(c)
+        self.assertEqual(set(info), {"dips", "supply", "current", "decay", "enable"})
+
 
 class TestAntennas(unittest.TestCase):
     def test_bundled_list_and_get(self):

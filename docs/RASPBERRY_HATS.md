@@ -34,7 +34,7 @@ Pines del wiki de Waveshare (`waveshare.com/wiki/Stepper_Motor_HAT`). No usa el 
 
 - **Alimentación de los motores**: 8,2 a 28 V en VIN. El regulador de 5 V del HAT puede alimentar la Pi (interruptor de la placa). Una **Pi 5** necesita su propia fuente de 5 V y 5 A por USB-C: deja ese interruptor apagado.
 - **Corriente**: potenciómetro de cada DRV8825. Con las resistencias de 0,2 Ω del HAT, la corriente en amperios es la tensión de referencia en voltios (Ichop = Vref). Ponla a la del motor o un poco menos.
-- **Micropasos**: interruptores D0-D2 (motor 1) y D3-D5 (motor 2). De fábrica están todos a 1 = 1/32. `stepper.az.micro` y `stepper.el.micro` deben coincidir con ellos. Los pines MODE solo llegan al DRV8825 si se sueldan las resistencias de 0 Ω del reverso (`stepper.modePins`, apagado de serie).
+- **Micropasos**: interruptores D0-D2 (motor 1) y D3-D5 (motor 2). De fábrica están todos a 1 = 1/32. `stepper.az.micro` y `stepper.el.micro` deben coincidir con ellos. Los pines MODE solo llegan al DRV8825 si se sueldan las resistencias de 0 Ω del reverso (`stepper.modePins`, apagado de serie). La WebUI (menú ⚙ > **Antena**) muestra, para el micropaso que tiene cada motor, la posición exacta de los DIP (cada trío es M0·M1·M2) y recuerda la alimentación y el ajuste de corriente, para no tener que mirar la tabla del datasheet.
 - **ENABLE**: en las placas Rev2.1 (compradas desde enero de 2021), alto = motor con corriente (`stepper.enActive` 1). En las anteriores, prueba con 0.
 - Parado, el motor se queda **sin corriente** (`hold` false) para que no se caliente. Un rotor de tornillo sin fin no se mueve solo. Si el tuyo se mueve, pon `hold: true` en ese eje.
 

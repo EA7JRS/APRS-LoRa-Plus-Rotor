@@ -93,6 +93,36 @@ def validate(s: dict, gps_on: bool, max_steps: int | None = None) -> str:
     return ""
 
 
+# ---- configuracion del HAT (Waveshare Stepper Motor HAT) ----------------------------------------------------------------
+# Datasheet DRV8825 y wiki de Waveshare. El HAT mueve dos motores (acimut y elevacion); el 3.er eje (x) va con un TMC2209
+# aparte, con su propio micropaso, asi que no entra aqui. Supply 8,2-28 V; ENABLE activo en alto (HAT Rev2.1).
+HAT_SUPPLY = "8,2-28 V al conector de motor (regulador del HAT)"
+HAT_CURRENT = ("corriente de cada motor con su potenciometro: Vref (V) ≈ corriente por fase (A) con Rsense 0,2 Ω; "
+               "de fabrica a la mitad; no lo gires del todo a la izquierda (quema el chip)")
+HAT_DECAY = "decay mixto (pin DECAY al aire); el HAT no lo cambia por software"
+HAT_ENABLE = "ENABLE activo en alto (HAT Rev2.1, desde 2021)"
+
+
+def hat_dips(cfg: dict) -> dict:
+    """Posicion de los DIP D0-D5 del Waveshare Stepper Motor HAT para el micropaso elegido en cada motor.
+    D0-D2 = motor 1 (acimut), D3-D5 = motor 2 (elevacion); cada trio es M0, M1, M2 (1 = ON). De fabrica a 1/32.
+    Con modePins (6 resistencias 0 ohm soldadas y los 6 DIP a ON) los micropasos los fijan los GPIO MODE, no los DIP."""
+    if cfg.get("modePins"):
+        return {"software": True}
+    out: dict = {"software": False}
+    for ax, base in (("az", 0), ("el", 3)):
+        micro = int(cfg.get(ax, {}).get("micro", 32))
+        bits = MICRO.get(micro, MICRO[32])                      # (M0, M1, M2)
+        out[ax] = {"micro": micro, "dip": {f"D{base + i}": int(bits[i]) for i in range(3)}}
+    return out
+
+
+def hat_info(cfg: dict) -> dict:
+    """Ayuda de configuracion del Waveshare Stepper Motor HAT para la WebUI / app (solo informativo)."""
+    return {"dips": hat_dips(cfg), "supply": HAT_SUPPLY, "current": HAT_CURRENT,
+            "decay": HAT_DECAY, "enable": HAT_ENABLE}
+
+
 # ---- GPIO ---------------------------------------------------------------------------------------------------------------
 def pick_chip(labels: dict[int, str], want: str) -> int:
     """gpiochip del conector: el de la etiqueta del modelo (pinctrl-rp1 en la 5...) o, si no, el primer pinctrl-."""

@@ -51,6 +51,7 @@ from .lan import Lan
 from .wind import WindGuard, WindRotor
 from .sky import SkyRotor, P2P, SAT
 from .stepper import StepperRotor
+from . import stepper
 from .gnss import OwnGps
 
 log = logging.getLogger("rotor")
@@ -117,6 +118,7 @@ class Daemon(ApiHost):
                 "up": int(time.monotonic() - self.started), "utc": int(time.time()),
                 **({"hamlib": self.proc.last_error or "ok"} if self.proc else {}),
                 **({"gps": self.gps.info()} if self.gps.info() else {}),
+                **({"hat": stepper.hat_info(d["stepper"])} if self.proc is None else {}),
                 "rigctld": d["cat"]["serverPort"] if self.cat and d["cat"]["server"] else 0,
                 **({"rig": self.cat.proc.last_error or "ok"} if self.cat and self.cat.proc else {}),
                 **({"lan": self.lan.info()} if self.lan.info() else {})}
