@@ -63,7 +63,7 @@ Capturas de la **versión 5.5.1** generadas en el PC con `firmware/test_host/lcd
 | Registro de movimientos en la microSD (`log.sd`, descarga en `/sd`) | — | — | — | — | ✔ | — | — | — |
 | GPS propio con PPS y reloj (Uputronics GPS/RTC HAT) | — | — | — | — | — | — | — | ✔ |
 | GPS u-blox propio por un conector (NMEA por UART), con filtro de equipo parado y static hold (m8 / m10 / x20) | ✔ | ✔ | ✔ | ✔ | ✔ | — | — | ✔ (Uputronics) |
-| Actualización por la WebUI | placas de 8 MB | ✔ | ✔ | ✔ | ✔ | ✔ | — | `git pull` + `install.sh` |
+| Actualización por la WebUI | placas de 8 MB | ✔ | ✔ | ✔ | ✔ | ✔ | — | ✔ (botón «Actualizar software»; o `git pull` + `install.sh`) |
 
 ## Versión
 

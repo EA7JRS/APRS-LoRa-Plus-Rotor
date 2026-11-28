@@ -60,7 +60,7 @@ On the **Raspberry Pi** the rotor is run by Hamlib's `rotctld`, so **any rotor H
 | LoRa APRS | external module | external module | — | — | — | SX1262 HAT | SX1262 HAT | KISS TNC |
 | Touch screen | — | — | ✔ portrait | ✔ landscape | ✔ landscape 7" | — | — | — |
 | USB as a controller | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | USB gadget (Zero 2 W) |
-| Update from the WebUI | 8 MB boards | ✔ | ✔ | ✔ | ✔ | ✔ | — | `git pull` + `install.sh` |
+| Update from the WebUI | 8 MB boards | ✔ | ✔ | ✔ | ✔ | ✔ | — | ✔ ("Update software" button; or `git pull` + `install.sh`) |
 
 PlatformIO environments: `esp32dev`, `esp32s3`, `waveshare_c5_lcd35`, `waveshare_s3_amoled241`, `waveshare_s3_lcd7b`, `waveshare_s3_lcd7`, `pico2w`, `pico2`.
 
@@ -375,6 +375,7 @@ More in [RASPBERRY_PI.md](RASPBERRY_PI.md) and [RASPBERRY_HATS.md](RASPBERRY_HAT
 ## 16. Updates and LED
 
 - **WebUI → Actualizar firmware** (or `http://APRS-Rotor.local/update`): upload the release `firmware.bin`. Not available on 4 MB ESP32 boards; use the web installer.
+- **Raspberry Pi → WebUI → About → "Update software"**: runs `git pull` and re-runs `install.sh` with the options you installed with (keeps your configuration and restarts). No SSH needed. (You can still do it by hand: `cd ~/APRS-LoRa-Plus-Rotor && git pull && cd raspberrypi && sudo ./install.sh --stepper --gps`.)
 - **Web installer**: always works and keeps the configuration unless you choose to erase.
 - **Version**: all APRS LoRa+ projects share the same number; update the tracker, the rotor and the app together.
 - **Status LED** (boards that have one): steady = moving; fast blink = fault; slow flash = idle.

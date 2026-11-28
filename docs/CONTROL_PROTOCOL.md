@@ -54,6 +54,7 @@ El PIN viaja en claro dentro del enlace: el BLE va cifrado; por TCP/HTTP úsalo 
 | `tle` | — | `ok` / `err` (`no sky`). Descarga/actualiza el TLE amateur en segundo plano |
 | `att` | `r` (escora/roll °), `p` (cabeceo/pitch °), `y` (giro del mástil/yaw °, opcional), o `zero` (bool) | `ok` / `err` (`no attitude`). Actitud de la base (IMU / giróscopo) para compensar en una plataforma móvil o si el mástil gira con el viento. Con `att.on`, transforma el az/el del objetivo al marco inclinado del rotor (2 y 3 ejes). `{"c":"att","zero":true}` toma la actitud actual como cero del montaje (tara: parte de escora y cabeceo 0, guarda `att.rollZero`/`pitchZero`/`yawZero`) |
 | `reboot` | — | `ok` y reinicio |
+| `update` | — | solo Raspberry Pi (`caps.update`): `git pull` + `install.sh` y reinicio. Lanza `/opt/aprs-lora-plus-rotor/update.sh` desacoplado; `ok` si se lanzó |
 
 Orden desconocida: `{"e":"err","c":"…","m":"unknown"}`. Línea que no es JSON: `{"e":"err","m":"bad json"}`.
 

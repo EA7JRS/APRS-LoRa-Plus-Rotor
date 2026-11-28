@@ -51,6 +51,7 @@ class ApiHost:
     def update_tle(self) -> str: return "no sky"
     def clear_fault(self): pass
     def reboot(self): pass
+    def self_update(self) -> str: return "not supported"             # actualizar desde git y reinstalar (Raspberry Pi); "" = lanzado
     def pin(self) -> str: return ""
 
 
@@ -295,6 +296,9 @@ class ApiSession:
         elif c == "reboot":
             ok(c)
             h.reboot()
+        elif c == "update":                             # actualizar el software desde git y reinstalar (solo Raspberry Pi)
+            e = h.self_update()
+            ok(c) if not e else err(c, e)
         else:
             err(c, "unknown")
         return out

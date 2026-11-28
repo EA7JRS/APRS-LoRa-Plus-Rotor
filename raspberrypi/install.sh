@@ -153,6 +153,25 @@ if [ -n "$GADGET" ]; then
     echo '   añade a serialPorts: {"device":"/dev/ttyGS0","baud":9600,"proto":1}  (reinicia la Pi)'
 fi
 
+# Ayudante de actualizacion para el boton "Actualizar" de la WebUI: recuerda el repo y las opciones usadas.
+REPO=$(cd "$HERE/.." && pwd)
+FLAGS=""
+[ -n "$GADGET" ] && FLAGS="$FLAGS --gadget"
+[ -n "$STEPPER" ] && FLAGS="$FLAGS --stepper"
+[ -n "$GPS" ] && FLAGS="$FLAGS --gps"
+[ -n "$LINK" ] && FLAGS="$FLAGS --link-uart"
+echo "== Ayudante de actualizacion en $DEST/update.sh"
+cat > "$DEST/update.sh" <<EOF
+#!/bin/sh
+# Generado por install.sh: actualiza el rotor desde git y reinstala (lo lanza el boton "Actualizar" de la WebUI).
+set -e
+cd "$REPO"
+git config --global --add safe.directory "$REPO" 2>/dev/null || true
+git pull --ff-only
+${NO_NTP:+NO_NTP=1 }${PI5_RTC:+PI5_RTC=1 }sh "$REPO/raspberrypi/install.sh"$FLAGS
+EOF
+chmod +x "$DEST/update.sh"
+
 echo "== Servicio"
 install -m 644 "$HERE/aprs-lora-plus-rotor.service" /etc/systemd/system/
 systemctl daemon-reload

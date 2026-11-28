@@ -30,6 +30,7 @@ import logging
 import os
 import signal
 import socket
+import subprocess
 import sys
 import time
 
@@ -53,6 +54,9 @@ from .stepper import StepperRotor
 from .gnss import OwnGps
 
 log = logging.getLogger("rotor")
+
+# Ayudante que escribe install.sh con la ruta del repo y las opciones usadas: lo lanza el boton "Actualizar" de la WebUI.
+UPDATE_SCRIPT = "/opt/aprs-lora-plus-rotor/update.sh"
 
 
 class Daemon(ApiHost):
@@ -107,7 +111,8 @@ class Daemon(ApiHost):
                 "call": d["aprs"]["call"],
                 "caps": {"wifi": True, "ble": bool(d["bt"]["ble"]), "spp": bool(d["bt"]["spp"]),
                          "lora": bool(d["aprs"]["enabled"]), "cal": self.proc is None, "move": True, "cat": bool(self.cat),
-                         "wind": True, "lan": True, "sky": True, "p2p": True, "sat": True, "att": True, "gps": bool(d["gps"]["on"])},
+                         "wind": True, "lan": True, "sky": True, "p2p": True, "sat": True, "att": True, "gps": bool(d["gps"]["on"]),
+                         "update": os.path.exists(UPDATE_SCRIPT)},
                 "ip": _ip(), "rotctld": d["net"]["rotctldPort"] if d["net"]["rotctld"] else 0,
                 "up": int(time.monotonic() - self.started), "utc": int(time.time()),
                 **({"hamlib": self.proc.last_error or "ok"} if self.proc else {}),
@@ -291,6 +296,24 @@ class Daemon(ApiHost):
     def reboot(self):
         """Reinicia el demonio (systemd lo vuelve a arrancar con la configuracion nueva)."""
         self.stop_event.set()
+
+    def self_update(self) -> str:
+        """Lanza la actualizacion desde git (git pull + install.sh, que reinicia el servicio al final).
+        Se lanza desacoplada para que sobreviva al reinicio del propio demonio. '' = lanzado; si no, el error."""
+        if not os.path.exists(UPDATE_SCRIPT):
+            return "no update script (reinstala con install.sh)"
+        # systemd-run deja la actualizacion en una unidad transitoria, independiente de este servicio
+        for argv in (["systemd-run", "--collect", "--unit=aprs-lora-plus-rotor-update", "/bin/sh", UPDATE_SCRIPT],
+                     ["setsid", "/bin/sh", UPDATE_SCRIPT]):
+            try:
+                subprocess.Popen(argv, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+                log.info("actualizacion lanzada: %s", argv[0])
+                return ""
+            except FileNotFoundError:
+                continue
+            except Exception as e:  # noqa: BLE001
+                return str(e)
+        return "no se pudo lanzar la actualizacion"
 
     def pin(self) -> str:
         return self.cfg.data["pin"]

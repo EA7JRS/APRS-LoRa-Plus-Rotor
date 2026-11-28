@@ -193,6 +193,25 @@ class TestApiConfig(unittest.TestCase):
         self.assertEqual(h.cfg.apply_json('{"pin":"********"}'), "")
         self.assertEqual(h.cfg.data["pin"], "123456")
 
+    def test_update_command(self):
+        h, s = Host(), api.ApiSession()
+        # Sin autenticar: rechazada
+        self.assertIn("auth required", s.handle('{"c":"update"}', h)[0])
+        s.handle('{"c":"auth","pin":"123456"}', h)
+        # El Host base no soporta self_update -> error, no se lanza nada
+        self.assertIn("not supported", s.handle('{"c":"update"}', h)[0])
+        # Un host que la soporta -> ok
+        launched = []
+
+        class UpdHost(Host):
+            def self_update(self):
+                launched.append(True)
+                return ""
+        h2, s2 = UpdHost(), api.ApiSession()
+        s2.handle('{"c":"auth","pin":"123456"}', h2)
+        self.assertEqual(s2.handle('{"c":"update"}', h2)[0], '{"e":"ok","c":"update"}')
+        self.assertEqual(launched, [True])
+
 
 class WindHost(Host):
     def __init__(self):
