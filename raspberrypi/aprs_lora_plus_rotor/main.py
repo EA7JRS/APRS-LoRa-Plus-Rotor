@@ -71,7 +71,8 @@ class Daemon(ApiHost):
         # tracker / app / Hamlib -> sol / luna -> rumbo (barco o coche) -> viento -> rotctld de Hamlib o motores
         at = d["att"]
         self.att = AttitudeRotor(WindRotor(self.base, self.wind), bool(at["on"]), float(at["step"]), float(at["staleS"]),
-                                 int(at["rollSign"]), int(at["pitchSign"]), int(at["yawSign"]))
+                                 int(at["rollSign"]), int(at["pitchSign"]), int(at["yawSign"]),
+                                 float(at["rollZero"]), float(at["pitchZero"]), float(at["yawZero"]))
         self.heading = HeadingRotor(self.att, bool(d["lan"]["heading"]), float(d["lan"]["headStep"]))
         sk = d["sky"]
         self.sky = SkyRotor(self.heading, float(sk["step"]), float(sk["minEl"]), bool(sk["refraction"]),
@@ -220,6 +221,11 @@ class Daemon(ApiHost):
 
     def set_attitude(self, roll: float, pitch: float, yaw: float = 0.0) -> str:
         self.att.set_attitude(roll, pitch, yaw)              # escora, cabeceo y giro del mastil (IMU / giroscopo)
+        return ""
+
+    def att_zero(self) -> str:
+        z = self.att.tare()                                 # la actitud cruda actual pasa a ser el 0 (nivel de montaje)
+        self.cfg.data["att"].update(rollZero=z[0], pitchZero=z[1], yawZero=z[2])   # para poder guardarla en la config
         return ""
 
     async def sky_loop(self):

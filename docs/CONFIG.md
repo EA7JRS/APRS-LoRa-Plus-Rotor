@@ -193,8 +193,18 @@ Compensación de actitud en plataforma móvil (coche / barco) o si el mástil gi
 | `stepper.chip` | -1 | `/dev/gpiochipN` (-1 = el del conector de 40 pines) |
 | `gps.on` | false | GPS propio por gpsd: su posición manda sobre `lan.pos` y `aprs.lat` / `aprs.lon` |
 | `gps.host` / `gps.port` | 127.0.0.1 / 2947 | gpsd |
+| `gps.hold` | true | congela la posición con el equipo parado (quita el baile del fix) |
+| `gps.holdStart` | 0.97 | m/s (de gpsd) por encima de los cuales, 3 lecturas seguidas, se da por en marcha |
+| `gps.holdStop` | 0.5 | m/s por debajo de los cuales, 3 lecturas seguidas, se vuelve a parado |
+| `gps.holdM` | 15 | salto en m que también da por movido cuando no hay velocidad fiable |
+| `gps.ublox` | "" | static hold del receptor por UBX: `m8` (u-blox 8, Uputronics; CFG-NAV5), `m10` (MAX-M10S) y `x20` (ZED-X20P) por CFG-VALSET, "" = no tocar |
+| `gps.staticHoldCms` | 20 | umbral de velocidad del static hold (cm/s, 0,01 m/s); 0 = deja los valores del receptor |
+| `gps.staticHoldDistM` | 2 | distancia del static hold (m) |
+| `gps.ctrlSock` / `gps.dev` | /run/gpsd.sock / /dev/serial0 | socket de control de gpsd y puerto del receptor (para el static hold) |
 
 Con `gps.on`, ningún pin de `stepper` puede ser el GPIO18 (el PPS del Uputronics).
+
+El filtro `hold` es el mismo del tracker APRS LoRa+ (histéresis con dos umbrales y 3 lecturas): parado devuelve la posición congelada y el apuntado no baila; en marcha (coche / barco) sigue el fix en vivo. Con `ublox`, además, el propio receptor hace su static hold: el **Uputronics GPS/RTC HAT lleva un u-blox 8 (M8030)** → `m8`; el **MAX breakout es un MAX-M10S** → `m10`; la **ZED-X20P** (alta precisión) → `x20`. Vacía `gps.ctrlSock` para no tocar el receptor.
 
 ## `aprs`
 

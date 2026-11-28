@@ -58,13 +58,26 @@ DEFAULTS["sat"] = {"tleUrl": "https://raw.githubusercontent.com/EA7JRS/APRS-LoRa
 # Compensacion de actitud (coche / barco, o giro del mastil por viento): escora / cabeceo / giro medidos por una IMU y un
 # giroscopo (orden "att" r/p/y). Transforma el az/el del objetivo al marco inclinado del rotor (attitude.py). step = umbral
 # de reapuntado (grados), staleS = segundos tras los que el dato se da por viejo; los signos calibran los ejes de la IMU.
-DEFAULTS["att"] = {"on": False, "step": 0.5, "staleS": 5.0, "rollSign": 1, "pitchSign": 1, "yawSign": 1}
+DEFAULTS["att"] = {"on": False, "step": 0.5, "staleS": 5.0, "rollSign": 1, "pitchSign": 1, "yawSign": 1,
+                   "rollZero": 0.0, "pitchZero": 0.0, "yawZero": 0.0}
 # Que mueve el rotor: "hamlib" (rotctld de Hamlib con un controlador) o "stepper" (motores paso a paso en la propia Pi con
 # el Waveshare Stepper Motor HAT, stepper.py; docs/RASPBERRY_HATS.md)
 DEFAULTS["driver"] = "hamlib"
 DEFAULTS["stepper"] = copy.deepcopy(stepper.DEFAULTS)
 # GPS propio (Uputronics GPS/RTC HAT con gpsd): su posicion manda sobre lan.pos y aprs.lat / aprs.lon (gnss.py)
-DEFAULTS["gps"] = {"on": False, "host": "127.0.0.1", "port": 2947}
+# hold: congela la posicion con el equipo parado para que el baile del fix no mueva el apuntado (como el filtro de
+# velocidad del tracker APRS LoRa+, gps_extras.cpp). Histeresis con dos umbrales y 3 lecturas seguidas: pasa a "en marcha"
+# por encima de holdStart y vuelve a "parado" por debajo de holdStop (m/s de gpsd). holdM = salto en m que tambien lo da por
+# movido cuando no hay velocidad fiable. Al moverse de verdad (coche / barco) sigue el fix en vivo.
+# ublox: ademas, si el receptor es un u-blox le manda el static hold del receptor (como el tracker, gps_utils.cpp). "m8"
+# (u-blox 8, el del Uputronics HAT) va por UBX-CFG-NAV5 (interfaz antigua por mensajes); "m10" (MAX-M10S) y "x20" (ZED-X20P
+# de alta precision) van por UBX-CFG-VALSET (base de datos de configuracion, claves CFG-MOT); "" = no tocar el receptor.
+# staticHoldCms = umbral de velocidad en cm/s (0,01 m/s), staticHoldDistM = distancia en m; 0 = deja los valores del
+# firmware del receptor. Se envia por el socket de control de gpsd (ctrlSock; vacio = no tocar el receptor). dev = puerto.
+DEFAULTS["gps"] = {"on": False, "host": "127.0.0.1", "port": 2947,
+                   "hold": True, "holdStart": 0.97, "holdStop": 0.5, "holdM": 15.0,
+                   "ublox": "", "staticHoldCms": 20, "staticHoldDistM": 2,
+                   "ctrlSock": "/run/gpsd.sock", "dev": "/dev/serial0"}
 
 SECRETS = [("pin",), ("net", "webPass"), ("aprs", "totp"), ("lan", "owmKey")]
 
@@ -132,6 +145,12 @@ def validate(c: dict) -> str:
                 return e
         if not 1 <= int(c["gps"]["port"]) <= 65535 or not c["gps"]["host"]:
             return "gps.host / gps.port"
+        if not 0 <= float(c["gps"]["holdM"]) <= 1000 or not 0 <= float(c["gps"]["holdStop"]) <= float(c["gps"]["holdStart"]) <= 100:
+            return "gps.holdStart / gps.holdStop / gps.holdM"
+        if not 0 <= int(c["gps"]["staticHoldCms"]) <= 10000 or not 0 <= int(c["gps"]["staticHoldDistM"]) <= 65535:
+            return "gps.staticHoldCms / gps.staticHoldDistM"
+        if str(c["gps"]["ublox"]).lower() not in ("", "m8", "m10", "x20"):
+            return "gps.ublox ( | m8 | m10 | x20)"
         sk = c["sky"]
         if not 0.01 <= float(sk["step"]) <= 20 or not -5 <= float(sk["minEl"]) <= 60:
             return "sky.step 0.01-20 / sky.minEl -5..60"

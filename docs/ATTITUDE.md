@@ -33,6 +33,13 @@ rotor`. Reapunta cuando la actitud cambia `att.step` grados o más, como mucho 2
 
 La WebUI muestra en la tarjeta *Posición* la línea «Escora 5° · cabeceo −2° · giro 3°» cuando la actitud está activa.
 
+## Cero (tara)
+La compensación **parte de escora y cabeceo 0**: la actitud de referencia no es necesariamente la horizontal del sensor,
+sino el montaje real en reposo. Con la antena nivelada y quieta, la orden `{"c":"att","zero":true}` toma la actitud
+actual como cero del montaje y la guarda en `att.rollZero`, `att.pitchZero`, `att.yawZero`; a partir de ahí la escora, el
+cabeceo y el giro se cuentan **relativos a ese cero**. Así un sensor montado con una pequeña inclinación fija no desvía el
+apuntado. Para volver a valores absolutos, pon los tres a 0 en la configuración (o `set_zero(0, 0, 0)`).
+
 ## Calibración
 Los signos `att.rollSign`, `att.pitchSign`, `att.yawSign` (±1) ajustan el sentido de cada eje según cómo monte la IMU
 (qué considera positivo). Convenio por defecto: ejes **X = estribor, Y = proa, Z = arriba**; escora positiva = estribor

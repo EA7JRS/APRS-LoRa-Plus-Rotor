@@ -52,7 +52,7 @@ El PIN viaja en claro dentro del enlace: el BLE va cifrado; por TCP/HTTP úsalo 
 | `peer` | `lat`, `lon`, `alt` (m, opcional) o `loc` (locator Maidenhead) | `ok` / `err` (`lat/lon or loc`). Posición del otro extremo del enlace **P2P** en vivo (app / red). Con `p2p.src=net` y siguiendo `p2p`, re-apunta al momento |
 | `sats` | `grp` (letra de categoría, opcional), `act` (bool, solo activos) — sin PIN | evento `{"e":"sats","list":[{"name","grp","act","az","el","rng","up","aos","maxel","los"}],"n","updated","name","haspos","groups":[[letra,nombre]],"amsat","amsatAt","nactive"}`: satélites con posición actual, próximo paso (unix UTC), categoría (`grp`) y si AMSAT los oyó en 24 h (`act`). Solo Raspberry Pi |
 | `tle` | — | `ok` / `err` (`no sky`). Descarga/actualiza el TLE amateur en segundo plano |
-| `att` | `r` (escora/roll °), `p` (cabeceo/pitch °), `y` (giro del mástil/yaw °, opcional) | `ok` / `err` (`no attitude`). Actitud de la base (IMU / giróscopo) para compensar en una plataforma móvil o si el mástil gira con el viento. Con `att.on`, transforma el az/el del objetivo al marco inclinado del rotor (2 y 3 ejes) |
+| `att` | `r` (escora/roll °), `p` (cabeceo/pitch °), `y` (giro del mástil/yaw °, opcional), o `zero` (bool) | `ok` / `err` (`no attitude`). Actitud de la base (IMU / giróscopo) para compensar en una plataforma móvil o si el mástil gira con el viento. Con `att.on`, transforma el az/el del objetivo al marco inclinado del rotor (2 y 3 ejes). `{"c":"att","zero":true}` toma la actitud actual como cero del montaje (tara: parte de escora y cabeceo 0, guarda `att.rollZero`/`pitchZero`/`yawZero`) |
 | `reboot` | — | `ok` y reinicio |
 
 Orden desconocida: `{"e":"err","c":"…","m":"unknown"}`. Línea que no es JSON: `{"e":"err","m":"bad json"}`.
@@ -75,7 +75,7 @@ Red local (ESP32 y Raspberry Pi, `caps.lan`): `"clock":{"src":"GPS","age":120,"n
 
 `board` es el entorno de PlatformIO (`esp32dev`, `esp32s3`, `waveshare_c5_lcd35`, `waveshare_s3_amoled241`, `waveshare_s3_lcd7b`, `waveshare_s3_lcd7`, `pico2w`, `pico2`) o `raspberrypi`. En la Raspberry `chip` es el modelo (`Raspberry Pi 3 Model B Plus Rev 1.3`), `family` es `pi3`, `pi4`, `pi5`, `zero2` u `other`, y `drv` es `hamlib <modelo>` y se añade `hamlib` (estado del rotctld); con motores paso a paso, `drv` es `stepper` y `caps.cal` vale `true` (solo `here`, no `cal`). Con `driver` 2 (mando de otra caja por su rotctld), `drv` es `rotctld (network)` y `raw` lleva `link` y `remote` (host). En la LCD-7 / 7B, `caps.sd` y `sd` (`on`, `ok`, `file`, `freeMB`, `lines`, `err`): registro de movimientos en la microSD.
 
-GPS propio de la Raspberry (`gps.on`, `caps.gps`): `"gps":{"link":true,"fix":3,"sats":9,"seen":14,"pps":true,"lat":36.72,"lon":-4.42,"alt":12.5}` (`fix` 0 sin posición, 2 = 2D, 3 = 3D; `pps` = pulso en los últimos 3 s).
+GPS propio de la Raspberry (`gps.on`, `caps.gps`): `"gps":{"link":true,"fix":3,"sats":9,"seen":14,"pps":true,"held":true,"lat":36.72,"lon":-4.42,"alt":12.5}` (`fix` 0 sin posición, 2 = 2D, 3 = 3D; `pps` = pulso en los últimos 3 s; `held` = la posición está congelada por el filtro de equipo parado, `gps.hold`).
 
 ### `pos`
 

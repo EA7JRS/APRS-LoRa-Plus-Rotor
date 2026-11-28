@@ -1009,6 +1009,76 @@ class TestGnss(unittest.TestCase):
         self.assertIsNone(g.position(21.0))
         g.feed("no json", 22.0)
 
+    def test_hold(self):
+        g = gnss.OwnGps(dict(config.DEFAULTS["gps"], on=True))   # hold, holdStart 0.97, holdStop 0.5 m/s, holdM 15 m
+        g.feed('{"class":"TPV","mode":3,"lat":36.721300,"lon":-4.421400,"speed":0.0}', 1.0)
+        self.assertTrue(g.held)
+        self.assertEqual(g.position(1.0), (36.721300, -4.421400))
+        # baile del fix (~2 m) con velocidad baja: se devuelve la referencia congelada, no la fluctuacion
+        g.feed('{"class":"TPV","mode":3,"lat":36.721315,"lon":-4.421390,"speed":0.2}', 2.0)
+        self.assertEqual(g.position(2.0), (36.721300, -4.421400))
+        self.assertTrue(g.held)
+        # histeresis: hacen falta 3 lecturas rapidas seguidas para darlo por en marcha
+        g.feed('{"class":"TPV","mode":3,"lat":36.721320,"lon":-4.421390,"speed":2.0}', 3.0)
+        self.assertTrue(g.held)                                 # 1 lectura: aun parado
+        g.feed('{"class":"TPV","mode":3,"lat":36.721340,"lon":-4.421390,"speed":2.0}', 4.0)
+        self.assertTrue(g.held)                                 # 2 lecturas
+        g.feed('{"class":"TPV","mode":3,"lat":36.721360,"lon":-4.421390,"speed":2.0}', 5.0)
+        self.assertFalse(g.held)                                # 3 lecturas: en marcha, sigue el fix en vivo
+        self.assertEqual(g.position(5.0), (36.721360, -4.421390))
+        # salto grande (~30 m) sin velocidad fiable: reubica la referencia
+        g.feed('{"class":"TPV","mode":2,"lat":36.721300,"lon":-4.421400,"speed":0.0}', 6.0)
+        g.feed('{"class":"TPV","mode":2,"lat":36.721300,"lon":-4.421400,"speed":0.0}', 7.0)
+        g.feed('{"class":"TPV","mode":2,"lat":36.721300,"lon":-4.421400,"speed":0.0}', 8.0)
+        self.assertTrue(g.held)                                 # vuelto a parado
+        g.feed('{"class":"TPV","mode":2,"lat":36.721570,"lon":-4.421400}', 9.0)   # ~30 m, sin speed
+        self.assertFalse(g.held)
+        self.assertEqual(g.position(9.0), (36.721570, -4.421400))
+        # hold desactivado: siempre el fix en bruto
+        g2 = gnss.OwnGps(dict(config.DEFAULTS["gps"], on=True, hold=False))
+        g2.feed('{"class":"TPV","mode":3,"lat":36.721300,"lon":-4.421400}', 1.0)
+        g2.feed('{"class":"TPV","mode":3,"lat":36.721305,"lon":-4.421404}', 2.0)
+        self.assertEqual(g2.position(2.0), (36.721305, -4.421404))
+        self.assertFalse(g2.held)
+
+    def test_ubx_valset(self):
+        # UBX-CFG-VALSET del static hold del M10, igual que ubxValset del tracker
+        f = gnss._ubx_valset([(0x20250038, 20), (0x3025003B, 2)])
+        self.assertEqual(f[:4], b"\xB5\x62\x06\x8A")            # cabecera + clase/id
+        payload = bytes([0, 3, 0, 0]) + bytes([0x38, 0x00, 0x25, 0x20, 20]) + bytes([0x3B, 0x00, 0x25, 0x30, 2, 0])
+        self.assertEqual(f[4:6], len(payload).to_bytes(2, "little"))
+        self.assertEqual(f[6:6 + len(payload)], payload)       # SPEED_THRS 1 byte, DIST_THRS 2 bytes
+        ca = cb = 0                                             # suma de Fletcher comprobada aparte
+        for b in f[2:-2]:
+            ca = (ca + b) & 0xFF
+            cb = (cb + ca) & 0xFF
+        self.assertEqual(f[-2:], bytes([ca, cb]))
+
+    def test_ubx_cfg_nav5_hold(self):
+        # UBX-CFG-NAV5 del static hold para u-blox 8 (el del Uputronics GPS HAT)
+        f = gnss._ubx_cfg_nav5_hold(20, 2)
+        self.assertEqual(f[:4], b"\xB5\x62\x06\x24")            # cabecera + clase/id
+        self.assertEqual(f[4:6], (36).to_bytes(2, "little"))   # payload fijo de 36 bytes
+        p = f[6:6 + 36]
+        self.assertEqual(p[0:2], (0x0040).to_bytes(2, "little"))   # mask: solo static hold (bit 6)
+        self.assertEqual(p[22], 20)                            # staticHoldThresh (cm/s)
+        self.assertEqual(p[28:30], (2).to_bytes(2, "little"))  # staticHoldMaxDist (m)
+        self.assertEqual(sum(p[2:22]) + sum(p[23:28]) + sum(p[30:]), 0)   # el resto a 0: no toca nada mas
+        ca = cb = 0
+        for b in f[2:-2]:
+            ca = (ca + b) & 0xFF
+            cb = (cb + ca) & 0xFF
+        self.assertEqual(f[-2:], bytes([ca, cb]))
+
+    def test_ublox_config_select(self):
+        # m8 -> CFG-NAV5 (0x06 0x24); m10 y x20 -> CFG-VALSET (0x06 0x8A); valores validos en config
+        for chip in ("", "m8", "m10", "x20"):
+            self.assertEqual(config.validate(dict(config.DEFAULTS, gps=dict(config.DEFAULTS["gps"], ublox=chip))), "")
+        self.assertIn("ublox", config.validate(dict(config.DEFAULTS, gps=dict(config.DEFAULTS["gps"], ublox="f9"))))
+        valset = gnss._ubx_valset([(0x20250038, 20), (0x3025003B, 2)])     # el que usan m10 y x20
+        self.assertEqual(valset[2:4], b"\x06\x8A")
+        self.assertEqual(gnss._ubx_cfg_nav5_hold(20, 2)[2:4], b"\x06\x24")  # el que usa m8
+
     def test_own_gps_first(self):
         g = gnss.OwnGps({"on": True, "host": "127.0.0.1", "port": 2947})
         ln = L.Lan(dict(config.DEFAULTS["lan"]), {"lat": 40.0, "lon": -3.0}, WindGuard(config.DEFAULTS["wind"]), None)
@@ -1200,6 +1270,19 @@ class TestAttitude(unittest.TestCase):
         ev = a.info_event()
         self.assertEqual(ev["on"], True)
         self.assertEqual(ev["r"], 20.0)
+
+    def test_tare(self):
+        from aprs_lora_plus_rotor.attitude import AttitudeRotor
+        a = AttitudeRotor(FakeRotor(), enabled=True)
+        a.set_attitude(20, 5, 0)
+        self.assertEqual(a.tare(), (20.0, 5.0, 0.0))     # el cero se toma de la actitud actual
+        self.assertAlmostEqual(a.roll, 0, 6)
+        self.assertAlmostEqual(a.pitch, 0, 6)            # parte de escora y cabeceo 0
+        a.set_attitude(22, 5, 0)
+        self.assertAlmostEqual(a.roll, 2, 6)             # a partir de ahi, relativa al cero
+        self.assertAlmostEqual(a.pitch, 0, 6)
+        a.set_zero(0, 0, 0)
+        self.assertAlmostEqual(a.roll, 22, 6)            # cero manual a 0: vuelve a valores absolutos
 
     def test_api_and_config(self):
         f = FakeRotor()

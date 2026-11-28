@@ -68,14 +68,17 @@ def unaim(az_m: float, el_m: float, roll: float, pitch: float, yaw: float) -> tu
 
 class AttitudeRotor:
     def __init__(self, inner, enabled: bool = False, step: float = 0.5, stale_s: float = 5.0,
-                 roll_sign: int = 1, pitch_sign: int = 1, yaw_sign: int = 1):
+                 roll_sign: int = 1, pitch_sign: int = 1, yaw_sign: int = 1,
+                 roll_zero: float = 0.0, pitch_zero: float = 0.0, yaw_zero: float = 0.0):
         self._inner = inner
         self.enabled = enabled
         self.step = step
         self.stale_s = stale_s
         self.rs, self.ps, self.ys = roll_sign, pitch_sign, yaw_sign
+        self.zr, self.zp, self.zy = float(roll_zero), float(pitch_zero), float(yaw_zero)   # cero del montaje (tara)
         self.have = False
-        self.roll = self.pitch = self.yaw = 0.0
+        self.roll = self.pitch = self.yaw = 0.0                   # efectivos (crudo con signo menos la tara)
+        self._raw = (0.0, 0.0, 0.0)                               # crudo con signo, antes de la tara
         self._att_t = 0.0
         self._aim_att = (0.0, 0.0, 0.0)
         self._aim_t = 0.0
@@ -98,9 +101,27 @@ class AttitudeRotor:
 
     def set_attitude(self, roll: float, pitch: float, yaw: float = 0.0, now: float | None = None):
         now = time.monotonic() if now is None else now
-        self.roll, self.pitch, self.yaw = self.rs * float(roll), self.ps * float(pitch), self.ys * float(yaw)
+        self._raw = (self.rs * float(roll), self.ps * float(pitch), self.ys * float(yaw))
+        self._apply()
         self._att_t, self.have = now, True
         self.tick(now)
+
+    def _apply(self):
+        self.roll, self.pitch, self.yaw = self._raw[0] - self.zr, self._raw[1] - self.zp, self._raw[2] - self.zy
+
+    def tare(self):
+        """Pone a cero la escora, el cabeceo y el giro: la actitud cruda actual pasa a ser la referencia (0)."""
+        self.zr, self.zp, self.zy = self._raw
+        self._apply()
+        if self.target:
+            self._aim(time.monotonic())
+        return (round(self.zr, 2), round(self.zp, 2), round(self.zy, 2))
+
+    def set_zero(self, roll_zero: float, pitch_zero: float, yaw_zero: float = 0.0):
+        self.zr, self.zp, self.zy = float(roll_zero), float(pitch_zero), float(yaw_zero)
+        self._apply()
+        if self.target:
+            self._aim(time.monotonic())
 
     def _att(self):
         return (self.roll, self.pitch, self.yaw)
