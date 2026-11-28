@@ -172,6 +172,19 @@ Calibración apuntando a un satélite geoestacionario Inmarsat (orden `inmarsat`
 | `inmarsat.lon` | 25.0 | longitud del satélite en grados (E +, O −); 25 = I-4 F2 (EMEA) |
 | `inmarsat.name` | Inmarsat I-4 F2 (25°E) | nombre para mostrar |
 
+## `pointing` y `peak`
+
+Modelo de apuntado multipunto (corrige el desalineado mecánico) y auto-pico con el SDR. Ver [POINTING.md](POINTING.md).
+
+| Clave | Por defecto | |
+|---|---|---|
+| `pointing.on` | false | aplicar el modelo a todo el apuntado |
+| `pointing.ia` / `ca` / `np` / `ie` / `tf` | 0 | coeficientes (índice az, colimación, no-perpendicularidad, índice el, flexión); los calcula el ajuste |
+| `pointing.points` | `[]` | referencias `[az_cielo, el_cielo, az_rotor, el_rotor]` |
+| `peak.host` / `port` | "" / 0 | sonda de potencia del SDR por la red (vacío = sin auto-pico) |
+| `peak.kind` / `query` | line / "" | `line` (una línea con el número) o `rigctl` (`l STRENGTH` a un rigctld); `query` a enviar |
+| `peak.span` / `step` / `dwell` | 3 / 0.5 / 1 | medio lado y paso de la rejilla (grados) y segundos de espera por punto |
+
 ## `att` (solo Raspberry Pi)
 
 Compensación de actitud en plataforma móvil (coche / barco) o si el mástil gira con el viento (orden `att`). Ver [ATTITUDE.md](ATTITUDE.md).

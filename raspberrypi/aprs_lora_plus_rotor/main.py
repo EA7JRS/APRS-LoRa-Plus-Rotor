@@ -32,9 +32,10 @@ import signal
 import socket
 import subprocess
 import sys
+import threading
 import time
 
-from . import __version__, antennas, astro, board, geo, sat
+from . import __version__, antennas, astro, board, geo, sat, pointing, peak
 from .api import ApiHost, ApiSession, pos_event  # noqa: F401
 from .aprs import AprsConfig, AprsControl, LORA_HEADER, parse_position, status_line
 from .bluez import Bluetooth
@@ -73,9 +74,12 @@ class Daemon(ApiHost):
             self.proc = RotctldProcess(d["hamlib"])
             self.base = HamlibRotor(d["hamlib"], park)
         self.gps = OwnGps(d["gps"])                        # GPS propio (Uputronics GPS/RTC HAT) por gpsd
-        # tracker / app / Hamlib -> sol / luna -> rumbo (barco o coche) -> viento -> rotctld de Hamlib o motores
+        # modelo de apuntado (corrige el desalineado mecanico), por dentro de todo, lo mas cerca del rotor
+        self.pmodel = pointing.PointingModel(d["pointing"])
+        self.pbase = pointing.PointingRotor(self.base, self.pmodel, bool(d["pointing"]["on"]))
+        # tracker / app / Hamlib -> sol / luna -> rumbo (barco o coche) -> viento -> apuntado -> rotctld de Hamlib o motores
         at = d["att"]
-        self.att = AttitudeRotor(WindRotor(self.base, self.wind), bool(at["on"]), float(at["step"]), float(at["staleS"]),
+        self.att = AttitudeRotor(WindRotor(self.pbase, self.wind), bool(at["on"]), float(at["step"]), float(at["staleS"]),
                                  int(at["rollSign"]), int(at["pitchSign"]), int(at["yawSign"]),
                                  float(at["rollZero"]), float(at["pitchZero"]), float(at["yawZero"]),
                                  bool(at["level"]), int(at["xSign"]))
@@ -103,6 +107,7 @@ class Daemon(ApiHost):
         self.stop_event = asyncio.Event()
         self.bt: Bluetooth | None = None
         self.cat = Cat(d["cat"]) if d["cat"]["type"] != "none" else None
+        self._peak: dict = {}                              # estado del auto-pico con el SDR
 
     # ---- ApiHost --------------------------------------------------------------------------------------------------------
     def info(self) -> dict:
@@ -145,6 +150,8 @@ class Daemon(ApiHost):
         a = self.att.info_event()
         if a:
             e["att"] = a
+        if self._peak:
+            e["peak"] = {k: v for k, v in self._peak.items() if k != "stop"}
         return e
 
     def sky_start(self, target: int) -> str:
@@ -347,6 +354,104 @@ class Daemon(ApiHost):
         else:
             self.rotor.set_pos(az, el)
         return "", info
+
+    # ---- modelo de apuntado ---------------------------------------------------------------------------------------------
+    def _ref_skypos(self, d: dict):
+        """Posicion verdadera (az, el) de la referencia: az/el dados, o un objetivo (sol / luna / Inmarsat)."""
+        def f(v):
+            return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+        tgt = str(d.get("target", ""))
+        if tgt in ("sun", "moon", "inmarsat"):
+            pos = self.lan.position()
+            if not pos:
+                return None
+            if tgt == "sun":
+                return astro.sun_position(time.time(), pos[0], pos[1])
+            if tgt == "moon":
+                az, el, _ = astro.moon_position(time.time(), pos[0], pos[1])
+                return az, el
+            az, el, _ = geo.geostationary_azel(pos[0], pos[1], float(self.cfg.data["inmarsat"]["lon"]))
+            return az, el
+        az, el = f(d.get("az")), f(d.get("el"))
+        return (az, el) if az is not None and el is not None else None
+
+    def point_add(self, d: dict) -> tuple[str, dict]:
+        """Anade una referencia al modelo de apuntado: la posicion verdadera y el angulo actual del rotor (ya centrado)."""
+        sky_pos = self._ref_skypos(d)
+        if sky_pos is None:
+            return ("no position" if d.get("target") else "az/el or target"), {}
+        ra, re = self.base.get_pos()
+        pt = [round(sky_pos[0] % 360.0, 3), round(sky_pos[1], 3), round(ra % 360.0, 3), round(re, 3)]
+        self.cfg.data["pointing"]["points"].append(pt)
+        self.cfg.save()
+        return "", {"n": len(self.cfg.data["pointing"]["points"]), "sky": pt[:2], "rotor": pt[2:]}
+
+    def point_fit(self) -> tuple[str, dict]:
+        pts = [tuple(p) for p in self.cfg.data["pointing"]["points"]]
+        if not pts:
+            return "no points", {}
+        m = pointing.PointingModel.fit(pts)
+        self.pmodel.p.update(m.p)
+        self.pbase.enabled = True
+        self.cfg.data["pointing"].update({**m.p, "on": True})
+        self.cfg.save()
+        return "", {"params": {k: round(v, 4) for k, v in m.p.items()}, "rms": round(m.residual(pts), 3), "n": len(pts)}
+
+    def point_clear(self) -> dict:
+        self.cfg.data["pointing"]["points"] = []
+        self.cfg.save()
+        return {"n": 0}
+
+    def point_enable(self, on: bool):
+        self.pbase.enabled = bool(on)
+        self.cfg.data["pointing"]["on"] = bool(on)
+        self.cfg.save()
+
+    def point_info(self) -> dict:
+        pm = self.cfg.data["pointing"]
+        pts = [tuple(p) for p in pm["points"]]
+        return {"on": self.pbase.enabled, "n": len(pts),
+                "params": {k: round(float(pm[k]), 4) for k in ("ia", "ca", "np", "ie", "tf")},
+                "rms": round(self.pmodel.residual(pts), 3) if pts else 0.0}
+
+    # ---- auto-pico con el SDR -------------------------------------------------------------------------------------------
+    def peak_start(self) -> str:
+        cfg = self.cfg.data["peak"]
+        if not cfg["host"]:
+            return "no probe (configura peak.host)"
+        if self._peak.get("running"):
+            return "already running"
+        self._peak = {"running": True, "stop": False, "n": 0}
+        threading.Thread(target=self._peak_scan, name="peak", daemon=True).start()
+        return ""
+
+    def peak_stop(self):
+        if self._peak.get("running"):
+            self._peak["stop"] = True
+
+    def _peak_scan(self):
+        cfg = self.cfg.data["peak"]
+        probe = peak.Probe(cfg["host"], int(cfg["port"]), cfg["kind"], cfg["query"])
+        self.rotor.stop()                                   # deja de seguir: el barrido manda
+        c = self.base.get_pos()
+        grid = peak.raster(float(cfg["span"]), float(cfg["step"]))
+        dwell = max(0.2, float(cfg["dwell"]))
+        samples = []
+        for da, de in grid:
+            if self._peak.get("stop"):
+                break
+            self.base.set_pos((c[0] + da) % 360.0, c[1] + de)
+            time.sleep(dwell)
+            p = probe.read()
+            if p is not None:
+                samples.append((da, de, p))
+            self._peak["n"] = len(samples)
+        if samples:
+            da, de, pmax = peak.best(samples)
+            self.base.set_pos((c[0] + da) % 360.0, c[1] + de)
+            self._peak = {"running": False, "done": True, "daz": da, "del": de, "pmax": round(pmax, 2), "n": len(samples)}
+        else:
+            self._peak = {"running": False, "done": True, "n": 0, "err": "no readings"}
 
     def clear_fault(self):
         self.wind.release()

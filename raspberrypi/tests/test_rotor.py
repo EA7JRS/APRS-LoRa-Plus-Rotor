@@ -1181,6 +1181,84 @@ class TestTmc2209(unittest.TestCase):
         self.assertEqual(T.chopconf(16) >> 24 & 0xF, 4)              # 1/16 -> MRES 4
 
 
+class TestPointing(unittest.TestCase):
+    def test_model_fit(self):
+        from aprs_lora_plus_rotor import pointing as PT
+        true = PT.PointingModel({"ia": 1.5, "ca": 0.8, "np": -0.5, "ie": -0.7, "tf": 0.3})
+        sky = [(30, 10), (120, 25), (210, 40), (300, 55), (80, 70), (200, 15)]
+        pts = [(sa, se, *true.apply(sa, se)) for sa, se in sky]
+        m = PT.PointingModel.fit(pts)
+        for sa, se in sky:
+            ma, me = m.apply(sa, se)
+            ta, te = true.apply(sa, se)
+            self.assertAlmostEqual((ma - ta + 180) % 360 - 180, 0.0, places=3)
+            self.assertAlmostEqual(me - te, 0.0, places=3)
+        self.assertLess(m.residual(pts), 1e-3)
+        m1 = PT.PointingModel.fit([(100.0, 30.0, 101.0, 29.0)])       # un punto: solo indices
+        self.assertAlmostEqual(m1.p["ia"], 1.0, places=3)
+        self.assertAlmostEqual(m1.p["ie"], -1.0, places=3)
+
+    def test_pointing_rotor(self):
+        from aprs_lora_plus_rotor import pointing as PT
+        f = FakeRotor()
+        f.az, f.el = 0.0, 0.0
+        pr = PT.PointingRotor(f, PT.PointingModel({"ia": 2.0, "ie": -1.0}), enabled=True)
+        pr.set_pos(100.0, 30.0)
+        self.assertAlmostEqual(f.az, 102.0)                          # aplica la correccion al mandar
+        self.assertAlmostEqual(f.el, 29.0)
+        a, e = pr.get_pos()
+        self.assertAlmostEqual(a, 100.0)                             # informa el cielo real (inverso)
+        self.assertAlmostEqual(e, 30.0)
+        pr.enabled = False
+        pr.set_pos(100.0, 30.0)
+        self.assertAlmostEqual(f.az, 100.0)
+
+    def test_api_pointing(self):
+        class H(api.ApiHost):
+            rotor = None
+            def point_add(s, d):
+                return "", {"n": 1, "sky": [180.0, 45.0], "rotor": [181.0, 44.0]}
+            def point_fit(s):
+                return "", {"params": {"ia": 1.0}, "rms": 0.0, "n": 2}
+            def point_clear(s):
+                return {"n": 0}
+            def point_info(s):
+                return {"on": True, "n": 2}
+        h, sess = H(), api.ApiSession()
+        self.assertIn('"e":"ok"', sess.handle('{"c":"pointadd","target":"sun"}', h)[0])
+        self.assertIn('"rms":0', sess.handle('{"c":"pointfit"}', h)[0])
+        self.assertIn('"e":"point"', sess.handle('{"c":"pointinfo"}', h)[0])
+
+
+class TestPeak(unittest.TestCase):
+    def test_raster_and_best(self):
+        from aprs_lora_plus_rotor import peak as PK
+        g = PK.raster(1.0, 0.5)                                   # -1,-0.5,0,0.5,1 en cada eje -> 25 puntos
+        self.assertEqual(len(g), 25)
+        self.assertIn((0.0, 0.0), g)
+        import math
+        samples = [(da, de, 100.0 * math.exp(-((da - 0.5) ** 2 + (de + 0.5) ** 2) / 0.05)) for (da, de) in g]
+        da, de, pmax = PK.best(samples)                          # pico estrecho (haz de antena): centroide sobre el máximo
+        self.assertAlmostEqual(da, 0.5, delta=0.1)
+        self.assertAlmostEqual(de, -0.5, delta=0.1)
+        self.assertGreater(pmax, 99.0)
+
+    def test_api_peak(self):
+        class H(api.ApiHost):
+            rotor = None
+            started = stopped = False
+            def peak_start(s):
+                s.started = True
+                return ""
+            def peak_stop(s):
+                s.stopped = True
+        h, sess = H(), api.ApiSession()
+        self.assertIn('"e":"ok"', sess.handle('{"c":"peak","on":true}', h)[0])
+        self.assertTrue(h.started)
+        sess.handle('{"c":"peak","on":false}', h)
+        self.assertTrue(h.stopped)
+
+
 class TestAntennas(unittest.TestCase):
     def test_bundled_list_and_get(self):
         names = {a["name"]: a for a in antennas.list_antennas()}

@@ -20,7 +20,7 @@ Si el equipo tiene PIN (por defecto `123456`), las órdenes que mueven o configu
 {"c":"auth","pin":"123456"}          →  {"e":"ok","c":"auth"}   |   {"e":"err","c":"auth","m":"bad pin"}
 ```
 
-Sin PIN previo responden `{"e":"err","c":"pos","m":"auth required"}`. Sin exigir PIN: `info`, `get`, `raw`, `sub`, `antennas`, `sats`, `sg`.
+Sin PIN previo responden `{"e":"err","c":"pos","m":"auth required"}`. Sin exigir PIN: `info`, `get`, `raw`, `sub`, `antennas`, `sats`, `sg`, `pointinfo`.
 El PIN viaja en claro dentro del enlace: el BLE va cifrado; por TCP/HTTP úsalo solo en una red de confianza.
 
 ## Órdenes
@@ -44,6 +44,12 @@ El PIN viaja en claro dentro del enlace: el BLE va cifrado; por TCP/HTTP úsalo 
 | `raw` | — | evento `raw` |
 | `antennas` | — | evento `{"e":"antennas","list":[{"name","title","axes","desc"}]}`: antenas disponibles para el selector (motores paso a paso de la Raspberry) |
 | `sg` | — | evento `{"e":"sg","x":<SG_RESULT>,…}`: lectura de StallGuard de los ejes con driver TMC2209 (para afinar `sgthrs` del homing sensorless) |
+| `pointinfo` | — | evento `{"e":"point","on","n","params","rms"}`: estado del modelo de apuntado (sin PIN) |
+| `pointadd` | `az`+`el` (grados) o `target` (`sun`/`moon`/`inmarsat`) | Añade una referencia al modelo de apuntado (la posición verdadera y el ángulo actual del rotor). `ok` con `n`, `sky`, `rotor`; `err` (`no position`, `az/el or target`) |
+| `pointfit` | — | Ajusta el modelo a las referencias y lo activa. `ok` con `params`, `rms`, `n`; `err` (`no points`) |
+| `pointclear` | — | Borra las referencias |
+| `pointset` | `on` (bool) | Activa / desactiva el modelo |
+| `peak` | `on` (bool) | Auto-pico con el SDR: `on` true arranca el barrido, false lo para. `err` (`no probe …`, `already running`). El progreso va en `peak` del evento `pos` |
 | `antenna` | `name` | `ok` / `err` (`unknown antenna`). Carga el perfil de esa antena sobre `stepper`, pasa a `driver` `stepper`, guarda y reinicia |
 | `cfgget` | — | eventos `cfg` con la configuración entera en trozos |
 | `cfgset` | `i`, `n`, `d` | `ok` por trozo; con el último, `{"e":"ok","c":"cfgset","i":…,"done":true}` y el equipo se reinicia para aplicarla |
