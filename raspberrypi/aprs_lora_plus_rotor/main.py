@@ -120,9 +120,9 @@ class Daemon(ApiHost):
         if e["f"] == "OK" and self.wind.locked:
             e["f"] = "WIND"
         if r.taz is not None:
-            e["taz"] = round(r.taz, 1)
+            e["taz"] = round(r.taz, 2)
         if r.tel is not None and r.has_el:
-            e["tel"] = round(r.tel, 1)
+            e["tel"] = round(r.tel, 2)
         if self.aprs.last_result:
             e["aprs"] = self.aprs.last_result
         h = self.heading.info_event(bool(self.cfg.data["lan"]["heading"]))

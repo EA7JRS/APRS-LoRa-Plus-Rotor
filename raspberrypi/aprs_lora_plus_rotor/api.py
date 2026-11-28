@@ -56,9 +56,9 @@ def pos_event(h: ApiHost) -> str:
     r = h.rotor
     az, el = r.get_pos()
     st = r.status()
-    d = {"e": "pos", "az": round(az, 1)}
+    d = {"e": "pos", "az": round(az, 2)}
     if r.has_el:
-        d["el"] = round(el, 1)
+        d["el"] = round(el, 2)
     if r.has_x:
         xd = r.get_axis("x")
         if xd is not None:

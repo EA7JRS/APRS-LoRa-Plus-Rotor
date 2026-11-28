@@ -144,7 +144,7 @@ class SkyRotor:
         """Objeto "trk" del evento pos (como rc_api.h)."""
         if not self.tracking:
             return None
-        d = {"t": NAMES[self.target], "az": round(self.az, 1), "el": round(self.el, 1), "below": self.below}
+        d = {"t": NAMES[self.target], "az": round(self.az, 2), "el": round(self.el, 2), "below": self.below}
         if self.target == P2P:
             d["km"] = round(self.dist / 1000.0, 1)
         elif self.target == SAT:
