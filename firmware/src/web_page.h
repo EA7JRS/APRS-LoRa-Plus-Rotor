@@ -126,7 +126,9 @@ const t=document.getElementById('csm');t.textContent=v<0?'S—':(v<=9?'S'+v:'S9+
 <div style="border-top:1px solid var(--bd);margin:10px 0 6px"></div><b class="mut">Calibrar con Inmarsat</b>
 <div class="row"><label class="mut">Longitud sat. <input id="inmLon" type="number" step="0.1" style="width:90px"></label><button onclick="inmPoint(false)">Apuntar</button><button onclick="inmPoint(true)">Fijar aquí</button></div>
 <div class="row mut" id="inmOut"></div>
-<p class="mut">Apunta al satélite Inmarsat geoestacionario con la posición del GPS. Afina a mano hasta el máximo de señal de su baliza y pulsa «Fijar aquí»: el cero de acimut y elevación se corrige a los grados calculados. Longitud del satélite en grados (E +, O −); 25 = I-4 F2 (EMEA). Necesita posición GPS.</p></div>
+<p class="mut">Apunta al satélite Inmarsat geoestacionario con la posición del GPS. Afina a mano hasta el máximo de señal de su baliza y pulsa «Fijar aquí»: el cero de acimut y elevación se corrige a los grados calculados. Longitud del satélite en grados (E +, O −); 25 = I-4 F2 (EMEA). Necesita posición GPS.</p>
+<div style="border-top:1px solid var(--bd);margin:10px 0 6px"></div><div class="row"><button onclick="sgRead()">Leer StallGuard (TMC2209)</button><span class="mut" id="sgOut" style="margin-left:8px"></span></div>
+<p class="mut">Lectura de StallGuard de los ejes con driver TMC2209, para afinar el umbral <code>sgthrs</code> del homing sensorless (busca el final de carrera por el bloqueo del motor, sin interruptor). Ver RASPBERRY_HATS.md.</p></div>
 
 <div class="c adv" style="display:none" id="catRotor"><h3>Rotor</h3>
 <div id="rotPi" style="display:none">
@@ -231,6 +233,8 @@ async function cfgPut(o){const t=JSON.stringify(o),n=Math.ceil(t.length/180),L=[
 async function antLoad(){try{const r=await api([{c:'antennas'}]);const L=(r[0]&&r[0].list)||[];const s=$('selAnt');s.innerHTML=L.length?L.map(function(a){return '<option value="'+sEsc(a.name)+'">'+sEsc(a.title||a.name)+'</option>'}).join(''):'<option value="">(sin antenas / no es paso a paso)</option>'}catch(e){}try{const c=await cfgGet();if(c.inmarsat&&c.inmarsat.lon!=null&&$('inmLon').value==='')$('inmLon').value=c.inmarsat.lon}catch(e){}}
 function antApply(v){if(v&&confirm('¿Cargar la antena «'+v+'» y reiniciar el equipo?'))cmd({c:'antenna',name:v})}
 // Ayuda de configuracion del Waveshare Stepper Motor HAT (DIP de microstepping, alimentacion y corriente); solo con motores paso a paso.
+// StallGuard del TMC2209: lee SG_RESULT de los ejes para afinar el umbral de homing sensorless.
+async function sgRead(){var r=await api([{c:'sg'}]);var o=r[0]||{};var ks=Object.keys(o).filter(function(k){return k!='e'&&k!='c'});$('sgOut').textContent=ks.length?ks.map(function(k){return k.toUpperCase()+': '+o[k]}).join(' · '):'sin TMC2209';}
 // Radioastronomia H1: seguir un punto fijo del cielo (RA/Dec J2000 o coordenadas galacticas l/b) con el giro sidereo.
 function h1Toggle(){var p=$('h1p');p.style.display=(p.style.display==='none'||!p.style.display)?'':'none'}
 function h1Pre(){var v=$('h1pre').value;if(!v)return;var k=v.charAt(0),xy=v.slice(1).split(',');if(k=='g'){$('h1l').value=xy[0];$('h1b').value=xy[1];$('h1ra').value='';$('h1dec').value=''}else{$('h1ra').value=xy[0];$('h1dec').value=xy[1];$('h1l').value='';$('h1b').value=''}}

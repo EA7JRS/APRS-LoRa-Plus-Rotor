@@ -46,6 +46,7 @@ class ApiHost:
     def home(self) -> str: return "no home switch"                               # buscar los finales de carrera
     def list_antennas(self) -> list: return []                                   # selector de antenas (motores paso a paso)
     def select_antenna(self, name: str) -> str: return "not supported"
+    def sg_read(self) -> dict: return {}                                         # StallGuard (SG_RESULT) de los ejes con TMC2209
     def cal_mark(self, axis: str) -> str: return "only direct drive"             # calibracion de ganancia: marcar punto A
     def cal_gain(self, axis: str, deg: float) -> dict | None: return None        # calcular 'gear' real con los grados A->B
     def apply_gain(self, axis: str, gear: float) -> str: return "not supported"  # guardar la 'gear' calculada y reiniciar
@@ -136,6 +137,9 @@ class ApiSession:
             return out
         if c == "antennas":
             out.append(dumps({"e": "antennas", "list": h.list_antennas()}))
+            return out
+        if c == "sg":                                       # StallGuard de los ejes con TMC2209 (para afinar sgthrs)
+            out.append(dumps({"e": "sg", **h.sg_read()}))
             return out
         if c == "sats":                                     # lista de satelites (nombre, az/el, proximo paso); grp = categoria, act = solo activos
             grp = d.get("grp") or None

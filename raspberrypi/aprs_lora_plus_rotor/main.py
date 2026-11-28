@@ -292,6 +292,9 @@ class Daemon(ApiHost):
     def here(self, axis: str, deg: float) -> str:
         return self.base.here(axis, deg) if isinstance(self.base, StepperRotor) else "only direct drive"
 
+    def sg_read(self) -> dict:
+        return self.base.sg() if isinstance(self.base, StepperRotor) else {}
+
     def cal_mark(self, axis: str) -> str:
         return self.base.cal_mark(axis) if isinstance(self.base, StepperRotor) else "only direct drive"
 

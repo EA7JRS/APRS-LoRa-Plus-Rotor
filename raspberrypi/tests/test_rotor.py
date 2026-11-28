@@ -1104,6 +1104,26 @@ class TestStepper(unittest.TestCase):
         self.assertAlmostEqual(r2.axes["az"].deg, 108.0, delta=0.3)
         self.assertEqual(r2.fault, "")
 
+    def test_stepper_tmc(self):
+        class FakeDrv:
+            cfg = None
+            def configure(s, *a):
+                s.cfg = a
+            def sg_result(s):
+                return 123
+        made = {}
+
+        def mk(tc, cache):
+            made["x"] = FakeDrv()
+            return made["x"]
+        c = _stepper_cfg()
+        c["x"] = {**ST.DEFAULTS["x"], "on": True, "micro": 1, "gear": 1.8, "dps": 30.0, "accel": 60.0}
+        c["x"]["tmc"] = {**ST.DEFAULTS["x"]["tmc"], "on": True, "irun": 20, "sgthrs": 90}
+        r = ST.StepperRotor(c, (0.0, 0.0), gpio=ST.FakeGpio(), state_path=self.state, tmc_make=mk)
+        self.assertIn("x", r.tmc)
+        self.assertEqual(made["x"].cfg[:5], (20, 8, 1, 90, 1000))     # irun, ihold, micro, sgthrs, tcoolthrs
+        self.assertEqual(r.sg(), {"x": 123})
+
     def test_hat_dips_and_info(self):
         c = _stepper_cfg()
         c["az"]["micro"], c["el"]["micro"] = 16, 32
@@ -1115,6 +1135,50 @@ class TestStepper(unittest.TestCase):
         self.assertEqual(ST.hat_dips({**c, "modePins": True}), {"software": True})
         info = ST.hat_info(c)
         self.assertEqual(set(info), {"dips", "supply", "current", "decay", "enable"})
+
+
+class TestTmc2209(unittest.TestCase):
+    def test_crc_and_datagrams(self):
+        from aprs_lora_plus_rotor import tmc2209 as T
+        self.assertEqual(T.crc8(b""), 0)
+        self.assertEqual(T.crc8(bytes([0, 0, 0])), 0)
+        self.assertEqual(T.crc8(bytes([1])), 0x89)                   # derivado a mano del polinomio 0x07 (LSB primero)
+        d = T.write_datagram(0, T.IHOLD_IRUN, 0x00010203)
+        self.assertEqual(len(d), 8)
+        self.assertEqual((d[0], d[1], d[2]), (0x05, 0, T.IHOLD_IRUN | 0x80))
+        self.assertEqual(d[3:7], bytes([0, 1, 2, 3]))
+        self.assertEqual(d[7], T.crc8(d[:7]))
+        self.assertEqual(T.read_request(0, T.SG_RESULT)[2], T.SG_RESULT)
+        val = 0x12345678
+        reply = bytes([0x05, 0xFF, T.SG_RESULT, 0x12, 0x34, 0x56, 0x78])
+        reply += bytes([T.crc8(reply)])
+        self.assertEqual(T.parse_read_reply(b"\x05\x00\x41\x00" + reply), val)   # con el eco de la peticion delante
+        self.assertIsNone(T.parse_read_reply(b"sin respuesta valida"))
+
+    def test_configure_and_sg(self):
+        from aprs_lora_plus_rotor import tmc2209 as T
+
+        class FakePort:
+            def __init__(s):
+                s.writes = []
+                s.reply = b""
+            def write(s, d):
+                s.writes.append(bytes(d))
+            def read(s, n):
+                return s.reply
+            def reset_input_buffer(s):
+                pass
+        p = FakePort()
+        drv = T.Tmc2209(p, 0)
+        drv.configure(16, 8, 16, 80, 1000)
+        self.assertEqual(len(p.writes), 5)                           # GCONF, IHOLD_IRUN, CHOPCONF, TCOOLTHRS, SGTHRS
+        self.assertEqual(p.writes[0][2], T.GCONF | 0x80)
+        self.assertEqual(p.writes[4][2], T.SGTHRS | 0x80)
+        val = 0x000000AB
+        reply = bytes([0x05, 0xFF, T.SG_RESULT, 0, 0, 0, 0xAB])
+        p.reply = reply + bytes([T.crc8(reply)])
+        self.assertEqual(drv.sg_result(), val)
+        self.assertEqual(T.chopconf(16) >> 24 & 0xF, 4)              # 1/16 -> MRES 4
 
 
 class TestAntennas(unittest.TestCase):
