@@ -65,7 +65,7 @@ Capturas de la **versión 5.5.1** generadas en el PC con `firmware/test_host/lcd
 | **Modelo de apuntado** multipunto (corrige el desalineado mecánico) + **auto-pico** con el SDR ([docs/POINTING.md](docs/POINTING.md)) | — | — | — | — | — | — | — | ✔ |
 | **Radioastronomía** (línea H1): seguir un punto del cielo (RA/Dec o galácticas) y **barrido por deriva** ([docs/RADIOASTRONOMIA.md](docs/RADIOASTRONOMIA.md)) | — | — | — | — | — | — | — | ✔ |
 | Antena marina **Sea Tel** por RS422 (`seatel_rotctld`, [docs/SEATEL.md](docs/SEATEL.md)) | — | — | — | — | — | — | — | ✔ (driver hamlib model 2) |
-| GS-232 / EasyComm / Rot2Prog por RS485 semidúplex (`serial.rs485`, DE en `serial.de`) | ✔ | ✔ | ✔ | ✔ | ✔ (conector RS485) | ✔ (transceptor automático) | ✔ (transceptor automático) | — |
+| GS-232 / EasyComm / Rot2Prog por RS485 semidúplex (`serial.rs485`, DE en `serial.de`) | ✔ | ✔ | ✔ | ✔ | ✔ (conector RS485) | ✔ (transceptor automático) | ✔ (transceptor automático) | ✔ (adaptador USB-RS485 + Hamlib) |
 | Registro de movimientos en la microSD (`log.sd`, descarga en `/sd`) | — | — | — | — | ✔ | — | — | — |
 | GPS propio con PPS y reloj (Uputronics GPS/RTC HAT) | — | — | — | — | — | — | — | ✔ |
 | GPS u-blox propio por un conector (NMEA por UART), con filtro de equipo parado y static hold (m8 / m10 / x20) | ✔ | ✔ | ✔ | ✔ | ✔ | — | — | ✔ (Uputronics) |
