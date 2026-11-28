@@ -110,7 +110,7 @@ Receptor u-blox local de una pantalla ESP32 (`gps.on` por UART, sin `caps.gps`):
 
 ### `raw`
 
-Control directo: `{"e":"raw","az":2105,"el":1460,"unit":"mV"}` (`mV` ESP32, `adc` cuentas de 12 bits RP2350, `ads` ADS1115). Pasarela / Raspberry: `{"e":"raw","link":true}`. Motores paso a paso: `{"e":"raw","link":true,"known":true,"homing":false,"azSteps":24000,"azStepsDeg":266.667,"elSteps":8000,"elStepsDeg":266.667,"azHome":false}` (`known` = posición fijada; `fault` si no encontró el final de carrera). En `pos`, `f` vale `NOPOS` (posición sin fijar) o `HOME AZ` / `HOME EL`.
+Control directo: `{"e":"raw","az":2105,"el":1460,"unit":"mV"}` (`mV` ESP32, `adc` cuentas de 12 bits RP2350, `ads` ADS1115). Pasarela / Raspberry: `{"e":"raw","link":true}`. Motores paso a paso: `{"e":"raw","link":true,"known":true,"homing":false,"azSteps":24000,"azStepsDeg":266.667,"elSteps":8000,"elStepsDeg":266.667,"azHome":false}` (`known` = posición fijada; `fault` si no encontró el final de carrera). Con encoder magnético por eje, `azEnc` / `elEnc` / `xEnc` llevan el ángulo medido. En `pos`, `f` vale `NOPOS` (posición sin fijar), `HOME AZ` / `HOME EL` o `ENCODER AZ` / `ENCODER EL` / `ENCODER X` (pasos perdidos detectados por el encoder).
 
 ### `cfg`
 

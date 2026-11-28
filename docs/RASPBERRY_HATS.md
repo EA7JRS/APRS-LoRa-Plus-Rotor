@@ -65,6 +65,12 @@ Los motores paso a paso no dicen dónde están: la caja **cuenta los pasos**.
 - **Final de carrera** (opcional, uno por eje): por ejemplo GPIO5 para el acimut y GPIO6 para la elevación, un contacto a masa. Con `homeOnStart` (de serie), la caja lo busca al arrancar a `dps` en el sentido `homeDir` y, al pisarlo, la posición pasa a `homeAt`. La orden `home` repite la búsqueda. Si recorre todo el giro más 20° sin encontrarlo, se para y da el fallo `HOME AZ` / `HOME EL`.
 - Sin posición guardada ni final de carrera, el estado es `NOPOS` hasta el primer *Corregir desfase*.
 
+#### Encoder magnético (AS5600): detectar pasos perdidos
+
+Para no quedarte a ciegas con el lazo abierto, puedes poner un **encoder magnético AS5600** (sensor de ángulo de 12 bits, 4096 cuentas/vuelta, I²C) en cada eje, con un imán diametral en el eje de la antena. Al parar, la caja compara el ángulo medido con la cuenta de pasos: si difieren más de `tol` grados, da el fallo **`ENCODER AZ`** / `ENCODER EL` / `ENCODER X` (pasos perdidos). Con `correct` activado, en vez de avisar **corrige** la posición al ángulo del encoder (conservando la vuelta en el acimut con solape).
+
+El AS5600 tiene dirección fija 0x36, así que para **varios ejes** hace falta un **multiplexor I²C TCA9548A** (un canal por eje): pon `mux` a su dirección (0x70 = 112) y `muxCh` al canal. Un solo encoder va sin mux (`mux` −1). Configuración por eje en `stepper.az.enc` / `el.enc` / `x.enc` (`on`, `bus`, `addr`, `mux`, `muxCh`, `cpr`, `sign`, `offset`, `tol`, `correct`); ver [CONFIG.md](CONFIG.md). El ángulo medido sale en el evento `raw` (`azEnc`, `elEnc`, `xEnc`). Necesita `python3-smbus2` y el I²C activado (GPIO2/3).
+
 ### Tercer eje: inclinación / cross-level (TMC2209)
 
 Algunas antenas estabilizadas (como la del domo **Satlink FB250+**) llevan un tercer eje además de acimut y elevación: la **inclinación** o *cross-level*, que mantiene la antena a nivel. De serie está apagado (`stepper.x.on` false). Es **independiente de az/el**: no entra en rotctld (Hamlib solo maneja acimut y elevación); se manda por la API / WebUI / app con la orden `axis` (`{"c":"axis","axis":"x","deg":...}`). En estación fija se aparca al centro; en móvil (vehículo o barco) sirve para nivelar con el balanceo.
