@@ -199,7 +199,8 @@ En `http://APRS-Rotor.local/` (placas) o en `http://IP:8080/` (Raspberry Pi). Us
 
 | Sección | Qué hace |
 |---|---|
-| **Posición** | esfera (como la de la pantalla, sección 8; la aguja gira por el lado corto), acimut y elevación actuales, objetivo, estado y lectura en bruto |
+| **Posición** | esfera (como la de la pantalla, sección 8; la aguja gira por el lado corto), acimut y elevación actuales, **objetivo** que se sigue (sol / luna / P2P con az/el y km), estado y lectura en bruto |
+| **GPS** | (con GPS propio) fix (2D / 3D), satélites usados/vistos, PPS, y latitud / longitud / altura |
 | **Mando** | **Ir** a un acimut y una elevación; CCW / CW / UP / DOWN mientras se mantienen pulsados; **STOP**; **Park**; **Borrar fallo** |
 | **Calibración** | Punto A, Punto B y corregir el desfase (control directo) |
 | **CAT** | (con `cat.proto`) frecuencia, paso, modos, A/B, tono CTCSS, S-meter (el mismo que la pantalla y la app), PTT y seguimiento con Doppler |

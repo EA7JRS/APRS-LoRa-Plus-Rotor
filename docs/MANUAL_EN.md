@@ -201,7 +201,8 @@ At `http://APRS-Rotor.local/` (boards) or `http://IP:8080/` (Raspberry Pi). User
 
 | Section | What it does |
 |---|---|
-| **Posición** (position) | dial (as on the touch screen, section 8; the needle turns the short way), current azimuth and elevation, target, status and raw reading |
+| **Posición** (position) | dial (as on the touch screen, section 8; the needle turns the short way), current azimuth and elevation, the **target** being tracked (sun / moon / P2P with az/el and km), status and raw reading |
+| **GPS** | (with its own GPS) fix (2D / 3D), satellites used/seen, PPS, and latitude / longitude / altitude |
 | **Mando** (control) | **Ir** (go) to an azimuth and elevation; CCW / CW / UP / DOWN while held; **STOP**; **Park**; **Borrar fallo** (clear fault) |
 | **Calibración** (calibration) | point A, point B and offset fix (direct drive) |
 | **CAT** | (with `cat.proto`) frequency, step, modes, A/B, CTCSS tone, S-meter (the same as the screen and the app), PTT and Doppler tracking |
