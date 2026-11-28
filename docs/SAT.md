@@ -65,7 +65,10 @@ config (`aprs.lat` / `aprs.lon`). Sin posición, el selector avisa y no calcula 
 | `amsatUrl` | AMSAT summary | endpoint del estado de AMSAT |
 
 La elevación mínima para considerar un paso y para esperar «bajo el horizonte» es `sky.minEl`
-(la misma que sol/luna). El umbral de reapuntado es `sky.step`.
+(la misma que sol/luna). El umbral de reapuntado es `sky.step`. En modo satélite el seguimiento
+recalcula y re-apunta cada **0,5 s** (los LEO se mueven rápido), frente a los 2 s de sol/luna/P2P.
+Si los motores aún se quedan atrás cerca del cenit (paso alto), sube la velocidad y la aceleración
+del eje (`stepper.<eje>.dps` y `.accel`).
 
 ## Cálculo
 SGP4 en Python puro por el subpaquete **`sgp4/`** (copia vendorizada de

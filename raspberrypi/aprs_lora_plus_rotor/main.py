@@ -212,14 +212,17 @@ class Daemon(ApiHost):
         return ""
 
     async def sky_loop(self):
-        """Seguir el sol o la luna: la posicion de la estacion puede venir de la red (barco, coche)."""
+        """Seguir el sol, la luna, P2P o un satelite: la posicion de la estacion puede venir de la red (barco, coche).
+        Con un satelite se refresca cada 0,5 s (se mueve rapido); el resto, cada segundo."""
         while True:
+            fast = False
             if self.sky.tracking:
                 p = self.lan.position()
                 if p:
                     self.sky.lat, self.sky.lon = p
                 self.sky.tick()
-            await asyncio.sleep(1.0)
+                fast = self.sky.target == SAT
+            await asyncio.sleep(0.5 if fast else 1.0)
 
     async def tle_loop(self):
         """Descarga el TLE al arrancar si falta o esta viejo, y lo refresca cada sat.refreshH horas."""

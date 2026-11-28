@@ -98,9 +98,12 @@ class SkyRotor:
     def stop_tracking(self):
         self.target, self.below = OFF, False
 
+    SAT_PERIOD = 0.5                                          # los satelites LEO se mueven rapido: recalcular y re-apuntar mas a menudo
+
     def tick(self, t: float | None = None, now: float | None = None):
         now = time.monotonic() if now is None else now
-        if self.target == OFF or now - self._last < self.period:
+        per = self.SAT_PERIOD if self.target == SAT else self.period
+        if self.target == OFF or now - self._last < per:
             return
         self._last = now
         if self.target == P2P:
