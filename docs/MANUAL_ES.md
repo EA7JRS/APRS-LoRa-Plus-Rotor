@@ -1,6 +1,6 @@
 # APRS LoRa+ Rotor — Manual de usuario
 
-*Versión 5.5.0 · © 2026 Manuel - EA7JRS · GPL-3.0-or-later · [English](MANUAL_EN.md) · [Guía rápida](QUICKSTART_ES.md)*
+*Versión 5.5.1 · © 2026 Manuel - EA7JRS · GPL-3.0-or-later · [English](MANUAL_EN.md) · [Guía rápida](QUICKSTART_ES.md)*
 
 ## Índice
 
@@ -210,6 +210,13 @@ En `http://APRS-Rotor.local/` (placas) o en `http://IP:8080/` (Raspberry Pi). Us
 | **Acerca de** | versión, placa y © 2026 Manuel - EA7JRS |
 | **Aspecto** | botón de la cabecera ◐: **Automático** (día/noche por el orto y el ocaso en tu posición, como sat-aprs; sin posición aún, de 7 a 19 h), **Claro** u **Oscuro**; se recuerda en el navegador, como las demás WebUI de EA7JRS. La esfera se queda oscura. |
 | **Coordenadas / Unidades** | en el mismo menú de la cabecera: **formato de coordenadas** (Decimal, GMS grados-minutos-segundos, GM grados-minutos náutico) y **unidades** (Métrico, Imperial, Náutico; la altura en m / ft y las distancias en km / mi / NM), y un botón que **muestra u oculta** las tarjetas Calibración, Configuración y Acerca de (ocultas de serie). Se recuerda en el navegador. |
+
+### 7.1 GPS y compensación de actitud en las pantallas ESP32
+
+Las placas ESP32 con pantalla (no solo la Raspberry Pi) tienen ya las mismas funciones de posición y plataforma móvil:
+
+- **GPS**: en la categoría **GPS** del menú ⚙, dos vías. *En red*: la posición de un **gpsd** o un flujo **NMEA** (configurado en la red local) pasa por el filtro de equipo parado. *Local*: un receptor **u-blox conectado a un conector de la placa** (NMEA por un **UART** libre de la pasarela serie y del CAT; elige UART 1 o 2 y los GPIO RX / TX). Al arrancar, con TX conectado, la placa le manda su **static hold** por UBX según el chip: `m8` (u-blox 8, Uputronics), `m10` (MAX-M10S) o `x20` (ZED-X20P). El **filtro de equipo parado** (histéresis de velocidad, como en la Pi) congela la posición mientras no te mueves, y la tarjeta de estado muestra «fijo».
+- **Compensación de actitud**: la capa `att` transforma el az/el del objetivo al marco inclinado del rotor cuando la plataforma escora o cabecea, o el mástil gira con el viento (datos de una IMU por la orden `att`; tara `att zero` para el cero del montaje). Igual que en la Raspberry Pi. Ver [ATTITUDE.md](ATTITUDE.md) y [CONFIG.md](CONFIG.md).
 
 ## 8. Pantalla táctil
 

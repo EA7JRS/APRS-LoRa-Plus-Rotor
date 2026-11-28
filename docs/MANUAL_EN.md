@@ -1,6 +1,6 @@
 # APRS LoRa+ Rotor — User manual
 
-*Version 5.5.0 · © 2026 Manuel - EA7JRS · GPL-3.0-or-later · [Español](MANUAL_ES.md) · [Quick start](QUICKSTART_EN.md)*
+*Version 5.5.1 · © 2026 Manuel - EA7JRS · GPL-3.0-or-later · [Español](MANUAL_ES.md) · [Quick start](QUICKSTART_EN.md)*
 
 The WebUI and the touch screen are in Spanish; their labels are given here as they appear, with the English meaning in brackets.
 
@@ -212,6 +212,13 @@ At `http://APRS-Rotor.local/` (boards) or `http://IP:8080/` (Raspberry Pi). User
 | **Acerca de** (about) | version, board and © 2026 Manuel - EA7JRS |
 | **Aspecto** (appearance) | header button ◐: **Automatic** (day/night by sunrise/sunset at your position, like sat-aprs; without a position yet, 07–19 h), **Light** or **Dark**; remembered in the browser, like the other EA7JRS WebUIs. The dial stays dark. |
 | **Coordinates / Units** | in the same header menu: **coordinate format** (Decimal, DMS degrees-minutes-seconds, DM degrees-decimal-minutes / nautical) and **units** (Metric, Imperial, Nautical; altitude in m / ft and distances in km / mi / NM), and a button that **shows or hides** the Calibration, Configuration and About cards (hidden by default). Remembered in the browser. |
+
+### 7.1 GPS and attitude compensation on the ESP32 screens
+
+The ESP32 screen boards (not only the Raspberry Pi) now have the same position and moving-platform features:
+
+- **GPS**: in the **GPS** category of the ⚙ menu, two ways. *Networked*: the position from a **gpsd** or an **NMEA** stream (set in the local network) goes through the stationary filter. *Local*: a **u-blox receiver wired to a board connector** (NMEA over a **UART** free from the serial gateway and CAT; pick UART 1 or 2 and the RX / TX GPIOs). On start, with TX wired, the board sends it the UBX **static hold** for its chip: `m8` (u-blox 8, Uputronics), `m10` (MAX-M10S) or `x20` (ZED-X20P). The **stationary filter** (speed hysteresis, as on the Pi) freezes the position while you are not moving, and the status card shows "fijo" (held).
+- **Attitude compensation**: the `att` layer transforms the target az/el into the tilted rotor frame when the platform heels or pitches, or the mast turns in the wind (IMU data via the `att` command; `att zero` tares the mount zero). Same as on the Raspberry Pi. See [ATTITUDE.md](ATTITUDE.md) and [CONFIG.md](CONFIG.md).
 
 ## 8. Touch screen
 
