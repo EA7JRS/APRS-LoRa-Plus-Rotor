@@ -136,6 +136,18 @@ Seguir el sol o la luna (orden `track`).
 | `minEl` | 0 | por debajo de esta elevación espera (-5 a 60) |
 | `refraction` | true | suma la refracción media (lo que ve la antena) |
 
+## `p2p`
+
+Enlace punto a punto: apuntar a otra estación (orden `track` `p2p`). Ver [P2P.md](P2P.md).
+
+| Clave | Valor | Para |
+|---|---|---|
+| `p2p.src` | `fixed` / `net` / `aprs` | de dónde sale la posición del otro extremo |
+| `p2p.lat` / `lon` / `alt` | 0 / 0 / 0 | posición fija (`src=fixed`) |
+| `p2p.loc` | "" | locator Maidenhead (alternativa a lat/lon) |
+| `p2p.call` | "" | indicativo cuya baliza se escucha (`src=aprs`) |
+| `p2p.curv` | true | tener en cuenta la curvatura terrestre en la elevación |
+
 ## `driver`, `stepper` y `gps` (solo Raspberry Pi)
 
 `driver`: `hamlib` (de serie; rotctld de Hamlib con el controlador del rotor) o `stepper` (motores paso a paso con el Waveshare Stepper Motor HAT). Detalles y montaje en [RASPBERRY_HATS.md](RASPBERRY_HATS.md).
@@ -146,7 +158,10 @@ Seguir el sol o la luna (orden `track`).
 |---|---|---|
 | `stepper.az` / `stepper.el` | pines del HAT | `dir`, `step`, `en`, `mode` (motor 1: 13, 19, 12, [16, 17, 20]; motor 2: 24, 18, 4, [21, 22, 27]); `stepsRev` 200, `micro` 32, `gear` 1, `dps` 4, `accel` 8, `invert`, `hold`; final de carrera `home` (-1 = no), `homeAt`, `homeDir`, `homeActive`, `homePullup`; `el.on` |
 | `stepper.minAz` / `maxAz` / `minEl` / `maxEl` | 0 / 360 / 0 / 90 | topes (acimut hasta 720 con solape) |
-| `stepper.enActive` | 1 | nivel de ENABLE que da corriente (1 en las placas Rev2.1) |
+| `stepper.enActive` | 1 | nivel de ENABLE que da corriente (1 en el HAT Rev2.1); hay `enActive` por eje (el TMC2209 del 3er eje usa 0 = activo bajo) |
+| `stepper.x` | 3er eje (inclinación / cross-level), apagado de serie (`x.on`) | driver aparte TMC2209: `dir` 6, `step` 5, `en` 23 (activo bajo); `gear`, `micro`, `invert` como az/el |
+| `stepper.minX` / `maxX` | -41.25 / 41.25 | topes del 3er eje |
+| `stepper.antenna` | "" | perfil de antena cargado por el selector (ver [RASPBERRY_HATS.md](RASPBERRY_HATS.md#selector-de-antenas)) |
 | `stepper.modePins` | false | micropasos por GPIO (solo con las resistencias de 0 Ω del reverso; si no, los DIP) |
 | `stepper.homeOnStart` | true | buscar los finales de carrera al arrancar |
 | `stepper.chip` | -1 | `/dev/gpiochipN` (-1 = el del conector de 40 pines) |

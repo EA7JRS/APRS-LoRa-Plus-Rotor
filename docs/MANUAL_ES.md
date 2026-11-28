@@ -206,6 +206,7 @@ En `http://APRS-Rotor.local/` (placas) o en `http://IP:8080/` (Raspberry Pi). Us
 | **Configuración** | el fichero entero: *Leer*, editar, *Guardar y reiniciar*; las contraseñas aparecen como `********` y no se tocan |
 | **Actualizar firmware** | subir un `firmware.bin` |
 | **Acerca de** | versión, placa y © 2026 Manuel - EA7JRS |
+| **Aspecto** | botón de la cabecera: **Automático** (el del sistema), **Claro** u **Oscuro**; se recuerda en el navegador, como las demás WebUI de EA7JRS. La esfera se queda oscura. |
 
 ## 8. Pantalla táctil
 
@@ -264,6 +265,7 @@ Qué sigue (*What the rotor follows*):
 
 - **Por WiFi**: en GPredict, Look4Sat, PstRotator…, Hamlib «NET rotctl» (modelo 2) con `IP:4533`. Admite hasta 4 clientes a la vez. Prueba: `rotctl -m 2 -r APRS-Rotor.local:4533 p`.
 - **Por USB**: la placa se presenta como un controlador según `usb.proto` (GS-232B por defecto): `rotctl -m 603 -r /dev/ttyUSB0`, `-m 202` (EasyComm II) o `-m 901` (Rot2Prog). Con `usb.proto: 5`, el USB saca el registro de depuración.
+- **Más apps**: SatDump (en red), SkyRoof (con un `rotctld.exe -m 2` local que reenvía a la Pi) y el acceso desde fuera por VPN están en la guía [CONTROL_REMOTO.md](CONTROL_REMOTO.md).
 
 ## 12. Emisora y receptor SDR (CAT)
 
@@ -336,6 +338,8 @@ sudo ./install.sh --stepper --gps && sudo reboot
 - La posición se cuenta en pasos y se guarda al parar. Se fija con **Corregir desfase** (calibración de la WebUI, *Offset* en la app) o con un final de carrera por eje (`home`, búsqueda al arrancar u orden `home`).
 - `gps.on`: la posición del GPS manda para la baliza, el sol y la luna y la declinación; la hora con PPS va a NTPsec y el reloj del HAT la guarda sin red.
 - **Los dos HAT usan el GPIO18** (STEP del motor 2 y PPS): lleva con un cable el pin 12 del Stepper HAT al pin 37 de la Pi (GPIO26) y pon `stepper.el.step: 26` (`install.sh` lo pone), o usa solo acimut.
+- **Tercer eje (inclinación / cross-level)** para antenas estabilizadas como el domo Satlink FB250+: va en un driver aparte (**TMC2209**) en GPIO libres (STEP 5, DIR 6, ENABLE 23, activo bajo); de serie apagado (`stepper.x.on`). Es independiente de az/el; se manda por API / WebUI / app (orden `axis`) o nivela el balanceo en instalación móvil. Topes `stepper.minX`/`maxX` (±41,25° de serie). Ver [RASPBERRY_HATS.md](RASPBERRY_HATS.md).
+- **Selector de antenas**: la misma caja mueve distintas antenas eligiendo su perfil. De serie `fb250plus` (domo FB250+, 3 ejes) y `generic-2axis`; los tuyos en `/etc/aprs-lora-plus-rotor/antennas/`. Órdenes `antennas` (lista) y `antenna` (elegir): carga los datos mecánicos sobre `stepper` y reinicia. Ver [RASPBERRY_HATS.md](RASPBERRY_HATS.md#selector-de-antenas).
 
 **Emparejar la Pi** (se pueden usar las tres a la vez):
 
@@ -422,3 +426,9 @@ Las fórmulas son las del plotter (`firmware/lib/plotter_core`: `astro`, `wmm`, 
 ## 21. Registro de movimientos (microSD)
 
 LCD-7 y LCD-7B: con una tarjeta FAT32, `log.sd` guarda un CSV por día (UTC) en `/rotor/AAAA-MM-DD.csv`: órdenes (`MOVE` con el objetivo), posición cada `log.everyS` s (5) mientras se mueve, `STOP`, `MANUAL` y fallos (`FAULT` / `CLEAR`, también el viento). Borra lo de hace más de `log.keepDays` días (90). Lista y descarga en `http://<caja>/sd` (enlace en la línea de información de la WebUI). De serie encendido en la LCD-7; en la 7B apagado (el GPIO de relleno `log.cs` 6 es el del potenciómetro: elige otro). Detalles en [WAVESHARE_S3_LCD7.md](WAVESHARE_S3_LCD7.md#registro-de-movimientos-microsd).
+
+## 22. Enlace punto a punto (P2P)
+
+Apuntar a **otra estación** calculando el azimut y la elevación desde la posición propia (GPS, red o fija). Si las dos unidades lo hacen, quedan **alineadas mutuamente**: enlaces SHF punto a punto, o dos estaciones móviles (barco, vehículo) que se siguen en vivo. Es un objetivo de la orden `track`: `p2p` (junto a sol y luna).
+
+La posición del otro extremo viene de `p2p.src`: **fija** (locator Maidenhead o coordenadas), **red** (la app la envía con la orden `peer`) o **APRS** (oye la baliza del indicativo `p2p.call`). El evento `pos` lleva `trk` con el az/el hacia el otro extremo y la distancia en km. Detalles en [P2P.md](P2P.md).

@@ -208,6 +208,7 @@ At `http://APRS-Rotor.local/` (boards) or `http://IP:8080/` (Raspberry Pi). User
 | **Configuración** (configuration) | the whole file: *Leer* (read), edit, *Guardar y reiniciar* (save and restart); passwords show as `********` and are left unchanged |
 | **Actualizar firmware** (update firmware) | upload a `firmware.bin` |
 | **Acerca de** (about) | version, board and © 2026 Manuel - EA7JRS |
+| **Aspecto** (appearance) | header button: **Automatic** (system), **Light** or **Dark**; remembered in the browser, like the other EA7JRS WebUIs. The dial stays dark. |
 
 ## 8. Touch screen
 
@@ -266,6 +267,7 @@ What it follows (*What the rotor follows*):
 
 - **Over WiFi**: in GPredict, Look4Sat, PstRotator…, Hamlib "NET rotctl" (model 2) with `IP:4533`. Up to 4 clients at once. Test: `rotctl -m 2 -r APRS-Rotor.local:4533 p`.
 - **Over USB**: the board presents itself as a controller according to `usb.proto` (GS-232B by default): `rotctl -m 603 -r /dev/ttyUSB0`, `-m 202` (EasyComm II) or `-m 901` (Rot2Prog). With `usb.proto: 5`, USB outputs the debug log.
+- **More apps**: SatDump (over the network), SkyRoof (with a local `rotctld.exe -m 2` that forwards to the Pi) and access from outside over a VPN are in the [CONTROL_REMOTO.md](CONTROL_REMOTO.md) guide (Spanish).
 
 ## 12. Radio and SDR receiver (CAT)
 
@@ -338,6 +340,8 @@ sudo ./install.sh --stepper --gps && sudo reboot
 - The position is counted in steps and saved when it stops. Set it with **Corregir desfase** (offset fix: WebUI calibration, *Offset* in the app) or with one limit switch per axis (`home`, searched at start-up or with the `home` command).
 - `gps.on`: the GPS position is used for the beacon, the sun and moon and the declination; the time with PPS goes to NTPsec and the HAT's clock keeps it without a network.
 - **Both HATs use GPIO18** (motor 2 STEP and PPS): wire pin 12 of the Stepper HAT to pin 37 of the Pi (GPIO26) and set `stepper.el.step: 26` (`install.sh` does it), or use azimuth only.
+- **Third axis (inclination / cross-level)** for stabilised antennas such as the Satlink FB250+ dome: it goes on a separate driver (**TMC2209**) on free GPIOs (STEP 5, DIR 6, ENABLE 23, active low); off by default (`stepper.x.on`). It is independent of az/el; commanded from API / WebUI / app (`axis` command), or it levels the roll on a mobile install. Limits `stepper.minX`/`maxX` (±41.25° by default). See [RASPBERRY_HATS.md](RASPBERRY_HATS.md) (Spanish).
+- **Antenna selector**: the same box drives different antennas by choosing a profile. `fb250plus` (FB250+ dome, 3 axes) and `generic-2axis` ship in; your own go in `/etc/aprs-lora-plus-rotor/antennas/`. Commands `antennas` (list) and `antenna` (select): it loads the mechanical data over `stepper` and reboots. See [RASPBERRY_HATS.md](RASPBERRY_HATS.md#selector-de-antenas).
 
 **Pairing the Pi** (all three can be used at the same time):
 
@@ -424,3 +428,9 @@ The formulas are the plotter's (`firmware/lib/plotter_core`: `astro`, `wmm`, `wi
 ## 21. Movement log (microSD)
 
 LCD-7 and LCD-7B: with a FAT32 card, `log.sd` writes one CSV per day (UTC) to `/rotor/YYYY-MM-DD.csv`: commands (`MOVE` with the target), position every `log.everyS` s (5) while moving, `STOP`, `MANUAL` and faults (`FAULT` / `CLEAR`, wind included). Days older than `log.keepDays` (90) are deleted. List and download at `http://<box>/sd` (link in the WebUI info line). On by default on the LCD-7; off on the 7B (the dummy CS GPIO `log.cs` 6 is the potentiometer pin: pick another). Details in [WAVESHARE_S3_LCD7.md](WAVESHARE_S3_LCD7.md#registro-de-movimientos-microsd) (Spanish).
+
+## 22. Point-to-point link (P2P)
+
+Point at **another station** by computing azimuth and elevation from your own position (GPS, network or fixed). If both units do it they end up **mutually aligned**: fixed SHF point-to-point links, or two mobile stations (boat, vehicle) tracking each other live. It is a `track` target: `p2p` (alongside sun and moon).
+
+The other end's position comes from `p2p.src`: **fixed** (Maidenhead locator or coordinates), **network** (the app sends it with the `peer` command) or **APRS** (it hears the beacon of callsign `p2p.call`). The `pos` event carries `trk` with the az/el toward the other end and the distance in km. Details in [P2P.md](P2P.md) (Spanish).
