@@ -45,6 +45,9 @@ class ApiHost:
     def home(self) -> str: return "no home switch"                               # buscar los finales de carrera
     def list_antennas(self) -> list: return []                                   # selector de antenas (motores paso a paso)
     def select_antenna(self, name: str) -> str: return "not supported"
+    def cal_mark(self, axis: str) -> str: return "only direct drive"             # calibracion de ganancia: marcar punto A
+    def cal_gain(self, axis: str, deg: float) -> dict | None: return None        # calcular 'gear' real con los grados A->B
+    def apply_gain(self, axis: str, gear: float) -> str: return "not supported"  # guardar la 'gear' calculada y reiniciar
     def list_sats(self, group=None, active: bool = False) -> list: return []     # satelites del TLE con su proximo paso
     def sat_info(self) -> dict: return {}
     def select_sat(self, key: str) -> str: return "no sky"
@@ -198,6 +201,22 @@ class ApiSession:
             ok(c) if not e else err(c, e)
         elif c == "cal":
             err(c, "only direct drive")
+        elif c == "calstep":                            # calibracion de ganancia de los motores paso a paso (dos puntos)
+            axis = str(d.get("axis", "az"))
+            if d.get("mark"):
+                e = h.cal_mark(axis)
+                ok(c) if not e else err(c, e)
+            else:
+                deg = _num(d.get("deg"))
+                if deg is None:
+                    err(c, "deg")
+                    return out
+                res = h.cal_gain(axis, float(deg))
+                if res is None:
+                    err(c, "mark first")
+                    return out
+                e = h.apply_gain(axis, res["gear"]) if d.get("apply") else ""
+                ok(c, gear=res["gear"], spd=res["spd"], steps=res["steps"]) if not e else err(c, e)
         elif c == "cfgget":
             cfg = h.config_json()
             n = max(1, (len(cfg) + CFG_CHUNK - 1) // CFG_CHUNK)

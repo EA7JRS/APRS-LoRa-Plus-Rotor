@@ -276,6 +276,20 @@ class Daemon(ApiHost):
     def here(self, axis: str, deg: float) -> str:
         return self.base.here(axis, deg) if isinstance(self.base, StepperRotor) else "only direct drive"
 
+    def cal_mark(self, axis: str) -> str:
+        return self.base.cal_mark(axis) if isinstance(self.base, StepperRotor) else "only direct drive"
+
+    def cal_gain(self, axis: str, deg: float):
+        return self.base.cal_gain(axis, deg) if isinstance(self.base, StepperRotor) else None
+
+    def apply_gain(self, axis: str, gear: float) -> str:
+        """Guarda la reduccion 'gear' calibrada del eje y reinicia (se reconstruye el rotor con el valor nuevo)."""
+        if not isinstance(self.base, StepperRotor):
+            return "only direct drive"
+        if axis not in ("az", "el", "x"):
+            return "axis"
+        return self.apply_config(json.dumps({"driver": "stepper", "stepper": {axis: {"gear": float(gear)}}}))
+
     def home(self) -> str:
         return self.base.home() if isinstance(self.base, StepperRotor) else "no home switch"
 

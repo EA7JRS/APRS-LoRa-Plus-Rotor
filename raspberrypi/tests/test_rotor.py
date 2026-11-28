@@ -900,6 +900,48 @@ class TestStepper(unittest.TestCase):
         d["minX"], d["maxX"] = 10.0, 10.0
         self.assertIn("minX", ST.validate(d, False, 20000))
 
+    def test_calibration_gain(self):
+        r = self.mk()                                          # 1 paso/grado (stepsRev 200, micro 1, gear 1.8)
+        self.assertIsNone(r.cal_gain("az", 90.0))              # sin marcar el punto A
+        self.assertEqual(r.cal_mark("az"), "")
+        r.set_pos(90.0, 0.0)
+        _run(r)
+        res = r.cal_gain("az", 90.0)                            # giro real = el esperado
+        self.assertEqual(res["steps"], 90)
+        self.assertAlmostEqual(res["spd"], 1.0)
+        self.assertAlmostEqual(res["gear"], 1.8)
+        res2 = r.cal_gain("az", 100.0)                          # si de verdad giro 100 grados, menos pasos/grado
+        self.assertAlmostEqual(res2["spd"], 0.9)
+        self.assertAlmostEqual(res2["gear"], 1.62)
+        self.assertEqual(r.cal_mark("zz"), "axis")
+
+    def test_api_calstep(self):
+        class H(api.ApiHost):
+            rotor = None
+            marked = None
+            applied = None
+            def cal_mark(s, ax):
+                s.marked = ax
+                return ""
+            def cal_gain(s, ax, deg):
+                return {"axis": ax, "steps": 90, "spd": 1.0, "gear": 1.8}
+            def apply_gain(s, ax, g):
+                s.applied = (ax, g)
+                return ""
+        h, sess = H(), api.ApiSession()
+        self.assertIn('"e":"ok"', sess.handle('{"c":"calstep","axis":"az","mark":true}', h)[0])
+        self.assertEqual(h.marked, "az")
+        self.assertIn('"gear":1.8', sess.handle('{"c":"calstep","axis":"az","deg":90}', h)[0])
+        self.assertIsNone(h.applied)
+        sess.handle('{"c":"calstep","axis":"az","deg":90,"apply":true}', h)
+        self.assertEqual(h.applied, ("az", 1.8))
+
+        class H2(api.ApiHost):
+            rotor = None
+            def cal_gain(s, ax, deg):
+                return None
+        self.assertIn("mark first", sess.handle('{"c":"calstep","axis":"az","deg":90}', H2())[0])
+
     def test_hat_dips_and_info(self):
         c = _stepper_cfg()
         c["az"]["micro"], c["el"]["micro"] = 16, 32
@@ -922,7 +964,8 @@ class TestAntennas(unittest.TestCase):
         self.assertEqual(names["generic-2axis"]["axes"], ["az", "el"])      # plantilla sin inclinacion
         self.assertIsNone(antennas.get("no-existe"))
         fb = antennas.get("fb250plus")
-        self.assertEqual(fb["stepper"]["az"]["gear"], 12.25)
+        self.assertEqual(fb["stepper"]["az"]["gear"], 11.833)              # corona 142T / piñón 12
+        self.assertEqual(fb["stepper"]["az"]["micro"], 16)                  # DIP del HAT a 1/16
         self.assertEqual(fb["stepper"]["x"]["enActive"], 0)                 # TMC2209 activo bajo
 
     def test_apply_profile_over_config(self):

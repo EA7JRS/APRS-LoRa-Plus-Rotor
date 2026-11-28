@@ -86,15 +86,19 @@ Mecánica igual que az/el (`stepper.x`: `stepsRev`, `micro`, `gear`, `dps`, `acc
 
 #### Ejemplo: domo Satlink FB250+ (tren por correa GT2, piñón de 12 dientes)
 
-Reducción `gear` = dientes del plato / 12. Con los DIP del HAT a 1/32 (`micro` 32):
+Reducción `gear` = dientes del plato / 12. Con los DIP del HAT a 1/16 (`micro` 16; D0-D2 y D3-D5 = 0·0·1) y el TMC2209 del tercer eje también a 1/16:
 
 | Eje | Plato | `gear` | Topes |
 |---|---|---|---|
-| Acimut (`az`) | 147 (correa; por confirmar el conteo) | 12.25 | 0–360° |
+| Acimut (`az`) | 142 (correa; por confirmar el conteo) | 11.833 | 0–360° |
 | Elevación (`el`) | 60 | 5.0 | 0–90° |
 | Inclinación (`x`, TMC2209) | 72 | 6.0 | ±41,25° (`minX` −41.25, `maxX` 41.25) |
 
-Salen 217,8 / 88,9 / 106,7 pasos por grado; el Zero 2 W va sobrado a 4°/s. El eje x barre 82,5° de extremo a extremo (33 mm de correa).
+Salen 105,2 / 44,4 / 53,3 pasos por grado; el Zero 2 W va sobrado a 4°/s. El eje x barre 82,5° de extremo a extremo (33 mm de correa). Son los valores del perfil `fb250plus`; el conteo de la corona de acimut está por confirmar, así que **calibra la ganancia** antes de fiarte del apuntado.
+
+#### Calibrar la ganancia (dos puntos)
+
+Si no sabes la reducción exacta (dientes sin contar, correa que patina), mídela: en la WebUI, menú ⚙ > **Antena** > *Calibrar ganancia*. Lleva el eje a una referencia y pulsa **Marcar punto A**; muévelo a mano con las flechas a otra referencia conocida, escribe los **grados reales** que ha girado y pulsa **Calcular**. Propone la `gear` real (= pasos recorridos ÷ grados reales × 360 ÷ micropasos ÷ pasos de vuelta); **Aplicar** la guarda en la configuración y reinicia. Por la app o el protocolo JSON es la orden `calstep` (`mark`, luego `deg` y opcional `apply`).
 
 ## Selector de antenas
 

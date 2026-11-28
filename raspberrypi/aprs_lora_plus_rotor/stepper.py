@@ -345,6 +345,7 @@ class StepperRotor(Rotor):
         self.manual = 0
         self.fault = ""
         self.known = self._load()
+        self._cal: dict | None = None                # calibracion de ganancia: {axis, pos} del punto de partida
         self.homing: dict[str, float] = {}           # eje -> grados recorridos buscando el final de carrera
         self._lock = threading.Lock()
         self._wake = threading.Event()
@@ -470,6 +471,28 @@ class StepperRotor(Rotor):
             self.fault = ""
         self.save()
         return ""
+
+    def cal_mark(self, axis: str) -> str:
+        """Calibracion de ganancia: marca el punto A (cuenta de pasos actual) del eje."""
+        a = self.axes.get(axis)
+        if a is None:
+            return "axis"
+        self._cal = {"axis": axis, "pos": a.pos}
+        return ""
+
+    def cal_gain(self, axis: str, true_deg: float) -> dict | None:
+        """Tras llevar el eje a mano al punto B, calcula la reduccion 'gear' real = pasos recorridos / grados reales.
+        Devuelve {axis, steps, spd (pasos/grado), gear} o None si no hay punto A o los grados son 0."""
+        a = self.axes.get(axis)
+        m = self._cal
+        if a is None or not m or m["axis"] != axis or abs(float(true_deg)) < 1e-6:
+            return None
+        moved = a.pos - m["pos"]
+        if moved == 0:
+            return None
+        spd = abs(moved) / abs(float(true_deg))                  # pasos por grado reales
+        gear = spd * 360.0 / (int(a.c["stepsRev"]) * int(a.c["micro"]))
+        return {"axis": axis, "steps": moved, "spd": round(spd, 4), "gear": round(gear, 5)}
 
     def home(self, axes=("az", "el", "x")) -> str:
         """Buscar el final de carrera de los ejes que lo tienen."""

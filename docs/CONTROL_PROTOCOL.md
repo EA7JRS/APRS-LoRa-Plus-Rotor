@@ -39,6 +39,7 @@ El PIN viaja en claro dentro del enlace: el BLE va cifrado; por TCP/HTTP úsalo 
 | `cal` | `axis` (`az`/`el`), `pt` (`a`/`b`), `deg` | `ok` / `err`. Toma la lectura actual del sensor como punto de calibración (solo control directo) |
 | `here` | `axis`, `deg` | `ok` / `err`. Corrige el desfase: la posición actual pasa a valer `deg` (control directo y motores paso a paso de la Raspberry) |
 | `home` | — | `ok` / `err`. Busca los finales de carrera (motores paso a paso de la Raspberry con `stepper.*.home`) |
+| `calstep` | `axis` (`az`/`el`/`x`), y o bien `mark` (`true`) o bien `deg` (grados reales A→B) y opcional `apply` (`true`) | Calibración de ganancia de los motores paso a paso (dos puntos). Con `mark` marca el punto A; con `deg` calcula y responde `{"e":"ok","gear","spd","steps"}`; con `apply` además guarda la `gear` y reinicia. `err` (`deg`, `mark first`, `axis`) |
 | `raw` | — | evento `raw` |
 | `antennas` | — | evento `{"e":"antennas","list":[{"name","title","axes","desc"}]}`: antenas disponibles para el selector (motores paso a paso de la Raspberry) |
 | `antenna` | `name` | `ok` / `err` (`unknown antenna`). Carga el perfil de esa antena sobre `stepper`, pasa a `driver` `stepper`, guarda y reinicia |

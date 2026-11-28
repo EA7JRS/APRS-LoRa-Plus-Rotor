@@ -112,7 +112,11 @@ const t=document.getElementById('csm');t.textContent=v<0?'S—':(v<=9?'S'+v:'S9+
 <div class="c adv" style="display:none" id="catAntena"><h3>Antena</h3>
 <div class="row"><select id="selAnt" style="min-width:220px" onchange="antApply(this.value)"></select></div>
 <p class="mut">Perfil mecánico de la antena (ejes, reducciones, topes): FB250+ o cualquier otro archivo. Solo con motores paso a paso en la Raspberry. Cambiar reinicia el equipo.</p>
-<div class="row mut" id="hatInfo" style="display:none;border-top:1px solid var(--bd);padding-top:8px"></div></div>
+<div class="row mut" id="hatInfo" style="display:none;border-top:1px solid var(--bd);padding-top:8px"></div>
+<div style="border-top:1px solid var(--bd);margin:10px 0 6px"></div><b class="mut">Calibrar ganancia (dos puntos)</b>
+<div class="row"><select id="calAx"><option value="az">Acimut</option><option value="el">Elevación</option><option value="x">Inclinación</option></select><button onclick="calMark()">Marcar punto A</button><input id="calDeg" type="number" step="0.1" placeholder="grados A→B" style="width:120px"><button onclick="calGain(false)">Calcular</button></div>
+<div class="row mut" id="calOut"></div>
+<p class="mut">Lleva el eje a una referencia y pulsa «Marcar punto A». Muévelo a mano (flechas) a otra referencia conocida, escribe los grados reales que ha girado y pulsa «Calcular»: propone la reducción <code>gear</code> real. «Aplicar» la guarda en el perfil y reinicia.</p></div>
 
 <div class="c adv" style="display:none" id="catRotor"><h3>Rotor</h3>
 <div id="rotPi" style="display:none">
@@ -217,6 +221,9 @@ async function cfgPut(o){const t=JSON.stringify(o),n=Math.ceil(t.length/180),L=[
 async function antLoad(){try{const r=await api([{c:'antennas'}]);const L=(r[0]&&r[0].list)||[];const s=$('selAnt');s.innerHTML=L.length?L.map(function(a){return '<option value="'+sEsc(a.name)+'">'+sEsc(a.title||a.name)+'</option>'}).join(''):'<option value="">(sin antenas / no es paso a paso)</option>'}catch(e){}}
 function antApply(v){if(v&&confirm('¿Cargar la antena «'+v+'» y reiniciar el equipo?'))cmd({c:'antenna',name:v})}
 // Ayuda de configuracion del Waveshare Stepper Motor HAT (DIP de microstepping, alimentacion y corriente); solo con motores paso a paso.
+// Calibracion de ganancia de los motores paso a paso: marca el punto A, se mueve a mano al B y calcula la reduccion real.
+async function calMark(){var r=await api([{c:'calstep',axis:$('calAx').value,mark:true}]);var o=r[0]||{};$('calOut').textContent=(o.e=='ok')?'Punto A marcado. Mueve el eje a mano y escribe los grados girados.':('Error: '+(o.m||'?'))}
+async function calGain(apply){var deg=parseFloat($('calDeg').value);if(isNaN(deg)||!deg)return alert('grados A→B');var r=await api([{c:'calstep',axis:$('calAx').value,deg:deg,apply:!!apply}]);var o=r[0]||{};if(o.e=='ok'){$('calOut').innerHTML='gear real ≈ <b>'+o.gear+'</b> ('+o.spd+' pasos/°, '+o.steps+' pasos)'+(apply?' · aplicado, reiniciando…':' <button onclick="calGain(true)">Aplicar</button>')}else{$('calOut').textContent='Error: '+(o.m=='mark first'?'marca antes el punto A':(o.m||'?'))}}
 function hatMicro(m){return m==1?'paso completo':'1/'+m}
 function hatRender(h){var e=$('hatInfo');if(!e)return;if(!h){e.style.display='none';return}var s='<b>Waveshare Stepper Motor HAT.</b> ';
 if(h.dips&&h.dips.software){s+='Microstepping por software (modePins): suelda las 6 resistencias 0 Ω del reverso y pon los 6 DIP a ON.';}
