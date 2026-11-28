@@ -12,12 +12,12 @@ import time
 from . import astro, geo
 from .heading import ang_diff
 
-OFF, SUN, MOON, P2P = 0, 1, 2, 3
-NAMES = {OFF: "off", SUN: "sun", MOON: "moon", P2P: "p2p"}
+OFF, SUN, MOON, P2P, SAT = 0, 1, 2, 3, 4
+NAMES = {OFF: "off", SUN: "sun", MOON: "moon", P2P: "p2p", SAT: "sat"}
 
 
 def parse(s) -> int:
-    return {"off": OFF, "sun": SUN, "moon": MOON, "p2p": P2P}.get(s, -1) if isinstance(s, str) else -1
+    return {"off": OFF, "sun": SUN, "moon": MOON, "p2p": P2P, "sat": SAT}.get(s, -1) if isinstance(s, str) else -1
 
 
 def position(target: int, lat: float, lon: float, t: float, refraction: bool = True) -> tuple[float, float] | None:
@@ -45,7 +45,11 @@ class SkyRotor:
         self.curv = curvature                                 # P2P: tener en cuenta la curvatura terrestre en la elevacion
         self.peer: tuple[float, float, float] | None = None   # (lat, lon, alt) de la otra estacion
         self.peer_src = ""                                    # fixed / net / aprs
-        self.dist = 0.0                                       # m a la otra estacion (P2P)
+        self.dist = 0.0                                       # m a la otra estacion (P2P) o al satelite (SAT)
+        self.sat = None                                       # satelite elegido (sat.Sat) para target == SAT
+        self.sat_pass: dict | None = None                     # paso en curso o siguiente {aos, los, maxel, maxaz}
+        self.horizon_h = 8.0                                  # horizonte de la prediccion de pasos
+        self._pass_at = -1e9
         self._aimed: tuple[float, float] | None = None
         self._last = -1e9
 
@@ -65,11 +69,14 @@ class SkyRotor:
         t = time.time() if t is None else t
         if pos is None:
             return "no station position (aprs.lat / lon or lan.pos)"
-        if target in (SUN, MOON) and t < 1704067200:
+        if target in (SUN, MOON, SAT) and t < 1704067200:
             return "no time (GPS or NTP)"
         if target == P2P and self.peer is None:
             return "no peer position (P2P: locator / coords, app or APRS)"
+        if target == SAT and self.sat is None:
+            return "no satellite selected"
         self.target, (self.lat, self.lon), self.alt = target, pos, float(alt)
+        self.sat_pass, self._pass_at = None, -1e9
         self._aimed, self._last = None, -1e9
         self.tick(t, now)
         return ""
@@ -81,6 +88,12 @@ class SkyRotor:
             self.peer_src = src
         if self.target == P2P:
             self._aimed, self._last = None, -1e9              # re-apunta ya a la nueva posicion
+
+    def set_sat(self, sat):
+        """Satelite elegido (sat.Sat); si ya se estaba siguiendo SAT, re-apunta al nuevo."""
+        self.sat = sat
+        if self.target == SAT:
+            self._aimed, self._last, self.sat_pass, self._pass_at = None, -1e9, None, -1e9
 
     def stop_tracking(self):
         self.target, self.below = OFF, False
@@ -94,6 +107,19 @@ class SkyRotor:
             if self.peer is None:
                 return
             az, el, self.dist = geo.azel(self.lat, self.lon, self.alt, self.peer[0], self.peer[1], self.peer[2], self.curv)
+        elif self.target == SAT:
+            if self.sat is None:
+                return
+            tt = time.time() if t is None else t
+            o = self.sat.observe(self.lat, self.lon, self.alt, tt)
+            if o is None:
+                self.below = True
+                return
+            az, el, rng = o
+            self.dist = rng * 1000.0
+            if now - self._pass_at > 30.0:                     # refresca la prediccion del paso cada 30 s
+                self.sat_pass = self.sat.next_pass(self.lat, self.lon, self.alt, tt, self.min_el, self.horizon_h)
+                self._pass_at = now
         else:
             az, el = position(self.target, self.lat, self.lon, time.time() if t is None else t, self.refraction)
         self.az, self.el = az, el
@@ -118,6 +144,13 @@ class SkyRotor:
         d = {"t": NAMES[self.target], "az": round(self.az, 1), "el": round(self.el, 1), "below": self.below}
         if self.target == P2P:
             d["km"] = round(self.dist / 1000.0, 1)
+        elif self.target == SAT:
+            d["km"] = round(self.dist / 1000.0)
+            if self.sat is not None:
+                d["name"] = self.sat.name
+            if self.sat_pass:
+                d["maxel"] = round(self.sat_pass["maxel"])
+                d["los"] = time.strftime("%H:%M", time.gmtime(self.sat_pass["los"]))   # UTC
         return d
 
     # Ordenes de los clientes: dejan de seguir

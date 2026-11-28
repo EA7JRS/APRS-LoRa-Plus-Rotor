@@ -33,7 +33,7 @@ import socket
 import sys
 import time
 
-from . import __version__, antennas, board, geo
+from . import __version__, antennas, board, geo, sat
 from .api import ApiHost, ApiSession, pos_event  # noqa: F401
 from .aprs import AprsConfig, AprsControl, LORA_HEADER, parse_position, status_line
 from .bluez import Bluetooth
@@ -47,7 +47,7 @@ from .web import WebServer
 from .heading import HeadingRotor
 from .lan import Lan
 from .wind import WindGuard, WindRotor
-from .sky import SkyRotor, P2P
+from .sky import SkyRotor, P2P, SAT
 from .stepper import StepperRotor
 from .gnss import OwnGps
 
@@ -73,6 +73,13 @@ class Daemon(ApiHost):
         self.sky = SkyRotor(self.heading, float(sk["step"]), float(sk["minEl"]), bool(sk["refraction"]),
                             curvature=bool(d["p2p"]["curv"]))
         self.sky.peer_src = d["p2p"]["src"]
+        self.satdb = sat.SatDb(d["sat"])                       # TLE amateur: lista y pasos de satelites
+        self.sky.horizon_h = float(d["sat"]["horizonH"])
+        if d["sat"]["name"]:
+            s0 = self.satdb.get(d["sat"]["name"])
+            if s0:
+                self.sky.set_sat(s0)
+        self._tle_task = None
         self.rotor = self.sky
         self.lan = Lan(d["lan"], d["aprs"], self.wind, self.heading)
         self.lan.on_park = lambda: (self.rotor.stop(), self.rotor.park())
@@ -95,7 +102,7 @@ class Daemon(ApiHost):
                 "call": d["aprs"]["call"],
                 "caps": {"wifi": True, "ble": bool(d["bt"]["ble"]), "spp": bool(d["bt"]["spp"]),
                          "lora": bool(d["aprs"]["enabled"]), "cal": self.proc is None, "move": True, "cat": bool(self.cat),
-                         "wind": True, "lan": True, "sky": True, "p2p": True, "gps": bool(d["gps"]["on"])},
+                         "wind": True, "lan": True, "sky": True, "p2p": True, "sat": True, "gps": bool(d["gps"]["on"])},
                 "ip": _ip(), "rotctld": d["net"]["rotctldPort"] if d["net"]["rotctld"] else 0,
                 "up": int(time.monotonic() - self.started), "utc": int(time.time()),
                 **({"hamlib": self.proc.last_error or "ok"} if self.proc else {}),
@@ -129,8 +136,52 @@ class Daemon(ApiHost):
             e = self._p2p_peer()
             if e:
                 return e
+        if target == SAT and self.sky.sat is None:            # sin elegir en esta sesion: usa el de la config si lo hay
+            s0 = self.satdb.get(self.cfg.data["sat"]["name"])
+            if s0 is None:
+                return "no satellite selected"
+            self.sky.set_sat(s0)
         alt = self.gps.alt if (self.gps.position() and self.gps.alt is not None) else 0.0
         return self.sky.start(target, self.lan.position(), alt=alt or 0.0)
+
+    def _sat_pos(self) -> tuple[float, float, float] | None:
+        p = self.lan.position()
+        if not p:
+            return None
+        alt = self.gps.alt if (self.gps.position() and self.gps.alt is not None) else 0.0
+        return p[0], p[1], alt or 0.0
+
+    def list_sats(self) -> list:
+        pos = self._sat_pos()
+        return self.satdb.passes(pos[0], pos[1], pos[2]) if pos else []
+
+    def sat_info(self) -> dict:
+        return {"updated": int(self.satdb.updated), "n": len(self.satdb.sats),
+                "name": self.sky.sat.name if self.sky.sat else "", "haspos": self._sat_pos() is not None}
+
+    def select_sat(self, key: str) -> str:
+        s = self.satdb.get(key)
+        if s is None:
+            return "unknown satellite"
+        self.sky.set_sat(s)
+        self.cfg.data["sat"]["name"] = s.name
+        return ""
+
+    def update_tle(self) -> str:
+        if self._tle_task and not self._tle_task.done():
+            return ""                                         # ya descargando
+        self._tle_task = asyncio.create_task(self._tle_worker())
+        return ""
+
+    async def _tle_worker(self):
+        loop = asyncio.get_event_loop()
+        err = await loop.run_in_executor(None, self.satdb.update)
+        if err:
+            logging.warning("[SAT] TLE: %s", err)
+        elif self.cfg.data["sat"]["name"] and self.sky.sat:   # re-enlaza el satelite elegido al TLE nuevo
+            s = self.satdb.get(self.cfg.data["sat"]["name"])
+            if s:
+                self.sky.set_sat(s)
 
     def _p2p_peer(self) -> str:
         """Carga la posicion del otro extremo segun p2p.src (fija de la config; net/aprs = ya recibida)."""
@@ -164,6 +215,16 @@ class Daemon(ApiHost):
                     self.sky.lat, self.sky.lon = p
                 self.sky.tick()
             await asyncio.sleep(1.0)
+
+    async def tle_loop(self):
+        """Descarga el TLE al arrancar si falta o esta viejo, y lo refresca cada sat.refreshH horas."""
+        every = float(self.cfg.data["sat"]["refreshH"]) * 3600.0
+        if every <= 0:
+            return
+        while True:
+            if not self.satdb.sats or time.time() - self.satdb.updated > every:
+                self.update_tle()
+            await asyncio.sleep(max(1800.0, every / 4.0))
 
     def config_json(self) -> str:
         return self.cfg.to_json(True)
@@ -357,6 +418,7 @@ class Daemon(ApiHost):
         asyncio.create_task(self.gps.run())
         asyncio.create_task(self.lan.run())
         asyncio.create_task(self.sky_loop())
+        asyncio.create_task(self.tle_loop())
         net = d["net"]
         servers = []
         if net["rotctld"]:

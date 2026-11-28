@@ -43,6 +43,10 @@ class ApiHost:
     def home(self) -> str: return "no home switch"                               # buscar los finales de carrera
     def list_antennas(self) -> list: return []                                   # selector de antenas (motores paso a paso)
     def select_antenna(self, name: str) -> str: return "not supported"
+    def list_sats(self) -> list: return []                                       # satelites del TLE con su proximo paso
+    def sat_info(self) -> dict: return {}
+    def select_sat(self, key: str) -> str: return "no sky"
+    def update_tle(self) -> str: return "no sky"
     def clear_fault(self): pass
     def reboot(self): pass
     def pin(self) -> str: return ""
@@ -124,6 +128,9 @@ class ApiSession:
             return out
         if c == "antennas":
             out.append(dumps({"e": "antennas", "list": h.list_antennas()}))
+            return out
+        if c == "sats":                                     # lista de satelites (nombre, az/el, proximo paso)
+            out.append(dumps({"e": "sats", "list": h.list_sats(), **h.sat_info()}))
             return out
         if c == "sub":
             ms = int(d.get("ms", 1000))
@@ -253,16 +260,18 @@ class ApiSession:
                     r.stop()
                     r.park()
                 ok(c)
-        elif c == "track":                              # {"c":"track","t":"sun"|"moon"|"off"}
+        elif c == "track":                              # {"c":"track","t":"sun"|"moon"|"p2p"|"sat"|"off"[,"id":"ISS"]}
             t = sky.parse(d.get("t"))
             if t < 0:
                 err(c, "t")
+            elif t == sky.SAT and d.get("id") and (e := h.select_sat(str(d["id"]))):
+                err(c, e)                                   # satelite desconocido
             else:
                 e = h.sky_start(t)
-                if e:
-                    err(c, e)
-                else:
-                    ok(c)
+                ok(c) if not e else err(c, e)
+        elif c == "tle":                                # descargar/actualizar el TLE (en segundo plano)
+            e = h.update_tle()
+            ok(c) if not e else err(c, e)
         elif c == "peer":                               # P2P: posicion de la otra estacion {lat,lon,alt} o {loc}
             if d.get("loc"):
                 ll = geo.locator_to_latlon(str(d["loc"]))

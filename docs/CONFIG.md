@@ -148,6 +148,19 @@ Enlace punto a punto: apuntar a otra estación (orden `track` `p2p`). Ver [P2P.m
 | `p2p.call` | "" | indicativo cuya baliza se escucha (`src=aprs`) |
 | `p2p.curv` | true | tener en cuenta la curvatura terrestre en la elevación |
 
+## `sat` (solo Raspberry Pi)
+
+Seguimiento de satélites (orden `track` `sat`): descarga el TLE, lista los satélites y sigue el elegido con SGP4. Ver [SAT.md](SAT.md).
+
+| Clave | Por defecto | |
+|---|---|---|
+| `sat.tleUrl` | Celestrak amateur | URL del fichero TLE (formato de tres líneas) |
+| `sat.name` | "" | satélite recordado (nombre o número de catálogo) |
+| `sat.refreshH` | 12 | cada cuántas horas se refresca el TLE (0 = nunca) |
+| `sat.horizonH` | 8 | horizonte de la predicción de pasos (horas) |
+
+La elevación mínima para los pasos y el umbral de reapuntado son los de `sky` (`sky.minEl`, `sky.step`).
+
 ## `driver`, `stepper` y `gps` (solo Raspberry Pi)
 
 `driver`: `hamlib` (de serie; rotctld de Hamlib con el controlador del rotor) o `stepper` (motores paso a paso con el Waveshare Stepper Motor HAT). Detalles y montaje en [RASPBERRY_HATS.md](RASPBERRY_HATS.md).

@@ -20,7 +20,7 @@ Si el equipo tiene PIN (por defecto `123456`), las órdenes que mueven o configu
 {"c":"auth","pin":"123456"}          →  {"e":"ok","c":"auth"}   |   {"e":"err","c":"auth","m":"bad pin"}
 ```
 
-Sin PIN previo responden `{"e":"err","c":"pos","m":"auth required"}`. Sin exigir PIN: `info`, `get`, `raw`, `sub`, `antennas`.
+Sin PIN previo responden `{"e":"err","c":"pos","m":"auth required"}`. Sin exigir PIN: `info`, `get`, `raw`, `sub`, `antennas`, `sats`.
 El PIN viaja en claro dentro del enlace: el BLE va cifrado; por TCP/HTTP úsalo solo en una red de confianza.
 
 ## Órdenes
@@ -48,8 +48,10 @@ El PIN viaja en claro dentro del enlace: el BLE va cifrado; por TCP/HTTP úsalo 
 | `catset` | `f` (Hz), `m` (modo de Hamlib: LSB, USB, CW, CWR, AM, FM, WFM, PKTUSB…), `txf` (Hz de subida), `split` (bool), `vfo` (`A`, `B`, `swap`), `tone` (CTCSS en Hz, 0 = apagado), `ptt` (bool); los que se quieran | `ok` / `err` (`no cat`, `rejected`, `ptt not allowed`) |
 | `cattrack` | `on` (bool: seguir o no) y/o `name`, `dl`, `ul` (Hz nominales de bajada y subida, 0 = no), `rr` (velocidad radial, km/s, + = se aleja) | `ok`. La caja corrige el Doppler y sintoniza; sin datos en 15 s deja de seguir |
 | `wx` | `ws` (viento medio, m/s), `wg` (racha, m/s, opcional), `wd` (grados, opcional), `age` (s desde la observación), `src` (`OWM`, `IQAir`…) | `ok` / `err` (`no wind`, `ws`, `range`). Tiempo de internet de la app. Con `wind.on` y racha (o viento medio sin racha) ≥ `wind.park` m/s el rotor para, va a *park* y rechaza `pos` / `move` (y los de rotctld, GS-232, APRS, pantalla…) con `rejected` hasta que el viento baja de `wind.resume` y pasan `wind.hold` minutos sin rachas fuertes. Sin datos nuevos sigue aparcado; `clear` lo libera a mano. Con anemómetro en la caja (`wind.anemoPin`) contesta `ok` y no lo usa |
-| `track` | `t`: `sun`, `moon`, `p2p` u `off` | `ok` / `err` (`t`, `no station position…`, `no time…`, `no peer position…`, `no sky`). Sigue el sol, la luna o la **otra estación (P2P)**; cualquier `pos`, `stop`, `park` o `move` lo para |
+| `track` | `t`: `sun`, `moon`, `p2p`, `sat` u `off`; con `sat`, `id` opcional (nombre o número de catálogo) | `ok` / `err` (`t`, `no station position…`, `no time…`, `no peer position…`, `no satellite selected`, `unknown satellite`, `no sky`). Sigue el sol, la luna, la **otra estación (P2P)** o un **satélite (SAT)**; cualquier `pos`, `stop`, `park` o `move` lo para |
 | `peer` | `lat`, `lon`, `alt` (m, opcional) o `loc` (locator Maidenhead) | `ok` / `err` (`lat/lon or loc`). Posición del otro extremo del enlace **P2P** en vivo (app / red). Con `p2p.src=net` y siguiendo `p2p`, re-apunta al momento |
+| `sats` | — (sin PIN) | evento `{"e":"sats","list":[{"name","cat","az","el","rng","up","aos","maxel","los"}],"n","updated","name","haspos"}`: satélites del TLE con su posición actual y próximo paso (tiempos unix UTC). Solo Raspberry Pi |
+| `tle` | — | `ok` / `err` (`no sky`). Descarga/actualiza el TLE amateur en segundo plano |
 | `reboot` | — | `ok` y reinicio |
 
 Orden desconocida: `{"e":"err","c":"…","m":"unknown"}`. Línea que no es JSON: `{"e":"err","m":"bad json"}`.
@@ -66,7 +68,7 @@ Orden desconocida: `{"e":"err","c":"…","m":"unknown"}`. Línea que no es JSON:
  "ip":"192.168.1.50","rotctld":4533,"heap":187000,"up":3600,"utc":1762500000}
 ```
 
-Con CAT configurado: `"cat":true`, `caps.cat` y `"rigctld":4532` (0 = apagado). Con protección por viento (desde la 5.4.0): `"wind":true` y `caps.wind`. Con la orden `track`: `"sky":true` y `caps.sky`. Enlace punto a punto: `caps.p2p` (ver `docs/P2P.md`).
+Con CAT configurado: `"cat":true`, `caps.cat` y `"rigctld":4532` (0 = apagado). Con protección por viento (desde la 5.4.0): `"wind":true` y `caps.wind`. Con la orden `track`: `"sky":true` y `caps.sky`. Enlace punto a punto: `caps.p2p` (ver `docs/P2P.md`). Seguimiento de satélites (solo Raspberry Pi): `caps.sat` (ver `docs/SAT.md`).
 
 Red local (ESP32 y Raspberry Pi, `caps.lan`): `"clock":{"src":"GPS","age":120,"ntp":"ntp.roa.es"}` (quién puso la hora: `GPS`, `NTP` o `-`; solo ESP32) y, con algo configurado en `lan`, `"lan":{"kind":3,"wifi":true,"tcp":true,"lines":5210,"sk":18000,"udp":120,"age":0,"wxOk":3,"wxFail":0,"wxAge":400,"lat":36.53,"lon":-6.28}`.
 
@@ -86,6 +88,7 @@ GPS propio de la Raspberry (`gps.on`, `caps.gps`): `"gps":{"link":true,"fix":3,"
 - `wind` (con `wind.on` o tras recibir `wx`): `{"on":true,"park":15,"lk":true,"ws":20,"wg":28.4,"wd":250,"pk":28.4,"bf":8,"age":150,"src":"OWM","hold":870}`: `lk` = aparcado, `pk` = el mayor de medio y racha, `bf` = fuerza Beaufort del viento medio, `age` = segundos de la observación, `hold` = segundos que faltan como mínimo para liberar. Con anemómetro: `"src":"anemo","local":true`, y `raw` lleva `anemoHz` y `anemoPulses` para calibrarlo.
 - `trk` (siguiendo el sol o la luna): `{"t":"moon","az":162.4,"el":22.7,"below":false}`: posición del astro (con la refracción si `sky.refraction`); `below` = bajo `sky.minEl`, esperando.
 - `trk` en modo **P2P**: `{"t":"p2p","az":74.3,"el":-0.1,"below":false,"km":42.5}`: az/el hacia la otra estación y distancia en km; `below` siempre `false` (el enlace apunta aunque la elevación sea ~0 o negativa).
+- `trk` en modo **SAT**: `{"t":"sat","name":"ISS (ZARYA)","az":218.4,"el":41.2,"below":false,"km":1764,"maxel":41,"los":"09:53"}`: az/el del satélite, distancia en km, culminación máxima del paso (`maxel`) y hora UTC de LOS (`los`); `below` = bajo `sky.minEl`, esperando el siguiente paso.
 - `hdg` (con `lan.heading` o si llega rumbo por la red): `{"on":true,"v":123.4,"age":1,"dec":0.9}`; `dec` = declinación que se suma a un rumbo magnético (WMM o `lan.magVar`); `on` = el acimut del evento es verdadero (compensado con el rumbo), `old` = sin rumbo nuevo hace más de 10 s. Con viento medido por la red, `wind` lleva `"src":"lan"` o `"signalk"` y `"local":true`; con el de OpenWeatherMap de la caja, `"src":"owm"`.
 - `maz`: acimut mecánico (control directo; > 360 = en el solape). `taz` / `tel`: objetivo. `aprs`: última orden APRS.
 

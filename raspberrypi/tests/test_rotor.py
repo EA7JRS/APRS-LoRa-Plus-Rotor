@@ -1018,5 +1018,102 @@ class TestGnss(unittest.TestCase):
         self.assertEqual(ln.position(), (36.5, -6.2))
 
 
+ISS_L1 = "1 25544U 98067A   24331.54791435  .00016717  00000-0  30177-3 0  9004"
+ISS_L2 = "2 25544  51.6400 210.3900 0004700  90.0000 270.0000 15.49500000 10000"
+SO50_L1 = "1 27607U 02058C   24331.50000000  .00000100  00000-0  10000-3 0  9990"
+SO50_L2 = "2 27607  64.5500 100.0000 0070000 200.0000 160.0000 14.75000000 10000"
+TLE_TXT = "ISS (ZARYA)\n%s\n%s\nSO-50\n%s\n%s\n" % (ISS_L1, ISS_L2, SO50_L1, SO50_L2)
+
+
+class TestSat(unittest.TestCase):
+    def test_sgp4_vendored(self):
+        from aprs_lora_plus_rotor.sgp4 import Satrec, jday
+        s = Satrec.twoline2rv(ISS_L1, ISS_L2)
+        jd, fr = jday(2026, 11, 28, 9, 47, 0.0)
+        err, r, _ = s.sgp4(jd, fr)
+        self.assertEqual(err, 0)
+        for got, exp in zip(r, (-1513.627, -4688.466, 4472.890)):    # verificado contra la libreria sgp4 de referencia
+            self.assertAlmostEqual(got, exp, delta=1e-2)
+
+    def test_enu_look(self):
+        from aprs_lora_plus_rotor import sat
+        obs = sat._observer_ecef(0.0, 0.0, 0.0)
+        self.assertAlmostEqual(sat._look((7000, 0, 0), 0, 0, obs)[1], 90.0, delta=0.1)   # arriba -> el 90
+        self.assertAlmostEqual(sat._look((6378.137, 1000, 0), 0, 0, obs)[0], 90.0, delta=0.5)  # este -> az 90
+        self.assertAlmostEqual(sat._look((6378.137, 0, 1000), 0, 0, obs)[0], 0.0, delta=0.5)   # norte -> az 0
+
+    def test_parse_tle(self):
+        from aprs_lora_plus_rotor import sat
+        sats = sat.parse_tle(TLE_TXT)
+        self.assertEqual([s.name for s in sats], ["ISS (ZARYA)", "SO-50"])
+        self.assertEqual([s.catnum for s in sats], ["25544", "27607"])
+        s = sats[0]
+        o = s.observe(37.6, -0.98, 45, 1795000000.0)
+        self.assertEqual(len(o), 3)
+        self.assertTrue(-90.0 <= o[1] <= 90.0 and o[2] > 0)         # elevacion y distancia con sentido
+
+    def _db(self):
+        from aprs_lora_plus_rotor import sat
+        db = sat.SatDb({"tleUrl": "https://x/y", "horizonH": 8})
+        db._set(sat.parse_tle(TLE_TXT), 1795000000.0)
+        return db
+
+    def test_sky_sat(self):
+        db = self._db()
+        f = FakeRotor()
+        s = sky.SkyRotor(f, period=0.0)
+        self.assertEqual(s.start(sky.SAT, (37.6, -0.98), 1795000000.0, 45), "no satellite selected")
+        s.set_sat(db.get("ISS (ZARYA)"))
+        self.assertEqual(s.start(sky.SAT, (37.6, -0.98), 1795000000.0, 45), "")
+        ev = s.info_event()
+        self.assertEqual(ev["t"], "sat")
+        self.assertEqual(ev["name"], "ISS (ZARYA)")
+        self.assertIn("km", ev)
+        self.assertTrue(s.set_pos(10, 10) is not False and not s.tracking)   # una orden deja de seguir
+        self.assertEqual(sky.parse("sat"), sky.SAT)
+
+    def test_api_sat(self):
+        db = self._db()
+        sr = sky.SkyRotor(FakeRotor(), period=0.0)
+
+        class H(api.ApiHost):
+            def __init__(h):
+                h.satdb, h.sky, h.rotor, h.wind, h.cat = db, sr, sr, None, None
+            def pin(h):
+                return ""
+            def list_sats(h):
+                return h.satdb.passes(37.6, -0.98, 45)
+            def sat_info(h):
+                return {"updated": int(h.satdb.updated), "n": len(h.satdb.sats),
+                        "name": h.sky.sat.name if h.sky.sat else "", "haspos": True}
+            def select_sat(h, key):
+                s = h.satdb.get(key)
+                if s is None:
+                    return "unknown satellite"
+                h.sky.set_sat(s)
+                return ""
+            def update_tle(h):
+                return ""
+            def sky_start(h, tg):
+                return h.sky.start(tg, (37.6, -0.98), 1795000000.0, 45)
+
+        h = H()
+        ses = api.ApiSession()
+        out = json.loads(ses.handle('{"c":"sats"}', h)[0])
+        self.assertEqual(out["e"], "sats")
+        self.assertEqual(out["n"], 2)
+        self.assertTrue(isinstance(out["list"], list))
+        self.assertIn('"err"', ses.handle('{"c":"track","t":"sat","id":"NOPE"}', h)[0])
+        self.assertEqual(ses.handle('{"c":"track","t":"sat","id":"SO-50"}', h)[0], '{"e":"ok","c":"track"}')
+        self.assertIn('"t":"sat"', ses.handle('{"c":"get"}', h)[0])
+        self.assertEqual(ses.handle('{"c":"tle"}', h)[0], '{"e":"ok","c":"tle"}')
+
+    def test_config_sat(self):
+        c = json.loads(json.dumps(config.DEFAULTS))
+        self.assertEqual(config.validate(c), "")
+        self.assertIn("sat.tleUrl", config.validate({**c, "sat": dict(c["sat"], tleUrl="ftp://x")}))
+        self.assertIn("sat.horizonH", config.validate({**c, "sat": dict(c["sat"], horizonH=0.1)}))
+
+
 if __name__ == "__main__":
     unittest.main()

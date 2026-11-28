@@ -49,6 +49,11 @@ DEFAULTS["sky"] = {"step": 0.01, "minEl": 0.0, "refraction": True}  # seguir el 
 # Enlace punto a punto (P2P): apuntar a otra estacion (orden "track" p2p). src: fixed (loc/coords), net (app), aprs (baliza
 # del indicativo "call"). La posicion propia sale del GPS / lan / fija; la del otro extremo, de src. curv = curvatura terrestre.
 DEFAULTS["p2p"] = {"src": "fixed", "lat": 0.0, "lon": 0.0, "alt": 0.0, "loc": "", "call": "", "curv": True}
+# Satelites (orden "track" sat): descarga el TLE amateur (Celestrak por defecto), lista los satelites con su proximo paso y
+# sigue el elegido con SGP4 (sat.py; el calculo orbital en el subpaquete vendorizado sgp4). name = satelite recordado;
+# refreshH = cada cuantas horas refresca el TLE (0 = nunca); horizonH = horizonte de la prediccion de pasos.
+DEFAULTS["sat"] = {"tleUrl": "https://celestrak.org/NORAD/elements/gp.php?GROUP=amateur&FORMAT=tle",
+                   "name": "", "refreshH": 12.0, "horizonH": 8.0}
 # Que mueve el rotor: "hamlib" (rotctld de Hamlib con un controlador) o "stepper" (motores paso a paso en la propia Pi con
 # el Waveshare Stepper Motor HAT, stepper.py; docs/RASPBERRY_HATS.md)
 DEFAULTS["driver"] = "hamlib"
@@ -132,6 +137,11 @@ def validate(c: dict) -> str:
             return "p2p.loc (locator Maidenhead)"
         if not (-90 <= float(pp["lat"]) <= 90 and -180 <= float(pp["lon"]) <= 180):
             return "p2p.lat / p2p.lon"
+        st = c["sat"]
+        if not (st["tleUrl"].startswith("http://") or st["tleUrl"].startswith("https://")):
+            return "sat.tleUrl http(s)://"
+        if float(st["refreshH"]) < 0 or not 0.5 <= float(st["horizonH"]) <= 72:
+            return "sat.refreshH >= 0 / sat.horizonH 0.5-72"
         a = c["aprs"]
         if not 1 <= len(a["call"]) <= 9:
             return "aprs.call"

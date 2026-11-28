@@ -1,0 +1,8 @@
+Vendored: python-sgp4 (Brandon Rhodes), version 2.27
+Origen: https://github.com/brandon-rhodes/python-sgp4  (PyPI: sgp4 2.27)
+Licencia: MIT (ver LICENSE en esta carpeta).
+
+Copia del camino Python puro (sin la extension C ni NumPy), para el seguimiento
+de satelites del demonio del rotor. Imports internos cambiados de absolutos
+("from sgp4.x") a relativos ("from .x"); sin otras modificaciones. No se edita
+aqui: para actualizar, volver a copiar de la version indicada.
