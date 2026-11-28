@@ -133,11 +133,15 @@ namespace Config {
         ln["kind"] = c.lanKind; ln["host"] = c.lanHost; ln["port"] = c.lanPort; ln["udp"] = c.lanUdp;
         ln["owmKey"] = secrets ? c.owmKey : (c.owmKey.empty() ? std::string() : std::string(MASK));
         ln["wind"] = c.lanWind; ln["pos"] = c.lanPos; ln["heading"] = c.headComp; ln["headStep"] = c.headStep; ln["magVar"] = c.headVar;
+        ln["hold"] = c.lanHold; ln["holdStart"] = c.lanHoldStart; ln["holdStop"] = c.lanHoldStop; ln["holdM"] = c.lanHoldM;
         ln["magAuto"] = c.headVarAuto;
         JsonObject at = d["att"].to<JsonObject>();
         at["on"] = c.attOn; at["step"] = c.attStep; at["staleS"] = c.attStaleS;
         at["rollSign"] = c.attRollSign; at["pitchSign"] = c.attPitchSign; at["yawSign"] = c.attYawSign;
         at["rollZero"] = c.attRollZero; at["pitchZero"] = c.attPitchZero; at["yawZero"] = c.attYawZero;
+        JsonObject gp = d["gps"].to<JsonObject>();
+        gp["on"] = c.gpsOn; gp["uart"] = c.gpsUart; gp["rx"] = c.gpsRx; gp["tx"] = c.gpsTx; gp["baud"] = c.gpsBaud;
+        gp["ublox"] = c.gpsUblox; gp["holdCms"] = c.gpsHoldCms; gp["holdM"] = c.gpsHoldM;
         JsonObject sk = d["sky"].to<JsonObject>();
         sk["step"] = c.skyStep; sk["minEl"] = c.skyMinEl; sk["refraction"] = c.skyRefr;
     #if ROTOR_HAS_LCD
@@ -198,11 +202,25 @@ namespace Config {
         if (c.lanHost.size() > 39 || c.owmKey.size() > 39) { err = "lan.host / lan.owmKey (39)"; return false; }
         if (c.lanUdp && (c.lanUdp == c.rotctldPort || c.lanUdp == c.apiPort)) { err = "lan.udp"; return false; }
         if (!(c.headStep >= 0.5 && c.headStep <= 45)) { err = "lan.headStep 0.5-45"; return false; }
+        if (!(c.lanHoldStop >= 0 && c.lanHoldStop <= c.lanHoldStart && c.lanHoldStart <= 100) || !(c.lanHoldM >= 0 && c.lanHoldM <= 1000)) { err = "lan.holdStart / holdStop / holdM"; return false; }
         if (!(c.headVar >= -90 && c.headVar <= 90)) { err = "lan.magVar -90..90"; return false; }
         if (!(c.skyStep >= 0.1 && c.skyStep <= 20)) { err = "sky.step 0.1-20"; return false; }
         if (!(c.skyMinEl >= -5 && c.skyMinEl <= 60)) { err = "sky.minEl -5..60"; return false; }
         if (!(c.attStep >= 0.1 && c.attStep <= 20)) { err = "att.step 0.1-20"; return false; }
         if (!(c.attStaleS >= 0.5 && c.attStaleS <= 120)) { err = "att.staleS 0.5-120"; return false; }
+        if (c.gpsOn) {
+            if (!ROTOR_ESP32) { err = "gps.on: solo en las placas ESP32 con WiFi"; return false; }
+            if (c.gpsUart < 1 || c.gpsUart > 2) { err = "gps.uart 1 / 2"; return false; }
+            if (c.gpsRx < 0 || c.gpsRx >= 100) { err = "gps.rx (GPIO del UART del GPS)"; return false; }
+            if (c.gpsTx < -1 || c.gpsTx >= 100) { err = "gps.tx (GPIO o -1 si no se configura el chip)"; return false; }
+            if (c.gpsBaud < 1200 || c.gpsBaud > 921600) { err = "gps.baud 1200-921600"; return false; }
+            if (!c.gpsUblox.empty() && c.gpsUblox != "m8" && c.gpsUblox != "m10" && c.gpsUblox != "x20") { err = "gps.ublox: m8 / m10 / x20 o vacio"; return false; }
+            if (c.gpsHoldCms < 0 || c.gpsHoldCms > 10000 || c.gpsHoldM < 0 || c.gpsHoldM > 65535) { err = "gps.holdCms / gps.holdM"; return false; }
+            const int rx = c.gpsRx, tx = c.gpsTx;                 // el UART del GPS no puede chocar con la pasarela ni con el CAT
+            if (rx == c.serRx || rx == c.serTx || (tx >= 0 && (tx == c.serRx || tx == c.serTx)) ||
+                rx == c.catRx || rx == c.catTx || (tx >= 0 && (tx == c.catRx || tx == c.catTx)) ||
+                rx == c.anemoPin || rx == c.serDe) { err = "gps.rx / gps.tx: GPIO en uso (pasarela, CAT, anemometro)"; return false; }
+        }
         if (c.lcdBright < 10 || c.lcdBright > 100 || c.lcdDimS < 0) { err = "lcd.bright 10-100 / lcd.dimS >= 0"; return false; }
         if (c.lcdTheme < 0 || c.lcdTheme > 1) { err = "lcd.theme 0 (app) / 1 (rotor)"; return false; }
         if (c.serDe < -1 || c.serDe >= 100) { err = "serial.de (GPIO de la placa o -1)"; return false; }
@@ -279,12 +297,16 @@ namespace Config {
         JsonVariantConst ln = d["lan"];
         get(ln, "kind", n.lanKind); getS(ln, "host", n.lanHost); get(ln, "port", n.lanPort); get(ln, "udp", n.lanUdp);
         getSecret(ln, "owmKey", n.owmKey); get(ln, "wind", n.lanWind); get(ln, "pos", n.lanPos);
+        get(ln, "hold", n.lanHold); getD(ln, "holdStart", n.lanHoldStart); getD(ln, "holdStop", n.lanHoldStop); getD(ln, "holdM", n.lanHoldM);
         get(ln, "heading", n.headComp); getD(ln, "headStep", n.headStep); getD(ln, "magVar", n.headVar); get(ln, "magAuto", n.headVarAuto);
         getD(d["sky"], "step", n.skyStep); getD(d["sky"], "minEl", n.skyMinEl); get(d["sky"], "refraction", n.skyRefr);
         JsonVariantConst at = d["att"];
         get(at, "on", n.attOn); getD(at, "step", n.attStep); getD(at, "staleS", n.attStaleS);
         get(at, "rollSign", n.attRollSign); get(at, "pitchSign", n.attPitchSign); get(at, "yawSign", n.attYawSign);
         getD(at, "rollZero", n.attRollZero); getD(at, "pitchZero", n.attPitchZero); getD(at, "yawZero", n.attYawZero);
+        JsonVariantConst gp = d["gps"];
+        get(gp, "on", n.gpsOn); get(gp, "uart", n.gpsUart); get(gp, "rx", n.gpsRx); get(gp, "tx", n.gpsTx); get(gp, "baud", n.gpsBaud);
+        getS(gp, "ublox", n.gpsUblox); get(gp, "holdCms", n.gpsHoldCms); get(gp, "holdM", n.gpsHoldM);
         get(d["lcd"], "bright", n.lcdBright); get(d["lcd"], "dimS", n.lcdDimS); get(d["lcd"], "theme", n.lcdTheme);
         JsonVariantConst lg = d["log"];
         get(lg, "sd", n.logSd); get(lg, "cs", n.logCs); get(lg, "everyS", n.logEveryS); get(lg, "keepDays", n.logKeepDays);

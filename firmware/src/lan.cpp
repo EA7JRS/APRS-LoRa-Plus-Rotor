@@ -20,19 +20,41 @@
 #include "tsync.h"
 #include "astro.h"
 #include "wmm.h"
+#include "rc_poshold.h"
+#include "rc_ubx.h"
 
 using namespace plotter;
 
 namespace Lan {
 
     static bool       on = false;
+    static bool       gpsOn = false;             // receptor u-blox conectado a un conector de la placa (NMEA por un UART)
     static DataStore  store;
-    static Nmea0183   tcpNmea, udpNmea;
-    static LineBuffer tcpLine, udpLine;
-    static uint32_t   tcpLines = 0, udpLines = 0, skValues = 0, lastMs = 0, wxMs = 0;
+    static Nmea0183   tcpNmea, udpNmea, gpsNmea;
+    static LineBuffer tcpLine, udpLine, gpsLine;
+    static uint32_t   tcpLines = 0, udpLines = 0, skValues = 0, gpsLines = 0, lastMs = 0, wxMs = 0;
     static const double KN_MS = 1852.0 / 3600.0;
+    static RC::PosHold posHold;                  // congela la posicion con el equipo parado (rc_poshold.h)
+    static double     heldLat = 0, heldLon = 0;
+    static bool       heldValid = false;
+    static uint32_t   holdMs = 0;
+    static HardwareSerial* gpsPort = nullptr;
+
+    static void gpsBegin() {
+        if (!gpsOn) return;
+        gpsPort = Cfg.gpsUart == 2 ? &Serial2 : &Serial1;
+        gpsPort->begin(Cfg.gpsBaud, SERIAL_8N1, Cfg.gpsRx, Cfg.gpsTx);
+        const std::string hold = RC::ubxStaticHold(Cfg.gpsUblox, Cfg.gpsHoldCms, Cfg.gpsHoldM);   // congela el chip con el equipo parado
+        if (Cfg.gpsTx >= 0 && !hold.empty()) { delay(50); gpsPort->write((const uint8_t*)hold.data(), hold.size()); }
+        logf("GPS u-blox: UART%d RX %d TX %d a %d baudios%s\n", Cfg.gpsUart, Cfg.gpsRx, Cfg.gpsTx, Cfg.gpsBaud,
+             hold.empty() ? "" : (" + static hold " + Cfg.gpsUblox).c_str());
+    }
 
     void begin() {
+        posHold.enabled = Cfg.lanHold;
+        posHold.startMs = Cfg.lanHoldStart; posHold.stopMs = Cfg.lanHoldStop; posHold.maxJumpM = Cfg.lanHoldM;
+        gpsOn = Cfg.gpsOn;
+        gpsBegin();
         on = Cfg.wifiMode != 0 && (Cfg.lanKind != 0 || Cfg.lanUdp > 0 || !Cfg.owmKey.empty());
         if (!on) return;
         net::Config c;
@@ -50,6 +72,17 @@ namespace Lan {
 
     static void readLines(uint32_t now) {
         static uint8_t buf[512];
+        if (gpsPort) {                                          // GPS u-blox local: NMEA (RMC, GGA...) al almacen, como la red
+            for (int round = 0; round < 4 && gpsPort->available(); round++) {
+                while (gpsPort->available()) {
+                    if (!gpsLine.push((char)gpsPort->read())) continue;
+                    gpsLines++;
+                    lastMs = now;
+                    tsync::offerNmea(gpsLine.line());
+                    gpsNmea.feed(gpsLine.line(), Source::Uart, now, store);
+                }
+            }
+        }
         if (Cfg.lanKind == net::TCP_SIGNALK) {                  // Signal K: una linea JSON por mensaje
             static char sk[2048];
             static int len = 0;
@@ -98,6 +131,20 @@ namespace Lan {
             put(Key::Gust, w.gustMs / KN_MS);
             wxMs = now ? now : 1;
         }
+        // Filtro de posicion con el equipo parado: ~1 vez por segundo (como el ritmo de los fix), con la velocidad de RMC / gpsd
+        if (now - holdMs >= 1000) {
+            holdMs = now;
+            double la, lo;
+            if (Cfg.lanPos && store.get(Key::Lat, now, la) && store.get(Key::Lon, now, lo)) {
+                double sog;
+                const bool haveSog = store.get(Key::Sog, now, sog);
+                posHold.update(la, lo, haveSog ? sog * KN_MS : -1.0, heldLat, heldLon);
+                heldValid = true;
+            } else {
+                heldValid = false;
+                posHold.reset();
+            }
+        }
     }
 
     // Declinacion para un compas magnetico: la del WMM en la posicion de la estacion (lan.magAuto) o lan.magVar
@@ -111,11 +158,11 @@ namespace Lan {
     }
 
     bool position(double& lat, double& lon) {
-        const uint32_t now = millis();
-        if (on && Cfg.lanPos && store.get(Key::Lat, now, lat) && store.get(Key::Lon, now, lon)) return true;
+        if ((on || gpsOn) && heldValid) { lat = heldLat; lon = heldLon; return true; }   // posicion (red o GPS local) con el filtro de parado
         lat = Cfg.lat; lon = Cfg.lon;
         return Cfg.lat != 0 || Cfg.lon != 0;
     }
+    bool held() { return (on || gpsOn) && heldValid && posHold.held(); }
 
     // Viento a la proteccion: el mayor de aparente y real (en un barco, lo que llega a la antena es el aparente), cada segundo.
     // Medido por la red manda sobre el tiempo de la app; el anemómetro de la caja, sobre todo.
@@ -140,14 +187,14 @@ namespace Lan {
     }
 
     void loop() {
-        if (!on) return;
+        if (!on && !gpsOn) return;
         const uint32_t now = millis();
         readLines(now);
         static uint32_t last = 0;
         if (now - last < 1000) return;
         last = now;
         double la, lo;
-        if (position(la, lo)) net::setPosition(la, lo);         // para pedir el tiempo de ese punto
+        if (on && position(la, lo)) net::setPosition(la, lo);   // para pedir el tiempo de ese punto
         RC::HeadingRotor& h = Drv::heading();
         double hdg;                                             // verdadero (HDT, VHW, Signal K) o magnetico + declinacion (HDG / HDM)
         if (store.get(Key::Heading, now, hdg)) h.setHeading(hdg, now);
@@ -162,6 +209,14 @@ namespace Lan {
         tm["src"] = plotter::timeSourceName(ts.source);
         if (ts.source != plotter::TimeSource::None) tm["age"] = ts.ageS;
         if (ts.ntp) tm["ntp"] = ts.ntpServer;
+        if (gpsOn) {                                              // receptor u-blox local
+            JsonObject g = o["gps"].to<JsonObject>();
+            g["lines"] = gpsLines;
+            double la, lo;
+            const uint32_t now = millis();
+            if (store.get(Key::Lat, now, la) && store.get(Key::Lon, now, lo)) { g["lat"] = round(la * 1e5) / 1e5; g["lon"] = round(lo * 1e5) / 1e5; }
+            if (heldValid) g["held"] = posHold.held();
+        }
         if (!on) return;
         const net::Status& s = net::status();
         JsonObject l = o["lan"].to<JsonObject>();
@@ -176,6 +231,7 @@ namespace Lan {
         if (!Cfg.owmKey.empty()) { l["wxOk"] = s.wxOk; l["wxFail"] = s.wxFail; if (wxMs) l["wxAge"] = (now - wxMs) / 1000; }
         double la, lo;
         if (store.get(Key::Lat, now, la) && store.get(Key::Lon, now, lo)) { l["lat"] = round(la * 1e5) / 1e5; l["lon"] = round(lo * 1e5) / 1e5; }
+        if (heldValid) l["held"] = posHold.held();
     }
 
     void posExtra(JsonObject o) {
@@ -198,6 +254,7 @@ namespace Lan {
     void begin() {}
     void loop() {}
     bool position(double& lat, double& lon) { lat = Cfg.lat; lon = Cfg.lon; return Cfg.lat != 0 || Cfg.lon != 0; }
+    bool held() { return false; }
     double declination() { return Cfg.headVar; }
     void info(JsonObject) {}
     void posExtra(JsonObject) {}

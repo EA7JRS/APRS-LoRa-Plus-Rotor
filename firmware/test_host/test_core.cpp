@@ -22,6 +22,8 @@
 #include "rc_rotctl_client.h"
 #include "rc_halfduplex.h"
 #include "rc_movelog.h"
+#include "rc_poshold.h"
+#include "rc_ubx.h"
 
 using namespace RC;
 
@@ -504,6 +506,62 @@ static void testAttitude() {
     o.clear(); s.handle("{\"c\":\"get\"}", h, o);
     CHECK(o.size() == 1); JsonDocument pe; deserializeJson(pe, o[0]);
     CHECK(pe["att"]["on"].as<bool>() && pe["att"]["r"].as<double>() == 0.0);           // el evento pos lleva "att"
+}
+
+// Filtro de posicion con el equipo parado (GPS): congela parado, histeresis para darlo por en marcha
+static void testPosHold() {
+    PosHold h;                 // startMs 0.97, stopMs 0.5, maxJumpM 15
+    double a, o;
+    h.update(36.721300, -4.421400, 0.0, a, o); CHECK(h.held()); NEAR(a, 36.721300, 1e-9); NEAR(o, -4.421400, 1e-9);
+    // baile del fix (~2 m) con velocidad baja: devuelve la referencia congelada
+    h.update(36.721315, -4.421390, 0.2, a, o); CHECK(h.held()); NEAR(a, 36.721300, 1e-9); NEAR(o, -4.421400, 1e-9);
+    // histeresis: 3 lecturas rapidas seguidas para darlo por en marcha
+    h.update(36.721320, -4.421390, 2.0, a, o); CHECK(h.held());
+    h.update(36.721340, -4.421390, 2.0, a, o); CHECK(h.held());
+    h.update(36.721360, -4.421390, 2.0, a, o); CHECK(!h.held()); NEAR(a, 36.721360, 1e-9);   // en marcha: sigue el fix
+    // de vuelta a parado y salto grande (~30 m) sin velocidad fiable: reubica
+    h.update(36.721300, -4.421400, 0.0, a, o); h.update(36.721300, -4.421400, 0.0, a, o); h.update(36.721300, -4.421400, 0.0, a, o);
+    CHECK(h.held());
+    h.update(36.721570, -4.421400, -1.0, a, o); CHECK(!h.held()); NEAR(a, 36.721570, 1e-9);   // ~30 m, sin velocidad
+    // desactivado: siempre el fix en bruto
+    PosHold h2; h2.enabled = false;
+    h2.update(36.721300, -4.421400, 0.0, a, o); h2.update(36.721305, -4.421404, 0.0, a, o);
+    CHECK(!h2.held()); NEAR(a, 36.721305, 1e-9); NEAR(o, -4.421404, 1e-9);
+    NEAR(PosHold::distM(36.72, -4.42, 36.72, -4.42), 0, 1e-9);
+    CHECK(PosHold::distM(0, 0, 0, 1) > 111000 && PosHold::distM(0, 0, 0, 1) < 111500);        // ~111,3 km por grado de longitud en el ecuador
+}
+
+// Tramas UBX del static hold de un u-blox conectado a la placa
+static bool ubxOk(const std::string& f, uint8_t cls, uint8_t id, uint16_t len) {
+    if (f.size() != (size_t)(8 + len)) return false;
+    if ((uint8_t)f[0] != 0xB5 || (uint8_t)f[1] != 0x62) return false;
+    if ((uint8_t)f[2] != cls || (uint8_t)f[3] != id) return false;
+    if ((uint8_t)f[4] != (len & 0xFF) || (uint8_t)f[5] != (len >> 8)) return false;
+    uint8_t a = 0, b = 0;
+    for (size_t i = 2; i < f.size() - 2; i++) { a = (uint8_t)(a + (uint8_t)f[i]); b = (uint8_t)(b + a); }
+    return (uint8_t)f[f.size() - 2] == a && (uint8_t)f[f.size() - 1] == b;
+}
+static void testUbx() {
+    // M10 / X20: UBX-CFG-VALSET (0x06 0x8A), 15 bytes de payload
+    std::string v = RC::ubxValsetHold(10, 2);
+    CHECK(ubxOk(v, 0x06, 0x8A, 15));
+    CHECK((uint8_t)v[6] == 0x00 && (uint8_t)v[7] == 0x03);                  // version 0, capas RAM+BBR
+    CHECK((uint8_t)v[10] == 0x38 && (uint8_t)v[11] == 0x00 && (uint8_t)v[12] == 0x25 && (uint8_t)v[13] == 0x20);  // CFG-MOT-GNSSSPEED_THRS
+    CHECK((uint8_t)v[14] == 10);                                            // 10 cm/s
+    CHECK((uint8_t)v[15] == 0x3B && (uint8_t)v[18] == 0x30);                // CFG-MOT-GNSSDIST_THRS
+    CHECK((uint8_t)v[19] == 2 && (uint8_t)v[20] == 0);                      // 2 m (U2 LE)
+    // u-blox 8: UBX-CFG-NAV5 (0x06 0x24), 36 bytes, solo static hold
+    std::string n = RC::ubxCfgNav5Hold(12, 3);
+    CHECK(ubxOk(n, 0x06, 0x24, 36));
+    CHECK((uint8_t)n[6] == 0x40 && (uint8_t)n[7] == 0x00);                  // mask = solo static hold
+    CHECK((uint8_t)n[6 + 22] == 12);                                       // staticHoldThresh
+    CHECK((uint8_t)n[6 + 28] == 3 && (uint8_t)n[6 + 29] == 0);              // staticHoldMaxDist
+    // selector por chip; cms <= 0 o desconocido -> vacia
+    CHECK(RC::ubxStaticHold("m10", 10, 2) == v);
+    CHECK(RC::ubxStaticHold("m8", 12, 3) == n);
+    CHECK(RC::ubxStaticHold("x20", 10, 2) == v);
+    CHECK(RC::ubxStaticHold("m10", 0, 2).empty());
+    CHECK(RC::ubxStaticHold("otro", 10, 2).empty());
 }
 
 // Anemómetro de cazoletas: impulsos -> viento, medio, racha
@@ -1092,6 +1150,8 @@ int main() {
     testWind();
     testHeading();
     testAttitude();
+    testPosHold();
+    testUbx();
     testSky();
     testAnemo();
     testCatCiv();

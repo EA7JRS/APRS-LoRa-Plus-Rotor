@@ -206,6 +206,22 @@ Con `gps.on`, ningún pin de `stepper` puede ser el GPIO18 (el PPS del Uputronic
 
 El filtro `hold` es el mismo del tracker APRS LoRa+ (histéresis con dos umbrales y 3 lecturas): parado devuelve la posición congelada y el apuntado no baila; en marcha (coche / barco) sigue el fix en vivo. Con `ublox`, además, el propio receptor hace su static hold: el **Uputronics GPS/RTC HAT lleva un u-blox 8 (M8030)** → `m8`; el **MAX breakout es un MAX-M10S** → `m10`; la **ZED-X20P** (alta precisión) → `x20`. Vacía `gps.ctrlSock` para no tocar el receptor.
 
+## `gps` (receptor u-blox local, solo pantallas ESP32 con WiFi)
+
+Alternativa a la posición por gpsd en red (`lan`): un receptor u-blox conectado al UART de un conector de la placa. Lee NMEA (RMC, GGA…) y su posición manda sobre la fija de Estación; al arrancar le manda el static hold por UBX (`rc_ubx.h`). El filtro de congelado con el equipo parado es el de `lan` (`lan.hold*`), que se aplica igual venga la posición de la red o del GPS local.
+
+| Clave | Por defecto | |
+|---|---|---|
+| `gps.on` | false | receptor u-blox local por UART |
+| `gps.uart` | 1 | UART de la placa (1 o 2); debe estar libre de la pasarela serie y del CAT |
+| `gps.rx` / `gps.tx` | -1 / -1 | GPIO del UART (TX solo hace falta para mandarle el static hold; -1 = no configurar el chip) |
+| `gps.baud` | 9600 | baudios del receptor |
+| `gps.ublox` | "" | static hold por UBX: `m8` (CFG-NAV5), `m10` / `x20` (CFG-VALSET), "" = no tocar el chip |
+| `gps.holdCms` | 80 | umbral de velocidad del static hold del chip (cm/s) |
+| `gps.holdM` | 10 | distancia máxima del static hold del chip (m) |
+
+El UART del GPS no puede compartir GPIO con la pasarela serie (`serial.rx/tx/de`), el CAT (`cat.rx/tx`) ni el anemómetro. En las placas con solo dos UART (ESP32-C5 / C6) uno lo usa la consola: reparte `gps.uart` entre la pasarela/CAT y el GPS según lo que tengas conectado.
+
 ## `aprs`
 
 `call` (indicativo del rotor), `tocall` (`APZLRR`), `path`, `allow`, `totp`, `reply`, `beaconMin`, `lat`, `lon`, `comment`. Ver [APRS_CONTROL.md](APRS_CONTROL.md).

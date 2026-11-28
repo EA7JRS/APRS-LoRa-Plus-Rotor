@@ -138,6 +138,12 @@ struct RotorConfig {
     std::string owmKey;                     // OpenWeatherMap: viento de internet sin la app (en lan.pos o en aprs.lat / lon)
     bool        lanWind = true;             // viento de la red (MWV, Signal K) o de OpenWeatherMap para la proteccion por viento
     bool        lanPos = true;              // posicion de la red como posicion de la estacion (baliza APRS, tiempo de internet)
+    // Posicion fija con el equipo parado (rc_poshold.h): el baile del fix de gpsd / NMEA no mueve el apuntado. Vale para un
+    // u-blox en un conector de la placa (NMEA) o para gpsd por la red. Histeresis con dos umbrales (m/s de RMC) y 3 lecturas.
+    bool        lanHold = true;
+    double      lanHoldStart = 0.97;        // m/s para darlo por en marcha
+    double      lanHoldStop = 0.5;          // m/s para volver a parado
+    double      lanHoldM = 15.0;            // salto en m que tambien lo da por movido sin velocidad fiable
     bool        headComp = false;           // rotor en un barco o un coche: acimut verdadero con el rumbo de la red (rc_heading.h)
     double      headStep = 3.0;             // grados de cambio de rumbo para volver a apuntar
     double      headVar = 0.0;              // declinacion (grados, E positiva) para un compas que solo da rumbo magnetico (HDG / HDM)
@@ -150,6 +156,17 @@ struct RotorConfig {
     double      attStaleS = 5.0;            // sin actitud nueva en este tiempo: dato viejo
     int         attRollSign = 1, attPitchSign = 1, attYawSign = 1;
     double      attRollZero = 0.0, attPitchZero = 0.0, attYawZero = 0.0;    // cero del montaje (tara)
+
+    // Receptor GPS u-blox conectado a un conector de la placa (NMEA por un UART). Alternativa a la posicion por gpsd en red.
+    // Al arrancar se le manda el static hold (rc_ubx.h) para que congele la posicion con el equipo parado; el filtro lanHold lo
+    // refina igual que con la red. gpsUblox: "m8" (UBX-CFG-NAV5), "m10" / "x20" (UBX-CFG-VALSET); vacio = no configurar el chip.
+    bool        gpsOn = false;
+    int         gpsUart = 1;                 // UART de la placa (1 o 2) libre de la pasarela / CAT
+    int         gpsRx = -1, gpsTx = -1;     // pines del UART del GPS (TX solo para mandarle el static hold)
+    int         gpsBaud = 9600;
+    std::string gpsUblox;                   // "m8" / "m10" / "x20" (vacio = cualquier NMEA, sin configurar el chip)
+    int         gpsHoldCms = 80;            // umbral de velocidad del static hold del chip (cm/s)
+    int         gpsHoldM = 10;              // distancia maxima del static hold del chip (m)
 
     // Seguir el sol o la luna (orden "track", lib/RotorCore/src/rc_sky.h)
     double      skyStep = 1.0;              // grados de cambio para volver a apuntar

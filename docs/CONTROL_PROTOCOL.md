@@ -77,6 +77,8 @@ Red local (ESP32 y Raspberry Pi, `caps.lan`): `"clock":{"src":"GPS","age":120,"n
 
 GPS propio de la Raspberry (`gps.on`, `caps.gps`): `"gps":{"link":true,"fix":3,"sats":9,"seen":14,"pps":true,"held":true,"lat":36.72,"lon":-4.42,"alt":12.5}` (`fix` 0 sin posición, 2 = 2D, 3 = 3D; `pps` = pulso en los últimos 3 s; `held` = la posición está congelada por el filtro de equipo parado, `gps.hold`).
 
+Receptor u-blox local de una pantalla ESP32 (`gps.on` por UART, sin `caps.gps`): `"gps":{"lines":842,"lat":36.72,"lon":-4.42,"held":true}` (`lines` = sentencias NMEA leídas; `held` = la posición está congelada por el filtro de equipo parado, que en ESP32 es el de `lan.hold*`).
+
 ### `pos`
 
 ```json
