@@ -45,7 +45,7 @@ DEFAULTS["wind"] = {"on": False, "park": 15.0, "resume": 10.0, "hold": 15}   # p
 # UDP (0 = no); OpenWeatherMap; wind / pos: usar su viento y su posicion; heading: acimut verdadero con el rumbo (heading.py)
 DEFAULTS["lan"] = {"kind": 0, "host": "", "port": 10110, "udp": 0, "owmKey": "", "wind": True, "pos": True,
                    "heading": False, "headStep": 3.0, "magVar": 0.0, "magAuto": True}
-DEFAULTS["sky"] = {"step": 0.1, "minEl": 0.0, "refraction": True}   # seguir el sol o la luna (orden "track"); reapunta al moverse "step" grados
+DEFAULTS["sky"] = {"step": 0.01, "minEl": 0.0, "refraction": True}  # seguir el sol o la luna (orden "track"); reapunta al moverse "step" grados (az/el)
 # Enlace punto a punto (P2P): apuntar a otra estacion (orden "track" p2p). src: fixed (loc/coords), net (app), aprs (baliza
 # del indicativo "call"). La posicion propia sale del GPS / lan / fija; la del otro extremo, de src. curv = curvatura terrestre.
 DEFAULTS["p2p"] = {"src": "fixed", "lat": 0.0, "lon": 0.0, "alt": 0.0, "loc": "", "call": "", "curv": True}
@@ -123,8 +123,8 @@ def validate(c: dict) -> str:
         if not 1 <= int(c["gps"]["port"]) <= 65535 or not c["gps"]["host"]:
             return "gps.host / gps.port"
         sk = c["sky"]
-        if not 0.05 <= float(sk["step"]) <= 20 or not -5 <= float(sk["minEl"]) <= 60:
-            return "sky.step 0.05-20 / sky.minEl -5..60"
+        if not 0.01 <= float(sk["step"]) <= 20 or not -5 <= float(sk["minEl"]) <= 60:
+            return "sky.step 0.01-20 / sky.minEl -5..60"
         pp = c["p2p"]
         if pp["src"] not in ("fixed", "net", "aprs"):
             return "p2p.src fixed / net / aprs"

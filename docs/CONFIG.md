@@ -132,7 +132,7 @@ Seguir el sol o la luna (orden `track`).
 
 | Clave | Por defecto | |
 |---|---|---|
-| `step` | 0.1 | grados que tiene que moverse el astro (o el satélite) para volver a apuntar (0,05-20; más fino = apuntado más preciso, más saltitos) |
+| `step` | 0.01 | grados que tiene que moverse el astro (o el satélite) para volver a apuntar, en az/el (0,01-20; por debajo de la resolución de paso del eje no afina más) |
 | `minEl` | 0 | por debajo de esta elevación espera (-5 a 60) |
 | `refraction` | true | suma la refracción media (lo que ve la antena) |
 
