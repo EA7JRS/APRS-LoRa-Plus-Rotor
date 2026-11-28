@@ -15,10 +15,11 @@ ESP32 el modo SAT no está (de momento); el seguimiento sol/luna y P2P sí.
 ## Cómo se usa
 - **WebUI** → tarjeta *Mando* → **🛰 SAT**: abre el selector con la lista de satélites, cada uno
   con su próximo paso (hora UTC y culminación) y los visibles ahora arriba del todo. Hay un
-  **buscador**, **filtros por categoría** (Amateur, CubeSats, SatNOGS, Meteo, Geo, LoRa,
-  Estaciones…) y un filtro **Activos** (los que AMSAT ha oído en las últimas 24 h, con un punto
-  verde). Pulsar un satélite y el rotor empieza a seguirlo. La tarjeta *Objetivo* muestra
-  `🛰 nombre`, az/el, culminación máxima, LOS y distancia.
+  **buscador**, **filtros por categoría** (en orden alfabético y solo las que existen en los
+  datos: Amateur, CubeSats, Educación, Estaciones, Geo, Ingeniería, Inmarsat, Iridium, LEO, LoRa,
+  Meteo, SatNOGS, Visuales, Ciencia) y un filtro **Activos** (los que AMSAT ha oído en las últimas
+  24 h, con un punto verde). Pulsar un satélite y el rotor empieza a seguirlo. La tarjeta
+  *Objetivo* muestra `🛰 nombre`, az/el, culminación máxima, LOS y distancia.
 - **Actualizar TLE**: botón del propio selector (descarga en segundo plano) o automático
   (ver `sat.refreshH`); también refresca el estado de AMSAT.
 - **Órdenes** (API JSON / app): `{"c":"sats"}` lista (con `grp` = letra de categoría y `act` =
@@ -36,7 +37,9 @@ ESP32 el modo SAT no está (de momento); el seguimiento sol/luna y P2P sí.
   de CelesTrak) si prefieres otra fuente.
 - Formato propio: líneas `S|norad|nombre|cat|grupos`, las dos de TLE y líneas `T|…`
   (transpondedores, que el rotor ignora de momento; el apuntado solo necesita el TLE). La
-  **categoría** de cada satélite (letra en `grupos`) alimenta el filtro del selector.
+  **categoría** de cada satélite (letra en `grupos`) alimenta el filtro del selector. Además, el
+  rotor deriva **Inmarsat** e **Iridium** del nombre y **LEO** del movimiento medio del TLE, y el
+  selector solo muestra las categorías que existen en los datos cargados, en orden alfabético.
 - Caché en `/var/lib/aprs-lora-plus-rotor/sats.txt`; se refresca cada `sat.refreshH` horas
   (0 = nunca) y al arrancar si falta o está viejo. El satélite elegido se recuerda en `sat.name`
   y se vuelve a enlazar tras cada actualización.
@@ -66,7 +69,7 @@ config (`aprs.lat` / `aprs.lon`). Sin posición, el selector avisa y no calcula 
 
 La elevación mínima para considerar un paso y para esperar «bajo el horizonte» es `sky.minEl`
 (la misma que sol/luna). El umbral de reapuntado es `sky.step`. En modo satélite el seguimiento
-recalcula y re-apunta a **10 Hz** (cada 0,1 s; los LEO se mueven rápido), frente a los 2 s de sol/luna/P2P.
+recalcula y re-apunta a **10 Hz** (cada 0,1 s; los LEO se mueven rápido), frente a 1 s en sol/luna/P2P.
 Si los motores aún se quedan atrás cerca del cenit (paso alto), sube la velocidad y la aceleración
 del eje (`stepper.<eje>.dps` y `.accel`).
 

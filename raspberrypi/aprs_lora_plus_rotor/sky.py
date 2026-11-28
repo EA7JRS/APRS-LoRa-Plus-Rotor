@@ -33,7 +33,7 @@ def position(target: int, lat: float, lon: float, t: float, refraction: bool = T
 
 
 class SkyRotor:
-    def __init__(self, inner, step: float = 1.0, min_el: float = 0.0, refraction: bool = True, period: float = 2.0,
+    def __init__(self, inner, step: float = 1.0, min_el: float = 0.0, refraction: bool = True, period: float = 1.0,
                  curvature: bool = True):
         self._inner = inner
         self.step, self.min_el, self.refraction, self.period = step, min_el, refraction, period

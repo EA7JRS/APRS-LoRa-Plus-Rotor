@@ -158,7 +158,7 @@ class Daemon(ApiHost):
     def sat_info(self) -> dict:
         return {"updated": int(self.satdb.updated), "n": len(self.satdb.sats),
                 "name": self.sky.sat.name if self.sky.sat else "", "haspos": self._sat_pos() is not None,
-                "groups": [list(g) for g in sat.GROUPS], "amsat": self.satdb.amsat_on,
+                "groups": self.satdb.groups(), "amsat": self.satdb.amsat_on,
                 "amsatAt": int(self.satdb.active_at), "nactive": len(self.satdb.active_keys)}
 
     def select_sat(self, key: str) -> str:

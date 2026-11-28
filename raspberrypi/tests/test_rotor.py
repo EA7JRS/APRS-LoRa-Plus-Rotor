@@ -1061,8 +1061,22 @@ class TestSat(unittest.TestCase):
                + SO50_L2.replace("27607", "53109") + "\n")
         ss = sat.parse_sats(txt)
         self.assertEqual([s.name for s in ss], ["ISS (ZARYA)", "GREENCUBE (IO-117)"])
-        self.assertEqual(ss[0].groups, "sa")
-        self.assertEqual(ss[1].groups, "cg")                 # 'g' de la categoria GEO, sin duplicar
+        self.assertEqual(ss[0].groups, "saE")                # 'E' de LEO, derivada del movimiento medio del TLE
+        self.assertEqual(ss[1].groups, "cgE")                # 'g' de la categoria GEO, sin duplicar; 'E' = LEO
+
+    def test_derived_groups(self):
+        from aprs_lora_plus_rotor import sat
+        inm = ("S|23839|INMARSAT 3-F1|G|g\n"
+               "1 23839U 96020A   26331.13174167 -.00000256  00000+0  00000+0 0  9999\n"
+               "2 23839  10.9367  45.0977 0008556 206.4043 322.1371  0.99980242111889\n")
+        s = sat.parse_sats(inm)[0]
+        self.assertIn("I", s.groups)                         # Inmarsat por el nombre
+        self.assertNotIn("E", s.groups)                      # geoestacionario, no LEO
+        db = sat.SatDb({"tleUrl": "x", "amsat": False})
+        db._set(sat.parse_sats(inm) + sat.parse_sats(TLE_TXT), 1e9)
+        names = [g[1] for g in db.groups()]
+        self.assertEqual(names, sorted(names, key=str.lower))   # orden alfabetico
+        self.assertIn("Inmarsat", names)
 
     def test_amsat_active(self):
         from aprs_lora_plus_rotor import sat

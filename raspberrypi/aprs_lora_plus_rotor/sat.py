@@ -38,8 +38,25 @@ DEFAULT_AMSAT = "https://status.amsat.org/api/v1/summary.php"
 DEFAULT_AMSAT_CACHE = "/var/lib/aprs-lora-plus-rotor/amsat.json"
 
 # Categorias (letra del grupo -> nombre), como Sat.GROUPS de la app. "l" y "g" salen de la categoria (LoRa, GEO).
+# Las mayusculas I/R/E se derivan del nombre o la orbita (Inmarsat, Iridium, LEO) y no chocan con las del fichero.
 GROUPS = [("s", "Estaciones"), ("a", "Amateur"), ("c", "CubeSats"), ("n", "SatNOGS"), ("w", "Meteo"),
-          ("v", "Visuales"), ("x", "Ciencia"), ("d", "Educación"), ("e", "Ingeniería"), ("l", "LoRa"), ("g", "Geo")]
+          ("v", "Visuales"), ("x", "Ciencia"), ("d", "Educación"), ("e", "Ingeniería"), ("l", "LoRa"), ("g", "Geo"),
+          ("I", "Inmarsat"), ("R", "Iridium"), ("E", "LEO")]
+
+
+def _augment_groups(name: str, l2: str, groups: str) -> str:
+    """Anade categorias derivadas: Inmarsat / Iridium por el nombre, LEO por el movimiento medio del TLE."""
+    u = (name or "").upper()
+    for key, letter in (("INMARSAT", "I"), ("IRIDIUM", "R")):
+        if key in u and letter not in groups:
+            groups += letter
+    try:
+        mm = float((l2 or "")[52:63])                         # movimiento medio (rev/dia); LEO: periodo < ~128 min
+        if mm >= 11.25 and "E" not in groups:
+            groups += "E"
+    except ValueError:
+        pass
+    return groups
 
 
 def _ymdhms(when: float):
@@ -77,7 +94,7 @@ class Sat:
     def __init__(self, name: str, l1: str, l2: str, groups: str = ""):
         self.name = name.strip()
         self.l1, self.l2 = l1.strip(), l2.strip()
-        self.groups = groups
+        self.groups = _augment_groups(self.name, self.l2, groups)
         self._rec = None
 
     @property
@@ -221,6 +238,7 @@ class SatDb:
         self.active_keys: set = set()                             # designadores normalizados oidos (AMSAT)
         self.active_at = 0.0
         self.sats: list = []
+        self.group_letters: set = set()                           # categorias presentes en los datos
         self.by_key: dict = {}
         self.updated = 0.0
         self._list_cache = None
@@ -249,11 +267,18 @@ class SatDb:
     def _set(self, sats: list, when: float):
         self.sats = sats
         self.by_key = {}
+        letters: set = set()
         for s in sats:
             self.by_key[s.name.upper()] = s
             self.by_key[s.catnum] = s
+            letters.update(s.groups)
+        self.group_letters = letters
         self.updated = when
         self._list_cache = None
+
+    def groups(self) -> list:
+        """Categorias que de verdad hay en los datos cargados (letra, nombre), por orden alfabetico del nombre."""
+        return sorted(([g[0], g[1]] for g in GROUPS if g[0] in self.group_letters), key=lambda g: g[1].lower())
 
     def update(self, timeout: float = 20.0) -> str:
         """Descarga el TLE y lo guarda en cache. '' si va bien; si no, el motivo. Bloquea (usar en executor)."""
