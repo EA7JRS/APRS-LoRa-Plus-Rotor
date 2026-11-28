@@ -84,6 +84,10 @@ Pines por defecto del tercer eje (libres, sin chocar con el HAT ni con el PPS de
 
 Mecánica igual que az/el (`stepper.x`: `stepsRev`, `micro`, `gear`, `dps`, `accel`, `invert`, `hold`, `home`…) y topes propios `stepper.minX` / `maxX` (de serie ±41,25°).
 
+#### Nivelación automática con el balanceo (cross-level)
+
+En móvil (vehículo o barco), el eje de inclinación puede **nivelar solo** con la escora. Enciende la compensación de actitud (`att.on`) con una IMU que dé escora y cabeceo (orden `att`, o la que mande la app / el tracker), y activa `att.level`. Con ello, el eje X gira para **cancelar la escora** (el balanceo) hasta su tope, y el acimut / elevación afinan el resto de la inclinación; así la antena sigue apuntando al objetivo aunque la base se mueva. `att.xSign` (−1 / 1) calibra el sentido del eje si nivela al revés. En la WebUI, cuando está nivelando, la línea de actitud lo indica («nivelando (cross-level)»). En estación fija deja `att.level` apagado: el eje se aparca al centro. (Requiere una antena con tercer eje, `stepper.x.on`.)
+
 #### Ejemplo: domo Satlink FB250+ (tren por correa GT2, piñón de 12 dientes)
 
 Reducción `gear` = dientes del plato / 12. Con los DIP del HAT a 1/16 (`micro` 16; D0-D2 y D3-D5 = 0·0·1) y el TMC2209 del tercer eje también a 1/16:

@@ -173,6 +173,8 @@ Compensación de actitud en plataforma móvil (coche / barco) o si el mástil gi
 | `att.step` | 0.5 | umbral de reapuntado al cambiar la actitud (grados) |
 | `att.staleS` | 5 | segundos tras los que la actitud se da por vieja |
 | `att.rollSign` / `pitchSign` / `yawSign` | 1 | signo de cada eje (±1) para calibrar la IMU |
+| `att.level` | false | nivela la escora con el 3.er eje (inclinación / cross-level) si la antena lo tiene (`stepper.x`) |
+| `att.xSign` | 1 | signo del eje de inclinación (±1) para la nivelación cross-level |
 
 ## `driver`, `stepper` y `gps` (solo Raspberry Pi)
 

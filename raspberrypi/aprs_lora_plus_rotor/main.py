@@ -77,7 +77,8 @@ class Daemon(ApiHost):
         at = d["att"]
         self.att = AttitudeRotor(WindRotor(self.base, self.wind), bool(at["on"]), float(at["step"]), float(at["staleS"]),
                                  int(at["rollSign"]), int(at["pitchSign"]), int(at["yawSign"]),
-                                 float(at["rollZero"]), float(at["pitchZero"]), float(at["yawZero"]))
+                                 float(at["rollZero"]), float(at["pitchZero"]), float(at["yawZero"]),
+                                 bool(at["level"]), int(at["xSign"]))
         self.heading = HeadingRotor(self.att, bool(d["lan"]["heading"]), float(d["lan"]["headStep"]))
         sk = d["sky"]
         self.sky = SkyRotor(self.heading, float(sk["step"]), float(sk["minEl"]), bool(sk["refraction"]),

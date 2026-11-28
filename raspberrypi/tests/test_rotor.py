@@ -301,6 +301,57 @@ class TestHeading(unittest.TestCase):
         self.assertIsNone(h2.target)
 
 
+class _XRotor:
+    """Rotor de pega con eje X (inclinacion) para probar la nivelacion cross-level."""
+    def __init__(self):
+        self.az = self.el = 0.0
+        self.min_az, self.max_az, self.min_el, self.max_el = 0.0, 360.0, 0.0, 90.0
+        self.has_x, self.min_x, self.max_x, self.x = True, -40.0, 40.0, 0.0
+    def set_pos(self, az, el):
+        self.az, self.el = az, el
+        return True
+    def set_az(self, az):
+        self.az = az
+        return True
+    def set_axis(self, name, deg):
+        if name == "x":
+            self.x = deg
+            return True
+        return False
+    def get_pos(self):
+        return self.az, self.el
+    def stop(self):
+        return True
+    def park(self):
+        return True
+    def move(self, d, s):
+        return True
+    def status(self):
+        return 0
+
+
+class TestCrossLevel(unittest.TestCase):
+    def test_cross_level(self):
+        from aprs_lora_plus_rotor.attitude import AttitudeRotor
+        f = _XRotor()
+        a = AttitudeRotor(f, enabled=True, level=True, x_sign=1)
+        self.assertTrue(a.leveling)
+        a.set_attitude(10.0, 0.0, 0.0)                         # escora 10°
+        a.set_pos(100.0, 20.0)
+        self.assertAlmostEqual(f.x, -10.0)                     # el eje X cancela la escora
+        self.assertAlmostEqual(f.az, 100.0, places=3)          # residuo 0: el az/el es el nivelado
+        self.assertAlmostEqual(f.el, 20.0, places=3)
+        a.set_attitude(60.0, 0.0, 0.0)                         # escora mayor que el tope del eje (±40)
+        a.set_pos(100.0, 20.0)
+        self.assertAlmostEqual(f.x, -40.0)                     # el eje llega al tope; el az/el afina el resto
+        self.assertTrue(a.info_event().get("lvl"))
+        f.x = 5.0                                              # con level off el eje no se toca
+        a.level = False
+        self.assertFalse(a.leveling)
+        a.set_pos(100.0, 20.0)
+        self.assertEqual(f.x, 5.0)
+
+
 class TestSky(unittest.TestCase):
     def test_formulas(self):
         # Mismos valores que el plotter (pygeomag y PyEphem)

@@ -69,12 +69,15 @@ def unaim(az_m: float, el_m: float, roll: float, pitch: float, yaw: float) -> tu
 class AttitudeRotor:
     def __init__(self, inner, enabled: bool = False, step: float = 0.5, stale_s: float = 5.0,
                  roll_sign: int = 1, pitch_sign: int = 1, yaw_sign: int = 1,
-                 roll_zero: float = 0.0, pitch_zero: float = 0.0, yaw_zero: float = 0.0):
+                 roll_zero: float = 0.0, pitch_zero: float = 0.0, yaw_zero: float = 0.0,
+                 level: bool = False, x_sign: int = 1):
         self._inner = inner
         self.enabled = enabled
         self.step = step
         self.stale_s = stale_s
         self.rs, self.ps, self.ys = roll_sign, pitch_sign, yaw_sign
+        self.level = level                                        # nivelar la escora con el 3.er eje (cross-level)
+        self.xs = 1 if x_sign >= 0 else -1                        # sentido del eje de inclinacion
         self.zr, self.zp, self.zy = float(roll_zero), float(pitch_zero), float(yaw_zero)   # cero del montaje (tara)
         self.have = False
         self.roll = self.pitch = self.yaw = 0.0                   # efectivos (crudo con signo menos la tara)
@@ -142,13 +145,29 @@ class AttitudeRotor:
         now = time.monotonic() if now is None else now
         return int(now - self._att_t) if self.have else 0
 
+    @property
+    def leveling(self) -> bool:
+        return self.level and bool(getattr(self._inner, "has_x", False))
+
+    def _level_roll(self) -> float:
+        """Nivelacion con el 3.er eje (cross-level): mueve el eje X para cancelar la escora (balanceo) y devuelve
+        la escora que queda (la que el eje no pudo quitar, por el tope) para que la afine el az/el."""
+        roll = self.roll
+        if not self.leveling:
+            return roll
+        t = -self.xs * roll
+        t = min(max(t, self._inner.min_x), self._inner.max_x)     # dentro del recorrido del eje de inclinacion
+        self._inner.set_axis("x", t)
+        return roll + self.xs * t                                 # residuo: 0 si cupo entero en el eje
+
     def _aim(self, now: float) -> bool:
         az, el = self.target
         self._aim_att, self._aim_t = self._att(), now
+        roll = self._level_roll()                                 # el eje X se lleva la escora; queda el residuo
         if el is None:
-            am, _ = aim(az, 0.0, self.roll, self.pitch, self.yaw)
+            am, _ = aim(az, 0.0, roll, self.pitch, self.yaw)
             return self._inner.set_az(am)
-        am, em = aim(az, el, self.roll, self.pitch, self.yaw)
+        am, em = aim(az, el, roll, self.pitch, self.yaw)
         em = min(max(em, self._inner.min_el), self._inner.max_el)
         return self._inner.set_pos(am, em)
 
@@ -176,6 +195,8 @@ class AttitudeRotor:
         if not self.enabled and not self.have:
             return None
         d = {"on": self.enabled}
+        if self.leveling:
+            d["lvl"] = True
         if self.have:
             d["r"], d["p"], d["y"] = round(self.roll, 1), round(self.pitch, 1), round(self.yaw, 1)
             d["age"] = self.age_s(now)

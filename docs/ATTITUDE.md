@@ -22,6 +22,11 @@ de modo que el eje de la antena apunta al objetivo. Vale para **2 y 3 ejes**: en
 estabiliza mecánicamente y esto afina lo que no llegue; en una antena de 2 ejes hace toda la compensación (con el límite
 natural cerca del cenit).
 
+Con **`att.level`** activado y una antena de 3 ejes (`stepper.x`), el tercer eje nivela **solo**: gira para **cancelar la
+escora** (el balanceo) hasta su tope, y el az/el afina el resto. Así, en un coche o un barco, la base puede escorar y la
+antena sigue a nivel. `att.xSign` (±1) invierte el sentido del eje si nivela al revés. El evento `pos` lleva `att.lvl`
+true mientras nivela. En estación fija deja `att.level` apagado (el eje se aparca al centro).
+
 Va en la cadena por dentro del rumbo: `clientes → SkyRotor → HeadingRotor (rumbo) → AttitudeRotor (actitud) → viento →
 rotor`. Reapunta cuando la actitud cambia `att.step` grados o más, como mucho 2 veces por segundo; si el dato se queda
 `att.staleS` segundos sin refrescar, se da por viejo (`old`). Con `att.on` apagado o sin dato, el az/el pasa sin tocar.
