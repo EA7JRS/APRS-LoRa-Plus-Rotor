@@ -66,8 +66,12 @@ const t=document.getElementById('csm');t.textContent=v<0?'S—':(v<=9?'S'+v:'S9+
 <canvas id="cmp" width="260" height="260"></canvas>
 <div class="row" style="justify-content:space-around"><div>AZ <span class="big" id="az">--</span>°</div><div id="elbox">EL <span class="big" id="el">--</span>°</div></div>
 <div class="row mut" style="justify-content:space-around"><span id="tgt"></span><span id="st"></span></div>
-<div class="row" id="trk" style="display:none;justify-content:space-around"></div>
 <div class="row mut" id="aprs"></div></div>
+
+<div class="c" id="trkc" style="display:none"><h3>Objetivo en seguimiento</h3>
+<div class="row"><span class="big" id="trkName">—</span></div>
+<div class="row" style="justify-content:space-around"><div>AZ <span class="big" id="trkAz">--</span>°</div><div>EL <span class="big" id="trkEl">--</span>°</div></div>
+<div class="row mut" id="trkInfo"></div></div>
 
 <div class="c" id="gpsc" style="display:none"><h3>GPS</h3>
 <div class="row"><span class="big" id="gfix">--</span><span class="mut" id="gsat"></span><span class="mut" id="gpps"></span></div>
@@ -149,7 +153,7 @@ async function poll(){try{const r=await api([{c:'get'}]);pos=r[0];$('az').textCo
 if(pos.el!=null){$('el').textContent=pos.el.toFixed(1)}else $('elbox').style.display='none';
 $('tgt').textContent=pos.taz!=null?('→ '+pos.taz.toFixed(1)+(pos.tel!=null?' / '+pos.tel.toFixed(1):'')):'';
 $('st').innerHTML=(pos.mv?'moviendo · ':'')+'<span class="f '+(pos.f=='OK'?'okc':'bad')+'">'+pos.f+'</span>'+(pos.maz!=null&&pos.maz>=360?' · solape':'')+(pos.wind&&pos.wind.ws!=null?' · viento '+pos.wind.ws+(pos.wind.wg!=null?'/'+pos.wind.wg:'')+' m/s'+(pos.wind.bf!=null?' F'+pos.wind.bf:'')+(pos.wind.lk?' (aparcado)':''):'')+(pos.trk?' · '+(pos.trk.t=='sun'?'☀ sol ':'☾ luna ')+(pos.trk.below?'bajo el horizonte ('+pos.trk.el.toFixed(0)+'°)':pos.trk.az.toFixed(1)+' / '+pos.trk.el.toFixed(1)):'');
-var T=pos.trk;if(T){$('trk').style.display='';var ic=T.t=='sun'?'☀ sol':T.t=='moon'?'☾ luna':T.t=='p2p'?'P2P':T.t;$('trk').innerHTML='<span class="mut">Objetivo:</span> <b>'+ic+'</b> '+(T.below?'<span class="bad">bajo el horizonte ('+T.el.toFixed(0)+'°)</span>':'AZ '+T.az.toFixed(1)+' / EL '+T.el.toFixed(1))+(T.km!=null?' · '+T.km+' km':'');}else $('trk').style.display='none';
+var T=pos.trk;if(T){$('trkc').style.display='';var NM={sun:'☀ Sol',moon:'☾ Luna',p2p:'Estación (P2P)'};$('trkName').textContent=NM[T.t]||T.t;$('trkAz').textContent=T.az!=null?T.az.toFixed(1):'--';$('trkEl').textContent=T.el!=null?T.el.toFixed(1):'--';$('trkInfo').innerHTML=T.below?'<span class="bad">bajo el horizonte, esperando</span>':('<span class="okc">siguiendo</span>'+(T.km!=null?' · '+T.km+' km':''));}else $('trkc').style.display='none';
 $('aprs').textContent=pos.aprs?('APRS: '+pos.aprs):'';draw()}catch(e){$('st').textContent='sin conexión'}}
 async function raw(){try{const r=await api([{c:'raw'}]);$('raz').textContent=r[0].az!=null?r[0].az.toFixed(0):'-';$('rel').textContent=r[0].el!=null?r[0].el.toFixed(0):'-';$('ru').textContent=r[0].unit||''}catch(e){}}
 async function loadCfg(){const r=await api([{c:'cfgget'}]);$('cfg').value=JSON.stringify(JSON.parse(r.map(x=>x.d).join('')),null,1)}
