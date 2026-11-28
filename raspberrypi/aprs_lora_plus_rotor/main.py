@@ -109,6 +109,7 @@ class Daemon(ApiHost):
         self.cat = Cat(d["cat"]) if d["cat"]["type"] != "none" else None
         self._peak: dict = {}                              # estado del auto-pico con el SDR
         self._drift: dict = {}                             # estado del barrido por deriva
+        self._aim: dict | None = None                      # objetivo seguido desde la app (nombre + az/el), para la WebUI
 
     # ---- ApiHost --------------------------------------------------------------------------------------------------------
     def info(self) -> dict:
@@ -157,7 +158,27 @@ class Daemon(ApiHost):
             e["drift"] = {k: v for k, v in self._drift.items() if k != "stop"}
         return e
 
+    # ---- objetivo seguido desde la app (estacion APRS, baliza CW, puntería del tracker) --------------------------------
+    def aim_follow(self, name: str, az: float, el) -> None:
+        self._aim = {"name": name, "az": round(az, 2), "el": (round(el, 2) if el is not None else None), "ts": time.monotonic()}
+
+    def aim_clear(self) -> None:
+        self._aim = None
+
+    def aim_target(self) -> dict | None:
+        a = self._aim
+        if not a:
+            return None
+        if time.monotonic() - a["ts"] > 12.0:             # dejó de llegar el seguimiento de la app
+            self._aim = None
+            return None
+        t = {"t": "app", "name": a["name"], "az": a["az"]}
+        if a["el"] is not None:
+            t["el"] = a["el"]
+        return t
+
     def sky_start(self, target: int) -> str:
+        self._aim = None                                  # el seguimiento del cielo manda sobre el objetivo de la app
         if target == P2P:
             e = self._p2p_peer()
             if e:

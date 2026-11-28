@@ -30,7 +30,7 @@ El PIN viaja en claro dentro del enlace: el BLE va cifrado; por TCP/HTTP úsalo 
 | `info` | — | evento `info` |
 | `get` | — | evento `pos` |
 | `sub` | `ms` (200-…; 0 = apagar) | `ok`. Desde entonces el equipo manda `pos` cada `ms` mientras se mueve y cada 5 s parado, y al empezar / terminar de moverse |
-| `pos` | `az`, `el` (opcional) | `ok` / `err` (`az`, `rejected`). El acimut puede ser 0-360 o mecánico (p. ej. 400 en un rotor de 450°); la elevación se recorta a sus límites |
+| `pos` | `az`, `el` (opcional), `name` (opcional) | `ok` / `err` (`az`, `rejected`). El acimut puede ser 0-360 o mecánico (p. ej. 400 en un rotor de 450°); la elevación se recorta a sus límites. `name` (≤ 24 car.) etiqueta un **objetivo seguido** (estación APRS, baliza CW, puntería del tracker): la caja lo publica como `trk` de tipo `app` en el evento `pos` (si no hay seguimiento del cielo), para que la WebUI y la pantalla lo muestren; caduca a los 12 s sin recibir más. Un `pos` sin `name` (un «ir» suelto), o `stop`/`park`/`move`/`track`, borra ese objetivo |
 | `stop` | — | `ok` |
 | `park` | — | `ok` / `err` |
 | `move` | `d`: `cw`, `ccw`, `up`, `down` (o el número `ROT_MOVE_*` de Hamlib); `s`: velocidad 1-100 (opcional) | `ok`. Se mueve hasta `stop` o hasta el tope |
@@ -103,6 +103,7 @@ Receptor u-blox local de una pantalla ESP32 (`gps.on` por UART, sin `caps.gps`):
 - `trk` (siguiendo el sol o la luna): `{"t":"moon","az":162.4,"el":22.7,"below":false}`: posición del astro (con la refracción si `sky.refraction`); `below` = bajo `sky.minEl`, esperando.
 - `trk` en modo **P2P**: `{"t":"p2p","az":74.3,"el":-0.1,"below":false,"km":42.5}`: az/el hacia la otra estación y distancia en km; `below` siempre `false` (el enlace apunta aunque la elevación sea ~0 o negativa).
 - `trk` en modo **SAT**: `{"t":"sat","name":"ISS (ZARYA)","az":218.4,"el":41.2,"below":false,"km":1764,"maxel":41,"los":"09:53"}`: az/el del satélite, distancia en km, culminación máxima del paso (`maxel`) y hora UTC de LOS (`los`); `below` = bajo `sky.minEl`, esperando el siguiente paso.
+- `trk` de tipo **app** (objetivo seguido desde la app, sin seguimiento del cielo activo): `{"t":"app","name":"EA7XYZ","az":123.4,"el":45.0}`: nombre y az/el del objetivo que la app está siguiendo (estación APRS, baliza CW, puntería del tracker). Se fija con el `name` de la orden `pos` y caduca a los 12 s sin más `pos`.
 - `att` (con `att.on` o tras recibir `att`): `{"on":true,"r":5.0,"p":-2.0,"y":0.0,"age":1}` y `old` si el dato se quedó viejo: escora / cabeceo / giro del mástil aplicados (compensación de actitud, `caps.att`; ver `docs/ATTITUDE.md`). `lvl` true si está nivelando la escora con el 3.er eje (cross-level, `att.level` con `stepper.x`).
 - `hdg` (con `lan.heading` o si llega rumbo por la red): `{"on":true,"v":123.4,"age":1,"dec":0.9}`; `dec` = declinación que se suma a un rumbo magnético (WMM o `lan.magVar`); `on` = el acimut del evento es verdadero (compensado con el rumbo), `old` = sin rumbo nuevo hace más de 10 s. Con viento medido por la red, `wind` lleva `"src":"lan"` o `"signalk"` y `"local":true`; con el de OpenWeatherMap de la caja, `"src":"owm"`.
 - `maz`: acimut mecánico (control directo; > 360 = en el solape). `taz` / `tel`: objetivo. `aprs`: última orden APRS.

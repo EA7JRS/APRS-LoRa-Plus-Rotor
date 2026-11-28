@@ -64,6 +64,10 @@ class ApiHost:
     def sat_info(self) -> dict: return {}
     def select_sat(self, key: str) -> str: return "no sky"
     def update_tle(self) -> str: return "no sky"
+    # Objetivo seguido desde la app (estacion APRS, baliza CW, puntería del tracker): la app manda el nombre en el `pos`.
+    def aim_follow(self, name: str, az: float, el): pass
+    def aim_clear(self): pass
+    def aim_target(self) -> dict | None: return None
     def clear_fault(self): pass
     def reboot(self): pass
     def self_update(self) -> str: return "not supported"             # actualizar desde git y reinstalar (Raspberry Pi); "" = lanzado
@@ -92,6 +96,10 @@ def pos_event(h: ApiHost) -> str:
         t = h.sky.info_event()
         if t:
             d["trk"] = t
+    if "trk" not in d:                                   # objetivo seguido desde la app (sin seguimiento del cielo activo)
+        a = h.aim_target()
+        if a:
+            d["trk"] = a
     return dumps(d)
 
 
@@ -178,15 +186,25 @@ class ApiSession:
                 err(c, "az")
                 return out
             el = d.get("el")
+            tel = None
             if isinstance(el, (int, float)) and not isinstance(el, bool) and r.has_el:
-                good = r.set_pos(float(az), min(max(float(el), r.min_el), r.max_el))
+                tel = min(max(float(el), r.min_el), r.max_el)
+                good = r.set_pos(float(az), tel)
             else:
                 good = r.set_az(float(az))
+            if good:                                     # nombre del objetivo seguido desde la app, para la WebUI y la pantalla
+                nm = d.get("name")
+                if isinstance(nm, str) and nm.strip():
+                    h.aim_follow(nm.strip()[:24], float(az) % 360.0, tel)
+                else:
+                    h.aim_clear()                        # un "ir" suelto (sin nombre) no es un seguimiento
             ok(c) if good else err(c, "rejected")
         elif c == "stop":
             r.stop()
+            h.aim_clear()
             ok(c)
         elif c == "park":
+            h.aim_clear()
             ok(c) if r.park() else err(c, "rejected")
         elif c == "clear":
             h.clear_fault()
@@ -196,6 +214,7 @@ class ApiSession:
             if not dr:
                 err(c, "d")
             elif r.move(dr, int(d.get("s", 0))):
+                h.aim_clear()
                 ok(c)
             else:
                 err(c, "rejected")

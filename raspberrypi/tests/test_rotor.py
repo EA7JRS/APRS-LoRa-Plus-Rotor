@@ -7,6 +7,7 @@ import json
 import os
 import sys
 import tempfile
+import time
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -152,6 +153,7 @@ class Host(api.ApiHost):
     def __init__(self):
         self.rotor = FakeRotor()
         self.cfg = config.Config(os.path.join(tempfile.mkdtemp(), "c.json"))
+        self._aim = None
 
     def config_json(self):
         return self.cfg.to_json(True)
@@ -161,6 +163,25 @@ class Host(api.ApiHost):
 
     def pin(self):
         return self.cfg.data["pin"]
+
+    # objetivo seguido desde la app (misma lógica que main.Daemon)
+    def aim_follow(self, name, az, el):
+        self._aim = {"name": name, "az": round(az, 2), "el": (round(el, 2) if el is not None else None), "ts": time.monotonic()}
+
+    def aim_clear(self):
+        self._aim = None
+
+    def aim_target(self):
+        a = self._aim
+        if not a:
+            return None
+        if time.monotonic() - a["ts"] > 12.0:
+            self._aim = None
+            return None
+        t = {"t": "app", "name": a["name"], "az": a["az"]}
+        if a["el"] is not None:
+            t["el"] = a["el"]
+        return t
 
 
 class TestApiConfig(unittest.TestCase):
@@ -192,6 +213,26 @@ class TestApiConfig(unittest.TestCase):
         self.assertEqual(h.cfg.apply_json('{"pin":"********","name":""}'), "name 1-24")
         self.assertEqual(h.cfg.apply_json('{"pin":"********"}'), "")
         self.assertEqual(h.cfg.data["pin"], "123456")
+
+    def test_aim_target(self):
+        # Un objetivo seguido desde la app (pos con "name") sale en el evento pos como trk de tipo "app",
+        # para que la WebUI y la pantalla lo muestren; un "ir" suelto (sin nombre) no.
+        h, s = Host(), api.ApiSession()
+        s.handle('{"c":"auth","pin":"123456"}', h)
+        s.handle('{"c":"pos","az":123.4,"el":45,"name":"EA7XYZ"}', h)
+        trk = json.loads(s.handle('{"c":"get"}', h)[0]).get("trk")
+        self.assertEqual(trk, {"t": "app", "name": "EA7XYZ", "az": 123.4, "el": 45})
+        # Un pos sin nombre borra el objetivo seguido
+        s.handle('{"c":"pos","az":10}', h)
+        self.assertNotIn("trk", json.loads(s.handle('{"c":"get"}', h)[0]))
+        # stop tambien lo borra
+        s.handle('{"c":"pos","az":50,"name":"Tracker"}', h)
+        s.handle('{"c":"stop"}', h)
+        self.assertNotIn("trk", json.loads(s.handle('{"c":"get"}', h)[0]))
+        # Caduca si deja de llegar el seguimiento (TTL)
+        s.handle('{"c":"pos","az":80,"name":"W1AW"}', h)
+        h._aim["ts"] -= 20
+        self.assertNotIn("trk", json.loads(s.handle('{"c":"get"}', h)[0]))
 
     def test_update_command(self):
         h, s = Host(), api.ApiSession()
