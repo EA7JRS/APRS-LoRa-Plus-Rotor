@@ -33,6 +33,7 @@ class ApiHost:
 
     def sky_start(self, target: int) -> str: return "no sky"
     def set_peer(self, lat: float, lon: float, alt: float = 0.0) -> str: return "no sky"   # P2P: otra estacion
+    def set_radec(self, d: dict) -> str: return "no sky"                          # RADEC: punto del cielo (ra/dec o l/b)
     def set_attitude(self, roll: float, pitch: float, yaw: float = 0.0) -> str: return "no attitude"  # IMU: escora / cabeceo / giro
     def att_zero(self) -> str: return "no attitude"                              # tara: la actitud actual pasa a 0
 
@@ -290,6 +291,8 @@ class ApiSession:
                 err(c, "t")
             elif t == sky.SAT and d.get("id") and (e := h.select_sat(str(d["id"]))):
                 err(c, e)                                   # satelite desconocido
+            elif t == sky.RADEC and (e := h.set_radec(d)):
+                err(c, e)                                   # punto del cielo mal dado
             else:
                 e = h.sky_start(t)
                 ok(c) if not e else err(c, e)

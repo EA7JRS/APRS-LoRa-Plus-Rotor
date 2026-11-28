@@ -34,7 +34,7 @@ import subprocess
 import sys
 import time
 
-from . import __version__, antennas, board, geo, sat
+from . import __version__, antennas, astro, board, geo, sat
 from .api import ApiHost, ApiSession, pos_event  # noqa: F401
 from .aprs import AprsConfig, AprsControl, LORA_HEADER, parse_position, status_line
 from .bluez import Bluetooth
@@ -49,7 +49,7 @@ from .heading import HeadingRotor
 from .attitude import AttitudeRotor
 from .lan import Lan
 from .wind import WindGuard, WindRotor
-from .sky import SkyRotor, P2P, SAT
+from .sky import SkyRotor, P2P, SAT, RADEC
 from .stepper import StepperRotor
 from . import stepper
 from .gnss import OwnGps
@@ -159,6 +159,21 @@ class Daemon(ApiHost):
             self.sky.set_sat(s0)
         alt = self.gps.alt if (self.gps.position() and self.gps.alt is not None) else 0.0
         return self.sky.start(target, self.lan.position(), alt=alt or 0.0)
+
+    def set_radec(self, d: dict) -> str:
+        """Punto fijo del cielo para RADEC (radioastronomia, linea H1): RA/Dec (J2000) o coordenadas galacticas l/b."""
+        def f(v):
+            return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+        ra, dec, l, b = f(d.get("ra")), f(d.get("dec")), f(d.get("l")), f(d.get("b"))
+        name = str(d.get("name", ""))
+        if l is not None and b is not None:
+            ra, dec = astro.galactic_to_radec(l, b)
+            if not name:
+                name = f"l{l:g} b{b:g}"
+        if ra is None or dec is None:
+            return "" if self.sky.target == RADEC else "radec: ra/dec or l/b"
+        self.sky.set_radec(ra, dec, name)
+        return ""
 
     def _sat_pos(self) -> tuple[float, float, float] | None:
         p = self.lan.position()

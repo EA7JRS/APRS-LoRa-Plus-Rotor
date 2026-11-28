@@ -12,12 +12,12 @@ import time
 from . import astro, geo
 from .heading import ang_diff
 
-OFF, SUN, MOON, P2P, SAT = 0, 1, 2, 3, 4
-NAMES = {OFF: "off", SUN: "sun", MOON: "moon", P2P: "p2p", SAT: "sat"}
+OFF, SUN, MOON, P2P, SAT, RADEC = 0, 1, 2, 3, 4, 5
+NAMES = {OFF: "off", SUN: "sun", MOON: "moon", P2P: "p2p", SAT: "sat", RADEC: "radec"}
 
 
 def parse(s) -> int:
-    return {"off": OFF, "sun": SUN, "moon": MOON, "p2p": P2P, "sat": SAT}.get(s, -1) if isinstance(s, str) else -1
+    return {"off": OFF, "sun": SUN, "moon": MOON, "p2p": P2P, "sat": SAT, "radec": RADEC}.get(s, -1) if isinstance(s, str) else -1
 
 
 def position(target: int, lat: float, lon: float, t: float, refraction: bool = True) -> tuple[float, float] | None:
@@ -46,6 +46,8 @@ class SkyRotor:
         self.peer: tuple[float, float, float] | None = None   # (lat, lon, alt) de la otra estacion
         self.peer_src = ""                                    # fixed / net / aprs
         self.dist = 0.0                                       # m a la otra estacion (P2P) o al satelite (SAT)
+        self.ra = self.dec = 0.0                              # punto fijo del cielo (RADEC, radioastronomia: linea H1)
+        self.ra_name = ""
         self.sat = None                                       # satelite elegido (sat.Sat) para target == SAT
         self.sat_pass: dict | None = None                     # paso en curso o siguiente {aos, los, maxel, maxaz}
         self.horizon_h = 8.0                                  # horizonte de la prediccion de pasos
@@ -69,7 +71,7 @@ class SkyRotor:
         t = time.time() if t is None else t
         if pos is None:
             return "no station position (aprs.lat / lon or lan.pos)"
-        if target in (SUN, MOON, SAT) and t < 1704067200:
+        if target in (SUN, MOON, SAT, RADEC) and t < 1704067200:
             return "no time (GPS or NTP)"
         if target == P2P and self.peer is None:
             return "no peer position (P2P: locator / coords, app or APRS)"
@@ -88,6 +90,12 @@ class SkyRotor:
             self.peer_src = src
         if self.target == P2P:
             self._aimed, self._last = None, -1e9              # re-apunta ya a la nueva posicion
+
+    def set_radec(self, ra: float, dec: float, name: str = ""):
+        """Punto fijo del cielo a seguir (RA, Dec J2000 en grados); si ya se seguia RADEC, re-apunta."""
+        self.ra, self.dec, self.ra_name = float(ra) % 360.0, float(dec), name
+        if self.target == RADEC:
+            self._aimed, self._last = None, -1e9
 
     def set_sat(self, sat):
         """Satelite elegido (sat.Sat); si ya se estaba siguiendo SAT, re-apunta al nuevo."""
@@ -123,6 +131,10 @@ class SkyRotor:
             if now - self._pass_at > 30.0:                     # refresca la prediccion del paso cada 30 s
                 self.sat_pass = self.sat.next_pass(self.lat, self.lon, self.alt, tt, self.min_el, self.horizon_h)
                 self._pass_at = now
+        elif self.target == RADEC:
+            az, el = astro.radec_to_azel(self.ra, self.dec, self.lat, self.lon, time.time() if t is None else t)
+            if self.refraction:
+                el += astro.refraction(el)
         else:
             az, el = position(self.target, self.lat, self.lon, time.time() if t is None else t, self.refraction)
         self.az, self.el = az, el
@@ -154,6 +166,10 @@ class SkyRotor:
             if self.sat_pass:
                 d["maxel"] = round(self.sat_pass["maxel"])
                 d["los"] = time.strftime("%H:%M", time.gmtime(self.sat_pass["los"]))   # UTC
+        elif self.target == RADEC:
+            d["ra"], d["dec"] = round(self.ra, 3), round(self.dec, 3)
+            if self.ra_name:
+                d["name"] = self.ra_name
         return d
 
     # Ordenes de los clientes: dejan de seguir

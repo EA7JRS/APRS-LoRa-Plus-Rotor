@@ -416,6 +416,14 @@ class TestSky(unittest.TestCase):
         self.assertTrue(400000 < dist < 410000)
         self.assertAlmostEqual(astro.refraction(0), 0.48, delta=0.03)
         self.assertEqual([astro.beaufort(k) for k in (0, 0.5, 3.4, 10, 38.9, 70)], [0, 1, 1, 3, 8, 12])
+        # radioastronomia (linea H1): RA/Dec -> az/el y galacticas -> ecuatoriales
+        az, el = astro.radec_to_azel(50.0, 90.0, 40.0, 0.0, t)       # polo celeste norte: el = lat, az = norte
+        self.assertAlmostEqual(el, 40.0, delta=0.01)
+        self.assertAlmostEqual(az % 360.0, 0.0, delta=0.01)
+        ra, dec = astro.galactic_to_radec(0.0, 0.0)                   # centro galactico
+        self.assertAlmostEqual(ra, 266.405, delta=0.1)
+        self.assertAlmostEqual(dec, -28.936, delta=0.1)
+        self.assertAlmostEqual(astro.galactic_to_radec(0.0, 90.0)[1], 27.128, delta=0.1)   # polo galactico norte
 
     def test_tracking(self):
         f = FakeRotor()
@@ -447,6 +455,29 @@ class TestSky(unittest.TestCase):
         self.assertIn('"err"', ses.handle('{"c":"track","t":"mars"}', h)[0])
         ses.handle('{"c":"stop"}', h)
         self.assertNotIn("trk", ses.handle('{"c":"get"}', h)[0])
+        # RADEC (radioastronomia): seguir un punto fijo del cielo
+        g2 = FakeRotor()
+        s3 = sky.SkyRotor(g2)
+        s3.set_radec(123.0, 90.0, "pole")                        # polo celeste norte
+        self.assertEqual(s3.start(sky.RADEC, (40.0, 0.0), t, 0), "")
+        self.assertAlmostEqual(g2.az % 360.0, 0.0, delta=0.1)
+        self.assertAlmostEqual(g2.el, 40.0, delta=0.1)
+        ev = s3.info_event()
+        self.assertEqual((ev["t"], ev["name"], ev["dec"]), ("radec", "pole", 90.0))
+
+        class RH(api.ApiHost):
+            def __init__(s2):
+                s2.sky = sky.SkyRotor(FakeRotor())
+                s2.rotor = s2.sky
+            def set_radec(s2, dd):
+                ra, dec = astro.galactic_to_radec(float(dd["l"]), float(dd["b"]))
+                s2.sky.set_radec(ra, dec, "gal")
+                return ""
+            def sky_start(s2, tg):
+                return s2.sky.start(tg, (40.0, 0.0), t)
+        rh, rs = RH(), api.ApiSession()
+        self.assertIn('"e":"ok"', rs.handle('{"c":"track","t":"radec","l":0,"b":0}', rh)[0])
+        self.assertIn('"t":"radec"', rs.handle('{"c":"get"}', rh)[0])
 
 
 class TestLan(unittest.TestCase):
