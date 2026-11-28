@@ -205,6 +205,7 @@ En `http://APRS-Rotor.local/` (placas) o en `http://IP:8080/` (Raspberry Pi). Us
 | **Objetivo en seguimiento** | (debajo del GPS, al seguir sol / luna / P2P / satélite / punto del cielo H1) nombre, az/el y distancia (o RA/Dec en H1); el satélite añade culminación y LOS; o «bajo el horizonte, esperando» |
 | **Calibración** | Punto A, Punto B y corregir el desfase (control directo); con motores paso a paso, en el menú ⚙ > **Antena**: DIP del HAT, **calibrar ganancia** (dos puntos) y **calibrar con Inmarsat** (fijar el cero con la baliza del satélite) |
 | **CAT** | (con `cat.proto`) frecuencia, paso, modos, A/B, tono CTCSS, S-meter (el mismo que la pantalla y la app), PTT y seguimiento con Doppler |
+| **Estación** | (menú ⚙) indicativo y coordenadas fijas, y la casilla **Bluetooth (BLE) para la app**: enciende o apaga el enlace BLE (`bt.ble`). Apágalo si en este equipo el Bluetooth lo usa otro programa (p. ej. Meshtastic en una Raspberry); la app se conecta entonces por **WiFi (TCP 4534)** con la IP o el nombre `.local` |
 | **Configuración** | el fichero entero: *Leer*, editar, *Guardar y reiniciar*; las contraseñas aparecen como `********` y no se tocan |
 | **Actualizar firmware** | subir un `firmware.bin` |
 | **Acerca de** | versión, placa y © 2026 Manuel - EA7JRS |

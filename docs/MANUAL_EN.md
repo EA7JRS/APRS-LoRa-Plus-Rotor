@@ -207,6 +207,7 @@ At `http://APRS-Rotor.local/` (boards) or `http://IP:8080/` (Raspberry Pi). User
 | **Objetivo en seguimiento** (target being tracked) | (below GPS, when tracking sun / moon / P2P / satellite) name, az/el and distance in the chosen units; a satellite adds max elevation and LOS; or "below the horizon, waiting" |
 | **Calibración** (calibration) | point A, point B and offset fix (direct drive) |
 | **CAT** | (with `cat.proto`) frequency, step, modes, A/B, CTCSS tone, S-meter (the same as the screen and the app), PTT and Doppler tracking |
+| **Estación** (station) | (⚙ menu) callsign and fixed coordinates, plus the **Bluetooth (BLE) para la app** (Bluetooth for the app) checkbox: turns the BLE link (`bt.ble`) on or off. Turn it off if another program uses this device's Bluetooth (e.g. Meshtastic on a Raspberry Pi); the app then connects over **Wi-Fi (TCP 4534)** with the IP or the `.local` name |
 | **Configuración** (configuration) | the whole file: *Leer* (read), edit, *Guardar y reiniciar* (save and restart); passwords show as `********` and are left unchanged |
 | **Actualizar firmware** (update firmware) | upload a `firmware.bin` |
 | **Acerca de** (about) | version, board and © 2026 Manuel - EA7JRS |
