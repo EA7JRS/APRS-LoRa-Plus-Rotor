@@ -104,6 +104,9 @@ const t=document.getElementById('csm');t.textContent=v<0?'S—':(v<=9?'S'+v:'S9+
 <div class="row"><button id="cvfo" onclick="cmd({c:'catset',vfo:'swap'})">A / B</button><button id="ctrk" onclick="catTrk()">Seguir satélite</button><button id="cptt" class="stop">PTT</button></div>
 <p class="mut">El PTT solo emite mientras se mantiene pulsado y si está permitido en la configuración (<code>cat.ptt</code>). El seguimiento con Doppler lo alimenta la app o el tracker (<code>cattrack</code>); GPredict puede usar directamente rigctld.</p></div>
 
+
+</main>
+<div id="advOvl" onclick="if(event.target===this)advClose()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:50;align-items:flex-start;justify-content:center;padding:20px 12px;overflow:auto"><div style="width:100%;max-width:820px"><div style="display:flex;justify-content:flex-end;margin-bottom:8px"><button onclick="advClose()" style="padding:6px 12px">× Cerrar</button></div>
 <div class="c adv" style="display:none" id="calCard"><h3>Calibración (control directo)</h3>
 <div class="row mut">Lectura en bruto: AZ <b id="raz">-</b> · EL <b id="rel">-</b> <span id="ru"></span></div>
 <div class="row"><select id="cax"><option value="az">Acimut</option><option value="el">Elevación</option></select>
@@ -122,7 +125,7 @@ const t=document.getElementById('csm');t.textContent=v<0?'S—':(v<=9?'S'+v:'S9+
 <p><b>APRS LoRa+</b> &mdash; EA7JRS: <a href="https://ea7jrs.github.io/APRS-LoRa-Plus/" target="_blank" rel="noopener">ea7jrs.github.io/APRS-LoRa-Plus</a> (instalador y proyecto: tracker, app Android, rotor, gateway y display).</p>
 <p><a class="btn-donate" href="https://paypal.me/ea7jrs" target="_blank" rel="noopener" title="paypal.me/ea7jrs"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M15.607 4.653H8.941L6.645 19.251H1.82L4.862 0h7.995c3.754 0 6.375 2.294 6.473 5.513-.648-.478-2.105-.86-3.722-.86m6.57 5.546c0 3.41-3.01 6.853-6.958 6.853h-2.493L11.595 24H6.74l1.845-11.538h3.592c4.208 0 7.346-3.634 7.153-6.949a5.24 5.24 0 0 1 2.848 4.686M9.653 5.546h6.408c.907 0 1.942.222 2.363.541-.195 2.741-2.655 5.483-6.441 5.483H8.714Z"/></svg>Donate · PayPal.me</a></p>
 <p class="mut">Compatible con Hamlib (rotctld, rigctld), Yaesu GS-232A/B, SPID Rot2Prog y EasyComm II; CAT: Icom CI-V, Yaesu, Kenwood / Elecraft, SDRconnect (SDRplay) y rigctl. Librerías: NimBLE-Arduino, RadioLib, ArduinoJson; en la Raspberry Pi, rotctld de Hamlib. Licencia GPL-3.0-or-later.</p></div>
-</main>
+</div></div>
 <div id="satModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:50;align-items:center;justify-content:center;padding:16px">
 <div style="background:var(--card);border:1px solid var(--bd);border-radius:12px;max-width:430px;width:100%;max-height:82vh;display:flex;flex-direction:column">
 <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--bd)"><b>Elegir satélite</b><button onclick="satClose()" style="padding:4px 10px">×</button></div>
@@ -149,6 +152,10 @@ async function api(lines){const r=await fetch('/api',{method:'POST',body:lines.m
 async function cmd(o){try{const r=await api([o]);const e=r.find(x=>x.e=='err');if(e)alert(e.c+': '+e.m)}catch(e){}}
 // La columna derecha (GPS + Objetivo) se apila y se oculta si no hay ninguno, para alinearse con Posición y Mando.
 function rcSync(){var g=$('gpsc'),t=$('trkc'),r=$('rightcol');if(r)r.style.display=((g&&g.style.display!=='none')||(t&&t.style.display!=='none'))?'flex':'none'}
+// Ventana de ajustes (Calibracion / Configuracion / Acerca de): abre una, oculta el resto; el panel se queda con las 4 tarjetas.
+function advOpen(id){document.querySelectorAll('#advOvl .adv').forEach(function(x){x.style.display=x.id===id?'':'none'});$('advOvl').style.display='flex';if(id==='cfgCard')loadCfg()}
+function advClose(){$('advOvl').style.display='none'}
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){advClose();satClose()}});
 // Selector de satelite: lista del API (nombre, az/el, proximo paso), buscar, elegir (track sat) y actualizar TLE.
 var SATS=[],SATF=[],SATGROUPS=[],SATGRP='',SATACT=false;
 function sEsc(s){return (s+'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
@@ -231,7 +238,7 @@ var c=hdrMenu('cfgBtn','cfgMenu');
 if(c){var sc=$('selCoord'),su=$('selUnits');
 if(sc){sc.value=coordPref();sc.addEventListener('change',function(){try{localStorage.setItem('rotor-coord',sc.value)}catch(e){}info();poll()})}
 if(su){su.value=unitPref();su.addEventListener('change',function(){try{localStorage.setItem('rotor-units',su.value)}catch(e){}info();poll()})}
-c.m.querySelectorAll('button[data-adv]').forEach(function(btn){btn.addEventListener('click',function(){var id=btn.dataset.adv;document.querySelectorAll('.adv').forEach(function(x){x.style.display=x.id===id?'':'none'});c.m.classList.remove('open');c.b.setAttribute('aria-expanded','false');if(id==='cfgCard')loadCfg();var card=$(id);if(card)setTimeout(function(){card.scrollIntoView({behavior:'smooth',block:'start'})},30)})})}
+c.m.querySelectorAll('button[data-adv]').forEach(function(btn){btn.addEventListener('click',function(){c.m.classList.remove('open');c.b.setAttribute('aria-expanded','false');advOpen(btn.dataset.adv)})})}
 document.addEventListener('click',function(e){if(e.target.closest('.thm'))return;document.querySelectorAll('.thm .menu.open').forEach(function(x){x.classList.remove('open')});document.querySelectorAll('.thm>button').forEach(function(x){x.setAttribute('aria-expanded','false')})});
 }
 themeInit();info();poll();setInterval(poll,1000);setInterval(info,5000);setInterval(raw,2000);
