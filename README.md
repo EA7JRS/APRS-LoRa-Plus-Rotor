@@ -57,8 +57,13 @@ Capturas de la **versión 5.5.1** generadas en el PC con `firmware/test_host/lcd
 | Compensación de actitud (escora / cabeceo / giro del mástil por IMU; orden `att`, tara `att zero`) | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ (2 y 3 ejes) |
 | Hora: GPS de la red y NTP `ntp.roa.es` (ROA) | ✔ | ✔ | ✔ | ✔ | ✔ | NTP | — | NTPsec (NTS del ROA, GPS / PPS de gpsd) |
 | Motores paso a paso (Waveshare Stepper Motor HAT, finales de carrera) | — | — | — | — | — | — | — | ✔ |
-| Tercer eje (inclinación / cross-level, driver TMC2209) para antenas estabilizadas (domo FB250+) | — | — | — | — | — | — | — | ✔ |
+| Tercer eje (inclinación / cross-level, driver TMC2209) para antenas estabilizadas (domo FB250+); **nivelación automática del balanceo** en móvil (`att.level`) | — | — | — | — | — | — | — | ✔ |
 | Perfiles de antena (selector; FB250+ 3 ejes, genérico 2 ejes, propios en `/etc/.../antennas/`) | — | — | — | — | — | — | — | ✔ |
+| Calibración: ganancia por dos puntos, cero con la baliza **Inmarsat**, ayuda de los DIP del HAT | — | — | — | — | — | — | — | ✔ |
+| **Encoder magnético AS5600** por eje (detecta pasos perdidos; avisa o corrige) | — | — | — | — | — | — | — | ✔ (I²C, mux TCA9548A) |
+| **TMC2209 por UART** (corriente, micropasos, StallGuard, **homing sensorless**) | — | — | — | — | — | — | — | ✔ |
+| **Modelo de apuntado** multipunto (corrige el desalineado mecánico) + **auto-pico** con el SDR ([docs/POINTING.md](docs/POINTING.md)) | — | — | — | — | — | — | — | ✔ |
+| **Radioastronomía** (línea H1): seguir un punto del cielo (RA/Dec o galácticas) y **barrido por deriva** ([docs/RADIOASTRONOMIA.md](docs/RADIOASTRONOMIA.md)) | — | — | — | — | — | — | — | ✔ |
 | Antena marina **Sea Tel** por RS422 (`seatel_rotctld`, [docs/SEATEL.md](docs/SEATEL.md)) | — | — | — | — | — | — | — | ✔ (driver hamlib model 2) |
 | GS-232 / EasyComm / Rot2Prog por RS485 semidúplex (`serial.rs485`, DE en `serial.de`) | ✔ | ✔ | ✔ | ✔ | ✔ (conector RS485) | ✔ (transceptor automático) | ✔ (transceptor automático) | — |
 | Registro de movimientos en la microSD (`log.sd`, descarga en `/sd`) | — | — | — | — | ✔ | — | — | — |
@@ -93,6 +98,7 @@ Primer arranque: abre el punto de acceso **APRS-Rotor** (contraseña `aprsrotor`
 cd raspberrypi && sudo ./install.sh                     # rotor de Hamlib por su controlador (Pi 3B / 3B+, 4, 5, Zero 2 W: detecta el modelo)
 cd raspberrypi && sudo ./install.sh --stepper --gps     # motores paso a paso (Waveshare Stepper Motor HAT) + Uputronics GPS/RTC HAT
 cd raspberrypi && sudo ./install.sh --link-uart         # + pantalla LCD-7 / 7B por cable (GPIO8 / 9, GS-232B)
+cd raspberrypi && sudo ./install.sh --seatel            # antena Sea Tel por RS422 (seatel_rotctld como rotctld, puerto 4543)
 ```
 
 La Pi con los HAT se maneja a la vez desde una pantalla LCD-7 / LCD-7B (por WiFi, `driver` 2 contra su rotctld, o por cable) y desde la app por Bluetooth: [Emparejar la Pi](docs/RASPBERRY_HATS.md#emparejar-la-pi-con-una-pantalla-o-con-la-app).
@@ -114,7 +120,11 @@ Ver [docs/RASPBERRY_PI.md](docs/RASPBERRY_PI.md) y [docs/RASPBERRY_HATS.md](docs
 - [docs/APRS_CONTROL.md](docs/APRS_CONTROL.md): mover el rotor con mensajes APRS por LoRa, con código TOTP
 - [docs/INTEGRATION.md](docs/INTEGRATION.md): tracker, app, GPredict, Hamlib
 - [docs/RASPBERRY_PI.md](docs/RASPBERRY_PI.md): demonio de la Raspberry Pi
-- [docs/RASPBERRY_HATS.md](docs/RASPBERRY_HATS.md): Raspberry Pi con el Waveshare Stepper Motor HAT (dos motores paso a paso) y el Uputronics GPS/RTC HAT (posición, PPS, reloj)
+- [docs/RASPBERRY_HATS.md](docs/RASPBERRY_HATS.md): Raspberry Pi con el Waveshare Stepper Motor HAT (dos motores paso a paso, encoder AS5600, TMC2209 por UART) y el Uputronics GPS/RTC HAT (posición, PPS, reloj); calibración de ganancia, DIP del HAT, cero con Inmarsat
+- [docs/ATTITUDE.md](docs/ATTITUDE.md): compensación de actitud (escora / cabeceo / giro) y nivelación cross-level en plataforma móvil
+- [docs/POINTING.md](docs/POINTING.md): modelo de apuntado multipunto (corrige el desalineado mecánico) y auto-pico con el SDR
+- [docs/RADIOASTRONOMIA.md](docs/RADIOASTRONOMIA.md): seguir un punto del cielo (línea H1, 1420 MHz) y barrido por deriva
+- [docs/SEATEL.md](docs/SEATEL.md): antena marina Sea Tel como rotor del ecosistema (`seatel_rotctld`, RS422, rotctld / LX200)
 
 ## Estructura
 
