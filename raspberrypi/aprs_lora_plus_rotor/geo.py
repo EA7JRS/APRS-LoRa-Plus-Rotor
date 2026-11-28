@@ -36,6 +36,39 @@ def azel(lat1: float, lon1: float, alt1: float, lat2: float, lon2: float, alt2: 
     return az, el, d
 
 
+R_EQ_KM = 6378.137          # radio ecuatorial (km), para satelites
+GEO_ALT_KM = 35786.0        # altura de la orbita geoestacionaria sobre la superficie (km)
+
+
+def _ecef(lat: float, lon: float, r_km: float) -> tuple[float, float, float]:
+    """Punto ECEF (km) en la latitud/longitud dadas, a radio r_km del centro de la Tierra (esfera)."""
+    la, lo = math.radians(lat), math.radians(lon)
+    return (r_km * math.cos(la) * math.cos(lo), r_km * math.cos(la) * math.sin(lo), r_km * math.sin(la))
+
+
+def azel_to_point(lat: float, lon: float, obs_r_km: float, target_km: tuple[float, float, float]) -> tuple[float, float, float]:
+    """Azimut (0-360), elevacion (grados) y distancia (km) a un punto dado en ECEF (km), desde el observador."""
+    la, lo = math.radians(lat), math.radians(lon)
+    o = _ecef(lat, lon, obs_r_km)
+    v = (target_km[0] - o[0], target_km[1] - o[1], target_km[2] - o[2])
+    up = (math.cos(la) * math.cos(lo), math.cos(la) * math.sin(lo), math.sin(la))
+    east = (-math.sin(lo), math.cos(lo), 0.0)
+    north = (-math.sin(la) * math.cos(lo), -math.sin(la) * math.sin(lo), math.cos(la))
+    e = v[0] * east[0] + v[1] * east[1] + v[2] * east[2]
+    n = v[0] * north[0] + v[1] * north[1] + v[2] * north[2]
+    u = v[0] * up[0] + v[1] * up[1] + v[2] * up[2]
+    dist = math.sqrt(v[0] ** 2 + v[1] ** 2 + v[2] ** 2)
+    az = (math.degrees(math.atan2(e, n)) + 360.0) % 360.0
+    el = math.degrees(math.atan2(u, math.hypot(e, n)))
+    return az, el, dist
+
+
+def geostationary_azel(lat: float, lon: float, sat_lon: float, obs_alt_m: float = 0.0) -> tuple[float, float, float]:
+    """Az, el (grados) y distancia (km) a un satelite geoestacionario en la longitud sat_lon, desde (lat, lon)."""
+    sat = _ecef(0.0, sat_lon, R_EQ_KM + GEO_ALT_KM)
+    return azel_to_point(lat, lon, R_EQ_KM + obs_alt_m / 1000.0, sat)
+
+
 # ---- Maidenhead ---------------------------------------------------------------------------------------------------------
 
 def locator_to_latlon(loc: str) -> tuple[float, float] | None:

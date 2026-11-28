@@ -301,6 +301,87 @@ class TestHeading(unittest.TestCase):
         self.assertIsNone(h2.target)
 
 
+class _XRotor:
+    """Rotor de pega con eje X (inclinacion) para probar la nivelacion cross-level."""
+    def __init__(self):
+        self.az = self.el = 0.0
+        self.min_az, self.max_az, self.min_el, self.max_el = 0.0, 360.0, 0.0, 90.0
+        self.has_x, self.min_x, self.max_x, self.x = True, -40.0, 40.0, 0.0
+    def set_pos(self, az, el):
+        self.az, self.el = az, el
+        return True
+    def set_az(self, az):
+        self.az = az
+        return True
+    def set_axis(self, name, deg):
+        if name == "x":
+            self.x = deg
+            return True
+        return False
+    def get_pos(self):
+        return self.az, self.el
+    def stop(self):
+        return True
+    def park(self):
+        return True
+    def move(self, d, s):
+        return True
+    def status(self):
+        return 0
+
+
+class TestCrossLevel(unittest.TestCase):
+    def test_cross_level(self):
+        from aprs_lora_plus_rotor.attitude import AttitudeRotor
+        f = _XRotor()
+        a = AttitudeRotor(f, enabled=True, level=True, x_sign=1)
+        self.assertTrue(a.leveling)
+        a.set_attitude(10.0, 0.0, 0.0)                         # escora 10°
+        a.set_pos(100.0, 20.0)
+        self.assertAlmostEqual(f.x, -10.0)                     # el eje X cancela la escora
+        self.assertAlmostEqual(f.az, 100.0, places=3)          # residuo 0: el az/el es el nivelado
+        self.assertAlmostEqual(f.el, 20.0, places=3)
+        a.set_attitude(60.0, 0.0, 0.0)                         # escora mayor que el tope del eje (±40)
+        a.set_pos(100.0, 20.0)
+        self.assertAlmostEqual(f.x, -40.0)                     # el eje llega al tope; el az/el afina el resto
+        self.assertTrue(a.info_event().get("lvl"))
+        f.x = 5.0                                              # con level off el eje no se toca
+        a.level = False
+        self.assertFalse(a.leveling)
+        a.set_pos(100.0, 20.0)
+        self.assertEqual(f.x, 5.0)
+
+
+class TestInmarsat(unittest.TestCase):
+    def test_geostationary(self):
+        az, el, dist = geo.geostationary_azel(40.0, 0.0, 0.0)       # mismo meridiano
+        self.assertAlmostEqual(az, 180.0, places=1)                 # al sur
+        self.assertAlmostEqual(el, 43.7, places=0)
+        self.assertAlmostEqual(dist, 37500, delta=1500)
+        az2, el2, _ = geo.geostationary_azel(40.0, 0.0, 30.0)       # satelite al este
+        self.assertTrue(90.0 < az2 < 180.0)
+        self.assertLess(el2, el)
+        _, el3, _ = geo.geostationary_azel(40.0, 0.0, 150.0)        # muy al oeste: bajo el horizonte
+        self.assertLess(el3, 0.0)
+
+    def test_api_inmarsat(self):
+        class H(api.ApiHost):
+            rotor = None
+            def point_inmarsat(s, lon, fix):
+                return "", {"az": 180.0, "el": 43.0, "km": 37500, "lon": lon or 25.0, **({"fixed": True} if fix else {})}
+        h, sess = H(), api.ApiSession()
+        o = sess.handle('{"c":"inmarsat"}', h)[0]
+        self.assertIn('"e":"ok"', o)
+        self.assertIn('"az":180', o)
+        self.assertIn('"fixed":true', sess.handle('{"c":"inmarsat","fix":true}', h)[0])
+
+        class H2(api.ApiHost):
+            rotor = None
+            def point_inmarsat(s, lon, fix):
+                return "no position", {}
+        self.assertIn("no position", sess.handle('{"c":"inmarsat"}', H2())[0])
+
+
 class TestSky(unittest.TestCase):
     def test_formulas(self):
         # Mismos valores que el plotter (pygeomag y PyEphem)
@@ -335,6 +416,14 @@ class TestSky(unittest.TestCase):
         self.assertTrue(400000 < dist < 410000)
         self.assertAlmostEqual(astro.refraction(0), 0.48, delta=0.03)
         self.assertEqual([astro.beaufort(k) for k in (0, 0.5, 3.4, 10, 38.9, 70)], [0, 1, 1, 3, 8, 12])
+        # radioastronomia (linea H1): RA/Dec -> az/el y galacticas -> ecuatoriales
+        az, el = astro.radec_to_azel(50.0, 90.0, 40.0, 0.0, t)       # polo celeste norte: el = lat, az = norte
+        self.assertAlmostEqual(el, 40.0, delta=0.01)
+        self.assertAlmostEqual(az % 360.0, 0.0, delta=0.01)
+        ra, dec = astro.galactic_to_radec(0.0, 0.0)                   # centro galactico
+        self.assertAlmostEqual(ra, 266.405, delta=0.1)
+        self.assertAlmostEqual(dec, -28.936, delta=0.1)
+        self.assertAlmostEqual(astro.galactic_to_radec(0.0, 90.0)[1], 27.128, delta=0.1)   # polo galactico norte
 
     def test_tracking(self):
         f = FakeRotor()
@@ -366,6 +455,29 @@ class TestSky(unittest.TestCase):
         self.assertIn('"err"', ses.handle('{"c":"track","t":"mars"}', h)[0])
         ses.handle('{"c":"stop"}', h)
         self.assertNotIn("trk", ses.handle('{"c":"get"}', h)[0])
+        # RADEC (radioastronomia): seguir un punto fijo del cielo
+        g2 = FakeRotor()
+        s3 = sky.SkyRotor(g2)
+        s3.set_radec(123.0, 90.0, "pole")                        # polo celeste norte
+        self.assertEqual(s3.start(sky.RADEC, (40.0, 0.0), t, 0), "")
+        self.assertAlmostEqual(g2.az % 360.0, 0.0, delta=0.1)
+        self.assertAlmostEqual(g2.el, 40.0, delta=0.1)
+        ev = s3.info_event()
+        self.assertEqual((ev["t"], ev["name"], ev["dec"]), ("radec", "pole", 90.0))
+
+        class RH(api.ApiHost):
+            def __init__(s2):
+                s2.sky = sky.SkyRotor(FakeRotor())
+                s2.rotor = s2.sky
+            def set_radec(s2, dd):
+                ra, dec = astro.galactic_to_radec(float(dd["l"]), float(dd["b"]))
+                s2.sky.set_radec(ra, dec, "gal")
+                return ""
+            def sky_start(s2, tg):
+                return s2.sky.start(tg, (40.0, 0.0), t)
+        rh, rs = RH(), api.ApiSession()
+        self.assertIn('"e":"ok"', rs.handle('{"c":"track","t":"radec","l":0,"b":0}', rh)[0])
+        self.assertIn('"t":"radec"', rs.handle('{"c":"get"}', rh)[0])
 
 
 class TestLan(unittest.TestCase):
@@ -900,6 +1012,60 @@ class TestStepper(unittest.TestCase):
         d["minX"], d["maxX"] = 10.0, 10.0
         self.assertIn("minX", ST.validate(d, False, 20000))
 
+    def test_calibration_gain(self):
+        r = self.mk()                                          # 1 paso/grado (stepsRev 200, micro 1, gear 1.8)
+        self.assertIsNone(r.cal_gain("az", 90.0))              # sin marcar el punto A
+        self.assertEqual(r.cal_mark("az"), "")
+        r.set_pos(90.0, 0.0)
+        _run(r)
+        res = r.cal_gain("az", 90.0)                            # giro real = el esperado
+        self.assertEqual(res["steps"], 90)
+        self.assertAlmostEqual(res["spd"], 1.0)
+        self.assertAlmostEqual(res["gear"], 1.8)
+        res2 = r.cal_gain("az", 100.0)                          # si de verdad giro 100 grados, menos pasos/grado
+        self.assertAlmostEqual(res2["spd"], 0.9)
+        self.assertAlmostEqual(res2["gear"], 1.62)
+        self.assertEqual(r.cal_mark("zz"), "axis")
+
+    def test_api_calstep(self):
+        class H(api.ApiHost):
+            rotor = None
+            marked = None
+            applied = None
+            def cal_mark(s, ax):
+                s.marked = ax
+                return ""
+            def cal_gain(s, ax, deg):
+                return {"axis": ax, "steps": 90, "spd": 1.0, "gear": 1.8}
+            def apply_gain(s, ax, g):
+                s.applied = (ax, g)
+                return ""
+        h, sess = H(), api.ApiSession()
+        self.assertIn('"e":"ok"', sess.handle('{"c":"calstep","axis":"az","mark":true}', h)[0])
+        self.assertEqual(h.marked, "az")
+        self.assertIn('"gear":1.8', sess.handle('{"c":"calstep","axis":"az","deg":90}', h)[0])
+        self.assertIsNone(h.applied)
+        sess.handle('{"c":"calstep","axis":"az","deg":90,"apply":true}', h)
+        self.assertEqual(h.applied, ("az", 1.8))
+
+        class H2(api.ApiHost):
+            rotor = None
+            def cal_gain(s, ax, deg):
+                return None
+        self.assertIn("mark first", sess.handle('{"c":"calstep","axis":"az","deg":90}', H2())[0])
+
+    def test_hat_dips_and_info(self):
+        c = _stepper_cfg()
+        c["az"]["micro"], c["el"]["micro"] = 16, 32
+        d = ST.hat_dips(c)
+        self.assertFalse(d["software"])
+        self.assertEqual(d["az"]["dip"], {"D0": 0, "D1": 0, "D2": 1})   # 1/16 = M2
+        self.assertEqual(d["el"]["dip"], {"D3": 1, "D4": 0, "D5": 1})   # 1/32 = M0 + M2
+        self.assertEqual(d["az"]["micro"], 16)
+        self.assertEqual(ST.hat_dips({**c, "modePins": True}), {"software": True})
+        info = ST.hat_info(c)
+        self.assertEqual(set(info), {"dips", "supply", "current", "decay", "enable"})
+
 
 class TestAntennas(unittest.TestCase):
     def test_bundled_list_and_get(self):
@@ -910,7 +1076,8 @@ class TestAntennas(unittest.TestCase):
         self.assertEqual(names["generic-2axis"]["axes"], ["az", "el"])      # plantilla sin inclinacion
         self.assertIsNone(antennas.get("no-existe"))
         fb = antennas.get("fb250plus")
-        self.assertEqual(fb["stepper"]["az"]["gear"], 12.25)
+        self.assertEqual(fb["stepper"]["az"]["gear"], 11.833)              # corona 142T / piñón 12
+        self.assertEqual(fb["stepper"]["az"]["micro"], 16)                  # DIP del HAT a 1/16
         self.assertEqual(fb["stepper"]["x"]["enActive"], 0)                 # TMC2209 activo bajo
 
     def test_apply_profile_over_config(self):

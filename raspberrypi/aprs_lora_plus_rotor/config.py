@@ -58,10 +58,15 @@ DEFAULTS["sat"] = {"tleUrl": "https://raw.githubusercontent.com/EA7JRS/APRS-LoRa
 # Compensacion de actitud (coche / barco, o giro del mastil por viento): escora / cabeceo / giro medidos por una IMU y un
 # giroscopo (orden "att" r/p/y). Transforma el az/el del objetivo al marco inclinado del rotor (attitude.py). step = umbral
 # de reapuntado (grados), staleS = segundos tras los que el dato se da por viejo; los signos calibran los ejes de la IMU.
+# level: nivela la escora (balanceo) con el 3.er eje (inclinacion / cross-level) si la antena lo tiene (stepper.x);
+# el eje X se lleva la escora hasta su tope y el az/el afina el resto. xSign calibra el sentido del eje.
 DEFAULTS["att"] = {"on": False, "step": 0.5, "staleS": 5.0, "rollSign": 1, "pitchSign": 1, "yawSign": 1,
-                   "rollZero": 0.0, "pitchZero": 0.0, "yawZero": 0.0}
+                   "rollZero": 0.0, "pitchZero": 0.0, "yawZero": 0.0, "level": False, "xSign": 1}
 # Que mueve el rotor: "hamlib" (rotctld de Hamlib con un controlador) o "stepper" (motores paso a paso en la propia Pi con
 # el Waveshare Stepper Motor HAT, stepper.py; docs/RASPBERRY_HATS.md)
+# Calibracion apuntando a un satelite geoestacionario Inmarsat (orden "inmarsat"): con la posicion GPS calcula az/el al
+# satelite en la longitud "lon" (E+, O-); se afina a mano al maximo de la baliza y se fija el cero. 25 = I-4 F2 (EMEA).
+DEFAULTS["inmarsat"] = {"lon": 25.0, "name": "Inmarsat I-4 F2 (25°E)"}
 DEFAULTS["driver"] = "hamlib"
 DEFAULTS["stepper"] = copy.deepcopy(stepper.DEFAULTS)
 # GPS propio (Uputronics GPS/RTC HAT con gpsd): su posicion manda sobre lan.pos y aprs.lat / aprs.lon (gnss.py)
@@ -137,6 +142,8 @@ def validate(c: dict) -> str:
             return "lan.udp"
         if not 0.5 <= float(ln["headStep"]) <= 45 or not -90 <= float(ln["magVar"]) <= 90:
             return "lan.headStep 0.5-45 / lan.magVar -90..90"
+        if not -180.0 <= float(c["inmarsat"]["lon"]) <= 180.0:
+            return "inmarsat.lon -180..180"
         if c["driver"] not in ("hamlib", "stepper"):
             return "driver hamlib | stepper"
         if c["driver"] == "stepper":
@@ -171,8 +178,8 @@ def validate(c: dict) -> str:
         at = c["att"]
         if not 0.05 <= float(at["step"]) <= 30 or float(at["staleS"]) <= 0:
             return "att.step 0.05-30 / att.staleS > 0"
-        if not all(int(at[k]) in (-1, 1) for k in ("rollSign", "pitchSign", "yawSign")):
-            return "att.rollSign / pitchSign / yawSign = -1 o 1"
+        if not all(int(at[k]) in (-1, 1) for k in ("rollSign", "pitchSign", "yawSign", "xSign")):
+            return "att.rollSign / pitchSign / yawSign / xSign = -1 o 1"
         a = c["aprs"]
         if not 1 <= len(a["call"]) <= 9:
             return "aprs.call"

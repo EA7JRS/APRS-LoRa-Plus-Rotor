@@ -34,7 +34,7 @@ Pines del wiki de Waveshare (`waveshare.com/wiki/Stepper_Motor_HAT`). No usa el 
 
 - **Alimentación de los motores**: 8,2 a 28 V en VIN. El regulador de 5 V del HAT puede alimentar la Pi (interruptor de la placa). Una **Pi 5** necesita su propia fuente de 5 V y 5 A por USB-C: deja ese interruptor apagado.
 - **Corriente**: potenciómetro de cada DRV8825. Con las resistencias de 0,2 Ω del HAT, la corriente en amperios es la tensión de referencia en voltios (Ichop = Vref). Ponla a la del motor o un poco menos.
-- **Micropasos**: interruptores D0-D2 (motor 1) y D3-D5 (motor 2). De fábrica están todos a 1 = 1/32. `stepper.az.micro` y `stepper.el.micro` deben coincidir con ellos. Los pines MODE solo llegan al DRV8825 si se sueldan las resistencias de 0 Ω del reverso (`stepper.modePins`, apagado de serie).
+- **Micropasos**: interruptores D0-D2 (motor 1) y D3-D5 (motor 2). De fábrica están todos a 1 = 1/32. `stepper.az.micro` y `stepper.el.micro` deben coincidir con ellos. Los pines MODE solo llegan al DRV8825 si se sueldan las resistencias de 0 Ω del reverso (`stepper.modePins`, apagado de serie). La WebUI (menú ⚙ > **Antena**) muestra, para el micropaso que tiene cada motor, la posición exacta de los DIP (cada trío es M0·M1·M2) y recuerda la alimentación y el ajuste de corriente, para no tener que mirar la tabla del datasheet.
 - **ENABLE**: en las placas Rev2.1 (compradas desde enero de 2021), alto = motor con corriente (`stepper.enActive` 1). En las anteriores, prueba con 0.
 - Parado, el motor se queda **sin corriente** (`hold` false) para que no se caliente. Un rotor de tornillo sin fin no se mueve solo. Si el tuyo se mueve, pon `hold: true` en ese eje.
 
@@ -84,17 +84,29 @@ Pines por defecto del tercer eje (libres, sin chocar con el HAT ni con el PPS de
 
 Mecánica igual que az/el (`stepper.x`: `stepsRev`, `micro`, `gear`, `dps`, `accel`, `invert`, `hold`, `home`…) y topes propios `stepper.minX` / `maxX` (de serie ±41,25°).
 
+#### Nivelación automática con el balanceo (cross-level)
+
+En móvil (vehículo o barco), el eje de inclinación puede **nivelar solo** con la escora. Enciende la compensación de actitud (`att.on`) con una IMU que dé escora y cabeceo (orden `att`, o la que mande la app / el tracker), y activa `att.level`. Con ello, el eje X gira para **cancelar la escora** (el balanceo) hasta su tope, y el acimut / elevación afinan el resto de la inclinación; así la antena sigue apuntando al objetivo aunque la base se mueva. `att.xSign` (−1 / 1) calibra el sentido del eje si nivela al revés. En la WebUI, cuando está nivelando, la línea de actitud lo indica («nivelando (cross-level)»). En estación fija deja `att.level` apagado: el eje se aparca al centro. (Requiere una antena con tercer eje, `stepper.x.on`.)
+
 #### Ejemplo: domo Satlink FB250+ (tren por correa GT2, piñón de 12 dientes)
 
-Reducción `gear` = dientes del plato / 12. Con los DIP del HAT a 1/32 (`micro` 32):
+Reducción `gear` = dientes del plato / 12. Con los DIP del HAT a 1/16 (`micro` 16; D0-D2 y D3-D5 = 0·0·1) y el TMC2209 del tercer eje también a 1/16:
 
 | Eje | Plato | `gear` | Topes |
 |---|---|---|---|
-| Acimut (`az`) | 147 (correa; por confirmar el conteo) | 12.25 | 0–360° |
+| Acimut (`az`) | 142 (correa; por confirmar el conteo) | 11.833 | 0–360° |
 | Elevación (`el`) | 60 | 5.0 | 0–90° |
 | Inclinación (`x`, TMC2209) | 72 | 6.0 | ±41,25° (`minX` −41.25, `maxX` 41.25) |
 
-Salen 217,8 / 88,9 / 106,7 pasos por grado; el Zero 2 W va sobrado a 4°/s. El eje x barre 82,5° de extremo a extremo (33 mm de correa).
+Salen 105,2 / 44,4 / 53,3 pasos por grado; el Zero 2 W va sobrado a 4°/s. El eje x barre 82,5° de extremo a extremo (33 mm de correa). Son los valores del perfil `fb250plus`; el conteo de la corona de acimut está por confirmar, así que **calibra la ganancia** antes de fiarte del apuntado.
+
+#### Calibrar la ganancia (dos puntos)
+
+Si no sabes la reducción exacta (dientes sin contar, correa que patina), mídela: en la WebUI, menú ⚙ > **Antena** > *Calibrar ganancia*. Lleva el eje a una referencia y pulsa **Marcar punto A**; muévelo a mano con las flechas a otra referencia conocida, escribe los **grados reales** que ha girado y pulsa **Calcular**. Propone la `gear` real (= pasos recorridos ÷ grados reales × 360 ÷ micropasos ÷ pasos de vuelta); **Aplicar** la guarda en la configuración y reinicia. Por la app o el protocolo JSON es la orden `calstep` (`mark`, luego `deg` y opcional `apply`).
+
+#### Fijar el cero con la baliza Inmarsat
+
+El domo FB250+ es un terminal **FleetBroadband de Inmarsat**: su baliza es una referencia de puntería estupenda. En la WebUI, menú ⚙ > **Antena** > *Calibrar con Inmarsat*, escribe la **longitud del satélite** (grados, E +, O −; 25 = I-4 F2, el de EMEA) y pulsa **Apuntar**: con la posición del GPS calcula el az/el geoestacionario y lleva la antena ahí. Afina a mano (flechas) hasta el **máximo de señal** de la baliza en el receptor y pulsa **Fijar aquí**: el cero de acimut y elevación se corrige a los grados calculados, así que a partir de ahí el apuntado es absoluto. Necesita posición GPS. Por la app o el protocolo es la orden `inmarsat` (`lon`, `fix`); el satélite por defecto se guarda en `inmarsat.lon`.
 
 ## Selector de antenas
 

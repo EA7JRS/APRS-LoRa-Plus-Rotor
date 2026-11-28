@@ -1,13 +1,13 @@
 {
   "title": "Satlink FB250+",
-  "desc": "Domo Inmarsat FB250+ reutilizado. 3 ejes, tren por correa GT2, pinon de 12 dientes. Azimut 147T (por confirmar conteo), elevacion 60T, inclinacion 72T. DIP del HAT a 1/32; 3er eje (inclinacion) con TMC2209.",
+  "desc": "Domo Inmarsat FB250+ reutilizado. 3 ejes, tren por correa GT2 (paso 2 mm), piñón de motor de 12 dientes. Acimut corona 142T (≈11,833:1, por confirmar el conteo), elevación plato 60T (5:1), inclinación plato 72T (6:1). DIP del HAT a 1/16 (D0-D2 y D3-D5 = 0·0·1); el 3er eje (inclinación / cross-level) con TMC2209 también a 1/16. Calibra la ganancia de cada eje con la rutina de dos puntos antes de fiarte del apuntado.",
   "stepper": {
     "antenna": "fb250plus",
     "minAz": 0.0, "maxAz": 360.0,
     "minEl": 0.0, "maxEl": 90.0,
     "minX": -41.25, "maxX": 41.25,
-    "az": {"on": true, "gear": 12.25, "micro": 32, "enActive": 1, "invert": false},
-    "el": {"on": true, "gear": 5.0, "micro": 32, "enActive": 1, "invert": false},
-    "x":  {"on": true, "gear": 6.0, "micro": 32, "enActive": 0, "invert": false}
+    "az": {"on": true, "stepsRev": 200, "micro": 16, "gear": 11.833, "enActive": 1, "invert": false},
+    "el": {"on": true, "stepsRev": 200, "micro": 16, "gear": 5.0, "enActive": 1, "invert": false},
+    "x":  {"on": true, "stepsRev": 200, "micro": 16, "gear": 6.0, "enActive": 0, "invert": false}
   }
 }

@@ -33,6 +33,7 @@ class ApiHost:
 
     def sky_start(self, target: int) -> str: return "no sky"
     def set_peer(self, lat: float, lon: float, alt: float = 0.0) -> str: return "no sky"   # P2P: otra estacion
+    def set_radec(self, d: dict) -> str: return "no sky"                          # RADEC: punto del cielo (ra/dec o l/b)
     def set_attitude(self, roll: float, pitch: float, yaw: float = 0.0) -> str: return "no attitude"  # IMU: escora / cabeceo / giro
     def att_zero(self) -> str: return "no attitude"                              # tara: la actitud actual pasa a 0
 
@@ -45,6 +46,10 @@ class ApiHost:
     def home(self) -> str: return "no home switch"                               # buscar los finales de carrera
     def list_antennas(self) -> list: return []                                   # selector de antenas (motores paso a paso)
     def select_antenna(self, name: str) -> str: return "not supported"
+    def cal_mark(self, axis: str) -> str: return "only direct drive"             # calibracion de ganancia: marcar punto A
+    def cal_gain(self, axis: str, deg: float) -> dict | None: return None        # calcular 'gear' real con los grados A->B
+    def apply_gain(self, axis: str, gear: float) -> str: return "not supported"  # guardar la 'gear' calculada y reiniciar
+    def point_inmarsat(self, lon, fix: bool) -> tuple[str, dict]: return "not supported", {}   # apuntar / fijar cero con Inmarsat
     def list_sats(self, group=None, active: bool = False) -> list: return []     # satelites del TLE con su proximo paso
     def sat_info(self) -> dict: return {}
     def select_sat(self, key: str) -> str: return "no sky"
@@ -198,6 +203,22 @@ class ApiSession:
             ok(c) if not e else err(c, e)
         elif c == "cal":
             err(c, "only direct drive")
+        elif c == "calstep":                            # calibracion de ganancia de los motores paso a paso (dos puntos)
+            axis = str(d.get("axis", "az"))
+            if d.get("mark"):
+                e = h.cal_mark(axis)
+                ok(c) if not e else err(c, e)
+            else:
+                deg = _num(d.get("deg"))
+                if deg is None:
+                    err(c, "deg")
+                    return out
+                res = h.cal_gain(axis, float(deg))
+                if res is None:
+                    err(c, "mark first")
+                    return out
+                e = h.apply_gain(axis, res["gear"]) if d.get("apply") else ""
+                ok(c, gear=res["gear"], spd=res["spd"], steps=res["steps"]) if not e else err(c, e)
         elif c == "cfgget":
             cfg = h.config_json()
             n = max(1, (len(cfg) + CFG_CHUNK - 1) // CFG_CHUNK)
@@ -270,6 +291,8 @@ class ApiSession:
                 err(c, "t")
             elif t == sky.SAT and d.get("id") and (e := h.select_sat(str(d["id"]))):
                 err(c, e)                                   # satelite desconocido
+            elif t == sky.RADEC and (e := h.set_radec(d)):
+                err(c, e)                                   # punto del cielo mal dado
             else:
                 e = h.sky_start(t)
                 ok(c) if not e else err(c, e)
@@ -293,6 +316,9 @@ class ApiSession:
             else:
                 e = h.set_peer(float(lat), float(lon), float(_num(d.get("alt")) or 0.0))
                 ok(c) if not e else err(c, e)
+        elif c == "inmarsat":                           # calibracion: apuntar / fijar el cero con un satelite Inmarsat
+            e, dd = h.point_inmarsat(_num(d.get("lon")), bool(d.get("fix")))
+            ok(c, **dd) if not e else out.append(dumps({"e": "err", "c": c, "m": e, **dd}))
         elif c == "reboot":
             ok(c)
             h.reboot()

@@ -45,6 +45,31 @@ def _gmst(jd: float) -> float:
     return (280.46061837 + 360.98564736629 * (jd - 2451545.0) + 0.000387933 * tu * tu) % 360.0
 
 
+# Matriz ICRS -> galactica (Hipparcos / IAU 1958, epoca J2000). Su traspuesta pasa de galactica a ecuatorial.
+_EQ2GAL = ((-0.0548755604, -0.8734370902, -0.4838350155),
+           (0.4941094279, -0.4448296300, 0.7469822445),
+           (-0.8676661490, -0.1980763734, 0.4559837762))
+
+
+def radec_to_azel(ra: float, dec: float, lat: float, lon: float, t: float) -> tuple[float, float]:
+    """(azimut, altura) en grados de un punto fijo del cielo (RA, Dec J2000 en grados) desde (lat, lon) en el instante t
+    (Unix UTC). Para radioastronomia: seguir una fuente con el giro sidereo de la Tierra (linea de hidrogeno 1420 MHz)."""
+    lst = _gmst(julian_day(t)) + lon                          # tiempo sidereo local (grados)
+    ha = _rad(lst - ra)                                       # angulo horario
+    az, alt = _altaz(lat, ha, _rad(dec))
+    return az, alt
+
+
+def galactic_to_radec(l: float, b: float) -> tuple[float, float]:
+    """Coordenadas galacticas (l, b en grados) -> ecuatoriales (RA, Dec J2000 en grados)."""
+    lr, br = _rad(l), _rad(b)
+    vg = (math.cos(br) * math.cos(lr), math.cos(br) * math.sin(lr), math.sin(br))
+    ve = tuple(sum(_EQ2GAL[j][i] * vg[j] for j in range(3)) for i in range(3))     # traspuesta: galactica -> ecuatorial
+    ra = _deg(math.atan2(ve[1], ve[0])) % 360.0
+    dec = _deg(math.asin(max(-1.0, min(1.0, ve[2]))))
+    return ra, dec
+
+
 def _altaz(lat: float, ha: float, dec: float) -> tuple[float, float]:
     la = _rad(lat)
     alt = _deg(math.asin(math.sin(la) * math.sin(dec) + math.cos(la) * math.cos(dec) * math.cos(ha)))

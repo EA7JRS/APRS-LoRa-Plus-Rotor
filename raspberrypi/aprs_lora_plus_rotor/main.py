@@ -34,7 +34,7 @@ import subprocess
 import sys
 import time
 
-from . import __version__, antennas, board, geo, sat
+from . import __version__, antennas, astro, board, geo, sat
 from .api import ApiHost, ApiSession, pos_event  # noqa: F401
 from .aprs import AprsConfig, AprsControl, LORA_HEADER, parse_position, status_line
 from .bluez import Bluetooth
@@ -49,8 +49,9 @@ from .heading import HeadingRotor
 from .attitude import AttitudeRotor
 from .lan import Lan
 from .wind import WindGuard, WindRotor
-from .sky import SkyRotor, P2P, SAT
+from .sky import SkyRotor, P2P, SAT, RADEC
 from .stepper import StepperRotor
+from . import stepper
 from .gnss import OwnGps
 
 log = logging.getLogger("rotor")
@@ -76,7 +77,8 @@ class Daemon(ApiHost):
         at = d["att"]
         self.att = AttitudeRotor(WindRotor(self.base, self.wind), bool(at["on"]), float(at["step"]), float(at["staleS"]),
                                  int(at["rollSign"]), int(at["pitchSign"]), int(at["yawSign"]),
-                                 float(at["rollZero"]), float(at["pitchZero"]), float(at["yawZero"]))
+                                 float(at["rollZero"]), float(at["pitchZero"]), float(at["yawZero"]),
+                                 bool(at["level"]), int(at["xSign"]))
         self.heading = HeadingRotor(self.att, bool(d["lan"]["heading"]), float(d["lan"]["headStep"]))
         sk = d["sky"]
         self.sky = SkyRotor(self.heading, float(sk["step"]), float(sk["minEl"]), bool(sk["refraction"]),
@@ -117,6 +119,7 @@ class Daemon(ApiHost):
                 "up": int(time.monotonic() - self.started), "utc": int(time.time()),
                 **({"hamlib": self.proc.last_error or "ok"} if self.proc else {}),
                 **({"gps": self.gps.info()} if self.gps.info() else {}),
+                **({"hat": stepper.hat_info(d["stepper"])} if self.proc is None else {}),
                 "rigctld": d["cat"]["serverPort"] if self.cat and d["cat"]["server"] else 0,
                 **({"rig": self.cat.proc.last_error or "ok"} if self.cat and self.cat.proc else {}),
                 **({"lan": self.lan.info()} if self.lan.info() else {})}
@@ -156,6 +159,21 @@ class Daemon(ApiHost):
             self.sky.set_sat(s0)
         alt = self.gps.alt if (self.gps.position() and self.gps.alt is not None) else 0.0
         return self.sky.start(target, self.lan.position(), alt=alt or 0.0)
+
+    def set_radec(self, d: dict) -> str:
+        """Punto fijo del cielo para RADEC (radioastronomia, linea H1): RA/Dec (J2000) o coordenadas galacticas l/b."""
+        def f(v):
+            return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+        ra, dec, l, b = f(d.get("ra")), f(d.get("dec")), f(d.get("l")), f(d.get("b"))
+        name = str(d.get("name", ""))
+        if l is not None and b is not None:
+            ra, dec = astro.galactic_to_radec(l, b)
+            if not name:
+                name = f"l{l:g} b{b:g}"
+        if ra is None or dec is None:
+            return "" if self.sky.target == RADEC else "radec: ra/dec or l/b"
+        self.sky.set_radec(ra, dec, name)
+        return ""
 
     def _sat_pos(self) -> tuple[float, float, float] | None:
         p = self.lan.position()
@@ -274,6 +292,20 @@ class Daemon(ApiHost):
     def here(self, axis: str, deg: float) -> str:
         return self.base.here(axis, deg) if isinstance(self.base, StepperRotor) else "only direct drive"
 
+    def cal_mark(self, axis: str) -> str:
+        return self.base.cal_mark(axis) if isinstance(self.base, StepperRotor) else "only direct drive"
+
+    def cal_gain(self, axis: str, deg: float):
+        return self.base.cal_gain(axis, deg) if isinstance(self.base, StepperRotor) else None
+
+    def apply_gain(self, axis: str, gear: float) -> str:
+        """Guarda la reduccion 'gear' calibrada del eje y reinicia (se reconstruye el rotor con el valor nuevo)."""
+        if not isinstance(self.base, StepperRotor):
+            return "only direct drive"
+        if axis not in ("az", "el", "x"):
+            return "axis"
+        return self.apply_config(json.dumps({"driver": "stepper", "stepper": {axis: {"gear": float(gear)}}}))
+
     def home(self) -> str:
         return self.base.home() if isinstance(self.base, StepperRotor) else "no home switch"
 
@@ -287,6 +319,31 @@ class Daemon(ApiHost):
             return "unknown antenna"
         patch = {"driver": "stepper", "stepper": {**prof["stepper"], "antenna": name}}
         return self.apply_config(json.dumps(patch))
+
+    def point_inmarsat(self, lon, fix: bool) -> tuple[str, dict]:
+        """Calibracion con un satelite geoestacionario Inmarsat. Sin 'fix' apunta a su az/el (con la posicion GPS);
+        con 'fix' corrige el cero: la orientacion actual (afinada a mano al maximo de la baliza) pasa a valer ese az/el."""
+        pos = self.lan.position()
+        if not pos:
+            return "no position", {}
+        slon = float(lon) if lon is not None else float(self.cfg.data["inmarsat"]["lon"])
+        if not -180.0 <= slon <= 180.0:
+            return "lon", {}
+        alt = self.gps.alt if (self.gps.position() and self.gps.alt is not None) else 0.0
+        az, el, dist = geo.geostationary_azel(pos[0], pos[1], slon, alt or 0.0)
+        info = {"az": round(az, 2), "el": round(el, 2), "km": round(dist), "lon": slon}
+        if el < 0:
+            return "below horizon", info
+        if fix:
+            if not isinstance(self.base, StepperRotor):
+                return "only direct drive", info
+            self.base.here("az", az)
+            if self.base.has_el:
+                self.base.here("el", el)
+            info["fixed"] = True
+        else:
+            self.rotor.set_pos(az, el)
+        return "", info
 
     def clear_fault(self):
         self.wind.release()
