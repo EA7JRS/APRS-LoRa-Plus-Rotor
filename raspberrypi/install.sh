@@ -8,21 +8,25 @@
 #   sudo ./install.sh --gps      Uputronics GPS/RTC HAT: UART, PPS en GPIO18, reloj RV-3028, gpsd (gps.on); reinicia la Pi
 #   sudo ./install.sh --link-uart  UART para una pantalla del rotor por cable (LCD-7 / LCD-7B): GPIO8 TX, GPIO9 RX, GS-232B
 #                                  (Pi 4 y 5; en la 3 y la Zero 2 W, adaptador USB-serie); reinicia la Pi
+#   sudo ./install.sh --seatel   antena Sea Tel por RS422 (pyserial): seatel_rotctld como servicio en el puerto 4543 (ENSAYO)
+#                                (puerto con SEATEL_DEV=/dev/ttyXXX); el demonio la usa con driver hamlib model 2 (ver docs/SEATEL.md)
 #   (se pueden juntar: sudo ./install.sh --stepper --gps --link-uart; ver docs/RASPBERRY_HATS.md por el GPIO18 de los dos HAT)
 #   NO_NTP=1 sudo ./install.sh   sin tocar la hora del sistema (de serie pone NTPsec con la hora del ROA y el GPS de gpsd)
 #   PI5_RTC=1 sudo ./install.sh --gps   Pi 5: deja su reloj propio (con su pila) en vez del RV-3028 del Uputronics
 set -e
 
-GADGET=""; STEPPER=""; GPS=""; LINK=""; LINKDEV=""
+GADGET=""; STEPPER=""; GPS=""; LINK=""; LINKDEV=""; SEATEL=""
 for a in "$@"; do
     case "$a" in
         --gadget) GADGET=1 ;;
         --stepper) STEPPER=1 ;;
         --gps) GPS=1 ;;
         --link-uart) LINK=1 ;;
+        --seatel) SEATEL=1 ;;
         *) echo "opcion desconocida: $a"; exit 1 ;;
     esac
 done
+SEATEL_DEV=${SEATEL_DEV:-/dev/ttyUSB0}      # puerto de la PCU Sea Tel (--seatel); cambia con SEATEL_DEV=...
 
 if [ "$(id -u)" != "0" ]; then echo "Ejecuta con sudo"; exit 1; fi
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -39,6 +43,7 @@ apt-get update
 apt-get install -y libhamlib-utils python3 python3-dbus-next bluez
 [ -n "$STEPPER" ] && apt-get install -y python3-lgpio
 [ -n "$GPS" ] && apt-get install -y gpsd gpsd-clients pps-tools
+[ -n "$SEATEL" ] && apt-get install -y python3-serial      # pyserial para la PCU Sea Tel por RS422
 
 if [ -z "$NO_NTP" ]; then
     echo "== Hora: NTPsec con ntp.roa.es (hora oficial de Espana) y el GPS de gpsd si lo hay"
@@ -54,6 +59,31 @@ rm -rf "$DEST/aprs_lora_plus_rotor"
 cp -r "$HERE/aprs_lora_plus_rotor" "$DEST/"
 # La WebUI es la misma pagina que la del firmware
 cp "$HERE/../firmware/src/web_page.h" "$DEST/aprs_lora_plus_rotor/web_page.h"
+
+if [ -n "$SEATEL" ]; then
+    echo "== Antena Sea Tel: seatel_rotctld como servicio (puerto 4543, modo ENSAYO)"
+    cp "$HERE/seatel_rotctld.py" "$DEST/"
+    cat > /etc/systemd/system/aprs-lora-plus-seatel.service <<UNIT
+[Unit]
+Description=seatel_rotctld (PCU Sea Tel como rotctld) para APRS LoRa+ Rotor
+After=network.target
+
+[Service]
+# De fabrica en ENSAYO (sin --allow-real-motion): no mueve la antena. Cuando lo hayas probado, anade
+# --allow-real-motion a esta linea (y --wait-arrival en las primeras pruebas). Ver docs/SEATEL.md.
+ExecStart=/usr/bin/python3 $DEST/seatel_rotctld.py --pcu $SEATEL_DEV --port 4543 --log /var/log/seatel.log
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+    systemctl daemon-reload
+    systemctl enable aprs-lora-plus-seatel
+    systemctl restart aprs-lora-plus-seatel || true
+    echo "   La PCU esta en $SEATEL_DEV (cambia con SEATEL_DEV=/dev/ttyXXX). Para que el rotor use la Sea Tel,"
+    echo "   pon en la configuracion del demonio: \"driver\":\"hamlib\", \"hamlib\":{\"model\":2,\"device\":\"127.0.0.1:4543\"}"
+fi
 
 mkdir -p "$CONF"
 chmod 700 "$CONF"
@@ -160,6 +190,7 @@ FLAGS=""
 [ -n "$STEPPER" ] && FLAGS="$FLAGS --stepper"
 [ -n "$GPS" ] && FLAGS="$FLAGS --gps"
 [ -n "$LINK" ] && FLAGS="$FLAGS --link-uart"
+[ -n "$SEATEL" ] && FLAGS="$FLAGS --seatel"
 echo "== Ayudante de actualizacion en $DEST/update.sh"
 cat > "$DEST/update.sh" <<EOF
 #!/bin/sh
