@@ -142,12 +142,13 @@ class Daemon(ApiHost):
                 if ll is None:
                     return "p2p.loc invalid"
                 self.sky.set_peer(ll[0], ll[1], float(pp["alt"]), "fixed")
-            elif pp["lat"] or pp["lon"]:
+                return ""
+            if pp["lat"] or pp["lon"]:
                 self.sky.set_peer(float(pp["lat"]), float(pp["lon"]), float(pp["alt"]), "fixed")
-            else:
-                return "no peer position (set p2p.loc or p2p.lat/lon)"
-        elif self.sky.peer is None:
-            return "no peer position yet (app or APRS beacon of p2p.call)"
+                return ""
+            # sin coordenadas fijas: usa la ultima posicion recibida (peer / app) si la hay
+        if self.sky.peer is None:
+            return "no peer position (p2p.loc / coords, app or APRS beacon of p2p.call)"
         return ""
 
     def set_peer(self, lat: float, lon: float, alt: float = 0.0) -> str:
