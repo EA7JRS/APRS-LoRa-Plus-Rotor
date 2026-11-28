@@ -43,7 +43,7 @@ class ApiHost:
     def home(self) -> str: return "no home switch"                               # buscar los finales de carrera
     def list_antennas(self) -> list: return []                                   # selector de antenas (motores paso a paso)
     def select_antenna(self, name: str) -> str: return "not supported"
-    def list_sats(self) -> list: return []                                       # satelites del TLE con su proximo paso
+    def list_sats(self, group=None, active: bool = False) -> list: return []     # satelites del TLE con su proximo paso
     def sat_info(self) -> dict: return {}
     def select_sat(self, key: str) -> str: return "no sky"
     def update_tle(self) -> str: return "no sky"
@@ -129,8 +129,9 @@ class ApiSession:
         if c == "antennas":
             out.append(dumps({"e": "antennas", "list": h.list_antennas()}))
             return out
-        if c == "sats":                                     # lista de satelites (nombre, az/el, proximo paso)
-            out.append(dumps({"e": "sats", "list": h.list_sats(), **h.sat_info()}))
+        if c == "sats":                                     # lista de satelites (nombre, az/el, proximo paso); grp = categoria, act = solo activos
+            grp = d.get("grp") or None
+            out.append(dumps({"e": "sats", "list": h.list_sats(grp, bool(d.get("act"))), **h.sat_info()}))
             return out
         if c == "sub":
             ms = int(d.get("ms", 1000))

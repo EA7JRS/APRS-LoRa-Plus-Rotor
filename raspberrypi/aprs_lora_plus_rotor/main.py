@@ -151,13 +151,15 @@ class Daemon(ApiHost):
         alt = self.gps.alt if (self.gps.position() and self.gps.alt is not None) else 0.0
         return p[0], p[1], alt or 0.0
 
-    def list_sats(self) -> list:
+    def list_sats(self, group=None, active: bool = False) -> list:
         pos = self._sat_pos()
-        return self.satdb.passes(pos[0], pos[1], pos[2]) if pos else []
+        return self.satdb.passes(pos[0], pos[1], pos[2], group=group, active=active) if pos else []
 
     def sat_info(self) -> dict:
         return {"updated": int(self.satdb.updated), "n": len(self.satdb.sats),
-                "name": self.sky.sat.name if self.sky.sat else "", "haspos": self._sat_pos() is not None}
+                "name": self.sky.sat.name if self.sky.sat else "", "haspos": self._sat_pos() is not None,
+                "groups": [list(g) for g in sat.GROUPS], "amsat": self.satdb.amsat_on,
+                "amsatAt": int(self.satdb.active_at), "nactive": len(self.satdb.active_keys)}
 
     def select_sat(self, key: str) -> str:
         s = self.satdb.get(key)
@@ -182,6 +184,9 @@ class Daemon(ApiHost):
             s = self.satdb.get(self.cfg.data["sat"]["name"])
             if s:
                 self.sky.set_sat(s)
+        aerr = await loop.run_in_executor(None, self.satdb.update_amsat)   # estado AMSAT (satelites activos)
+        if aerr:
+            logging.warning("[SAT] AMSAT: %s", aerr)
 
     def _p2p_peer(self) -> str:
         """Carga la posicion del otro extremo segun p2p.src (fija de la config; net/aprs = ya recibida)."""

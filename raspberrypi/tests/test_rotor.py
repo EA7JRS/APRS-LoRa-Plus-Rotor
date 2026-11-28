@@ -1052,10 +1052,44 @@ class TestSat(unittest.TestCase):
         self.assertEqual(len(o), 3)
         self.assertTrue(-90.0 <= o[1] <= 90.0 and o[2] > 0)         # elevacion y distancia con sentido
 
+    def test_project_format(self):
+        from aprs_lora_plus_rotor import sat
+        txt = ("# cabecera\n"
+               "S|25544|ISS (ZARYA)|U|sa\n" + ISS_L1 + "\n" + ISS_L2 + "\n"
+               "T|0|0|145800000|145800000|FM|0|0|voice\n"
+               "S|53109|GREENCUBE (IO-117)|G|cg\n" + SO50_L1.replace("27607", "53109") + "\n"
+               + SO50_L2.replace("27607", "53109") + "\n")
+        ss = sat.parse_sats(txt)
+        self.assertEqual([s.name for s in ss], ["ISS (ZARYA)", "GREENCUBE (IO-117)"])
+        self.assertEqual(ss[0].groups, "sa")
+        self.assertEqual(ss[1].groups, "cg")                 # 'g' de la categoria GEO, sin duplicar
+
+    def test_amsat_active(self):
+        from aprs_lora_plus_rotor import sat
+        j = ('{"data":[{"name":"IO-117","report":"Heard"},{"name":"QO-100","report":"Telemetry Only"},'
+             '{"name":"AO-91","report":"Not Heard"}],"meta":{"hours":24}}')
+        keys = sat.amsat_active(j)
+        self.assertEqual(keys, {"IO117", "QO100"})           # 'Not Heard' fuera
+        self.assertEqual(sat.sat_name_keys("GREENCUBE (IO-117)"), {"GREENCUBE", "IO117"})
+
+    def test_passes_filters(self):
+        from aprs_lora_plus_rotor import sat
+        db = self._db()
+        db.active_keys = {"ISS"}                              # ISS activo segun AMSAT
+        rows = db.passes(37.6, -0.98, 45, now=1795000000.0)
+        self.assertEqual(len(rows), 2)
+        self.assertTrue(all("act" in r and "grp" in r for r in rows))
+        iss = next(r for r in rows if r["name"].startswith("ISS"))
+        self.assertTrue(iss["act"])
+        self.assertEqual(len(db.passes(37.6, -0.98, 45, now=1795000000.0, active=True)), 1)   # solo ISS
+        self.assertEqual(len(db.passes(37.6, -0.98, 45, now=1795000000.0, group="s")), 1)     # solo estaciones
+
     def _db(self):
         from aprs_lora_plus_rotor import sat
-        db = sat.SatDb({"tleUrl": "https://x/y", "horizonH": 8})
-        db._set(sat.parse_tle(TLE_TXT), 1795000000.0)
+        txt = ("S|25544|ISS (ZARYA)|U|s\n" + ISS_L1 + "\n" + ISS_L2 + "\n"
+               "S|27607|SO-50|U|a\n" + SO50_L1 + "\n" + SO50_L2 + "\n")
+        db = sat.SatDb({"tleUrl": "https://x/y", "horizonH": 8, "amsat": True, "amsatUrl": "https://x/a"})
+        db._set(sat.parse_sats(txt), 1795000000.0)
         return db
 
     def test_sky_sat(self):
@@ -1081,8 +1115,8 @@ class TestSat(unittest.TestCase):
                 h.satdb, h.sky, h.rotor, h.wind, h.cat = db, sr, sr, None, None
             def pin(h):
                 return ""
-            def list_sats(h):
-                return h.satdb.passes(37.6, -0.98, 45)
+            def list_sats(h, group=None, active=False):
+                return h.satdb.passes(37.6, -0.98, 45, group=group, active=active)
             def sat_info(h):
                 return {"updated": int(h.satdb.updated), "n": len(h.satdb.sats),
                         "name": h.sky.sat.name if h.sky.sat else "", "haspos": True}

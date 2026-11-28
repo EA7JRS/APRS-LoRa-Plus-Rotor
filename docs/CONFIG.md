@@ -154,10 +154,12 @@ Seguimiento de satélites (orden `track` `sat`): descarga el TLE, lista los sat�
 
 | Clave | Por defecto | |
 |---|---|---|
-| `sat.tleUrl` | Celestrak amateur | URL del fichero TLE (formato de tres líneas) |
+| `sat.tleUrl` | `sats_all.txt` del proyecto (como la app) | fichero de satélites: formato del proyecto (`S|…`/TLE/`T|…`) o TLE plano de tres líneas |
 | `sat.name` | "" | satélite recordado (nombre o número de catálogo) |
-| `sat.refreshH` | 12 | cada cuántas horas se refresca el TLE (0 = nunca) |
+| `sat.refreshH` | 12 | cada cuántas horas se refresca el TLE y AMSAT (0 = nunca) |
 | `sat.horizonH` | 8 | horizonte de la predicción de pasos (horas) |
+| `sat.amsat` | true | marcar satélites activos con AMSAT Status (filtro «Activos») |
+| `sat.amsatUrl` | AMSAT summary | endpoint del estado de AMSAT (`status.amsat.org`) |
 
 La elevación mínima para los pasos y el umbral de reapuntado son los de `sky` (`sky.minEl`, `sky.step`).
 

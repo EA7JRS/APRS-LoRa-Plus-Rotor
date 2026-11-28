@@ -52,8 +52,9 @@ DEFAULTS["p2p"] = {"src": "fixed", "lat": 0.0, "lon": 0.0, "alt": 0.0, "loc": ""
 # Satelites (orden "track" sat): descarga el TLE amateur (Celestrak por defecto), lista los satelites con su proximo paso y
 # sigue el elegido con SGP4 (sat.py; el calculo orbital en el subpaquete vendorizado sgp4). name = satelite recordado;
 # refreshH = cada cuantas horas refresca el TLE (0 = nunca); horizonH = horizonte de la prediccion de pasos.
-DEFAULTS["sat"] = {"tleUrl": "https://celestrak.org/NORAD/elements/gp.php?GROUP=amateur&FORMAT=tle",
-                   "name": "", "refreshH": 12.0, "horizonH": 8.0}
+DEFAULTS["sat"] = {"tleUrl": "https://raw.githubusercontent.com/EA7JRS/APRS-LoRa-Plus/satdata/sats_all.txt",
+                   "name": "", "refreshH": 12.0, "horizonH": 8.0,
+                   "amsat": True, "amsatUrl": "https://status.amsat.org/api/v1/summary.php"}
 # Que mueve el rotor: "hamlib" (rotctld de Hamlib con un controlador) o "stepper" (motores paso a paso en la propia Pi con
 # el Waveshare Stepper Motor HAT, stepper.py; docs/RASPBERRY_HATS.md)
 DEFAULTS["driver"] = "hamlib"
@@ -142,6 +143,8 @@ def validate(c: dict) -> str:
             return "sat.tleUrl http(s)://"
         if float(st["refreshH"]) < 0 or not 0.5 <= float(st["horizonH"]) <= 72:
             return "sat.refreshH >= 0 / sat.horizonH 0.5-72"
+        if st["amsat"] and not (st["amsatUrl"].startswith("http://") or st["amsatUrl"].startswith("https://")):
+            return "sat.amsatUrl http(s)://"
         a = c["aprs"]
         if not 1 <= len(a["call"]) <= 9:
             return "aprs.call"

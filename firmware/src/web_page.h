@@ -76,15 +76,17 @@ const t=document.getElementById('csm');t.textContent=v<0?'S—':(v<=9?'S'+v:'S9+
 <div class="row"><button onclick="cmd({c:'track',t:'sun'})">☀ Sol</button><button onclick="cmd({c:'track',t:'moon'})">☾ Luna</button><button id="satBtn" onclick="satPick()">🛰 SAT</button><button onclick="cmd({c:'track',t:'off'})">Dejar de seguir</button></div>
 <p class="mut">Mantén pulsado CW / CCW / UP / DOWN para mover a mano.</p></div>
 
+<div id="rightcol" style="display:flex;flex-direction:column;gap:12px">
 <div class="c" id="gpsc" style="display:none">
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><h3 style="margin:0">GPS</h3><span id="gstat" class="mut"></span></div>
 <div id="gpos" style="font-size:22px;font-variant-numeric:tabular-nums">—</div>
 <div class="mut" id="gmeta" style="margin-top:4px"></div></div>
 
-<div class="c" id="trkc" style="display:none"><h3>Objetivo en seguimiento</h3>
-<div class="row"><span class="big" id="trkName">—</span></div>
-<div class="row" style="justify-content:space-around"><div>AZ <span class="big" id="trkAz">--</span>°</div><div>EL <span class="big" id="trkEl">--</span>°</div></div>
-<div class="row mut" id="trkInfo"></div></div>
+<div class="c" id="trkc" style="display:none">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><h3 style="margin:0">Objetivo</h3><span id="trkName" style="font-size:18px">—</span></div>
+<div class="row" style="justify-content:space-around;margin:4px 0"><div class="mut">AZ <span style="font-size:24px;color:var(--fg);font-variant-numeric:tabular-nums" id="trkAz">--</span>°</div><div class="mut">EL <span style="font-size:24px;color:var(--fg);font-variant-numeric:tabular-nums" id="trkEl">--</span>°</div></div>
+<div class="mut" id="trkInfo" style="font-size:13px"></div></div>
+</div>
 
 <div class="c" id="catc" style="display:none"><h3>CAT · emisora <span class="mut" id="crig"></span></h3>
 <div class="row"><span class="big" id="cf">---.---.---</span><span class="mut">MHz</span><span id="cm"></span><span id="cp"></span><span id="cl"></span></div>
@@ -121,7 +123,8 @@ const t=document.getElementById('csm');t.textContent=v<0?'S—':(v<=9?'S'+v:'S9+
 <div id="satModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:50;align-items:center;justify-content:center;padding:16px">
 <div style="background:var(--card);border:1px solid var(--bd);border-radius:12px;max-width:430px;width:100%;max-height:82vh;display:flex;flex-direction:column">
 <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--bd)"><b>Elegir satélite</b><button onclick="satClose()" style="padding:4px 10px">×</button></div>
-<div style="padding:10px 16px"><input id="satSearch" placeholder="Buscar…" oninput="satRender()" style="width:100%"></div>
+<div style="padding:10px 16px 6px"><input id="satSearch" placeholder="Buscar…" oninput="satRender()" style="width:100%"></div>
+<div style="padding:0 16px 8px"><div id="satChips" style="display:flex;gap:6px;flex-wrap:wrap"></div></div>
 <div id="satList" style="overflow:auto;padding:0 8px 6px"></div>
 <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 16px;border-top:1px solid var(--bd)"><span id="satMeta" class="mut" style="font-size:12px"></span><button onclick="satUpdate()" style="padding:6px 10px">Actualizar TLE</button></div>
 </div></div>
@@ -141,16 +144,23 @@ function fmtDist(km){var u=unitPref();if(u=='imperial')return (km*0.621371).toFi
 function loc8(la,lo){lo+=180;la+=90;var A=65,a=97,s='';s+=String.fromCharCode(A+Math.floor(lo/20));s+=String.fromCharCode(A+Math.floor(la/10));s+=''+Math.floor((lo%20)/2);s+=''+Math.floor(la%10);s+=String.fromCharCode(a+Math.floor((lo%2)*12));s+=String.fromCharCode(a+Math.floor((la%1)*24));s+=''+Math.floor((lo%2)*12%1*10);s+=''+Math.floor((la%1)*24%1*10);return s}
 async function api(lines){const r=await fetch('/api',{method:'POST',body:lines.map(o=>JSON.stringify(o)).join('\n')+'\n'});if(!r.ok)throw r.status;return r.json()}
 async function cmd(o){try{const r=await api([o]);const e=r.find(x=>x.e=='err');if(e)alert(e.c+': '+e.m)}catch(e){}}
+// La columna derecha (GPS + Objetivo) se apila y se oculta si no hay ninguno, para alinearse con Posición y Mando.
+function rcSync(){var g=$('gpsc'),t=$('trkc'),r=$('rightcol');if(r)r.style.display=((g&&g.style.display!=='none')||(t&&t.style.display!=='none'))?'flex':'none'}
 // Selector de satelite: lista del API (nombre, az/el, proximo paso), buscar, elegir (track sat) y actualizar TLE.
-var SATS=[],SATF=[];
+var SATS=[],SATF=[],SATGROUPS=[],SATGRP='',SATACT=false;
 function sEsc(s){return (s+'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 function satHM(ts){var d=new Date(ts*1000);return ('0'+d.getUTCHours()).slice(-2)+':'+('0'+d.getUTCMinutes()).slice(-2)+'Z'}
-async function satPick(){try{const r=await api([{c:'sats'}]);var o=r[0]||{};SATS=o.list||[];satMeta(o);$('satSearch').value='';satRender();$('satModal').style.display='flex'}catch(e){alert('satélites no disponibles')}}
+function satPick(){SATGRP='';SATACT=false;$('satSearch').value='';$('satModal').style.display='flex';satLoad()}
 function satClose(){$('satModal').style.display='none'}
-function satMeta(o){var m=$('satMeta');if(o.haspos===false){m.innerHTML='<span class="bad">sin posición propia (GPS o red)</span>';return}var age=o.updated?Math.round((Date.now()/1000-o.updated)/3600):null;m.textContent=(o.n||0)+' satélites · TLE '+(o.updated?('hace '+age+' h'):'sin descargar')}
-function satRender(){var q=($('satSearch').value||'').toUpperCase();SATF=SATS.filter(function(s){return s.name.toUpperCase().indexOf(q)>=0});var h='';for(var i=0;i<SATF.length;i++){var s=SATF[i];var when=s.up?'<span class="okc">ahora</span>':(s.aos?satHM(s.aos):'—');var mx=s.maxel!=null?' · máx '+s.maxel+'°':'';h+='<div onclick="satSel('+i+')" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 8px;border-top:1px solid var(--bd);cursor:pointer"><span>'+sEsc(s.name)+'</span><span class="mut" style="font-size:12px;white-space:nowrap">'+when+mx+'</span></div>'}$('satList').innerHTML=h||'<p class="mut" style="padding:12px">Sin satélites. Pulsa «Actualizar TLE».</p>'}
+async function satLoad(){try{var o=(await api([{c:'sats',grp:SATGRP||undefined,act:SATACT}]))[0]||{};SATS=o.list||[];if(o.groups)SATGROUPS=o.groups;satMeta(o);satChips(o);satRender()}catch(e){$('satList').innerHTML='<p class="bad" style="padding:12px">Satélites no disponibles.</p>'}}
+function satMeta(o){var m=$('satMeta');if(o.haspos===false){m.innerHTML='<span class="bad">sin posición propia (GPS o red)</span>';return}var age=o.updated?Math.round((Date.now()/1000-o.updated)/3600):null;var act=o.amsat?(' · '+(o.nactive||0)+' activos (AMSAT)'):'';m.textContent=(o.n||0)+' sat · TLE '+(o.updated?('hace '+age+' h'):'sin descargar')+act}
+function satChipHtml(txt,on,js){return '<span onclick="'+js+'" style="cursor:pointer;font-size:12px;border-radius:20px;padding:4px 11px;'+(on?'color:#fff;background:var(--acc)':'color:var(--fg);background:var(--btn)')+'">'+txt+'</span>'}
+function satChips(o){var h=satChipHtml('Todos',SATGRP===''&&!SATACT,"satCat('')");for(var i=0;i<SATGROUPS.length;i++){var g=SATGROUPS[i];h+=satChipHtml(sEsc(g[1]),SATGRP===g[0],"satCat('"+g[0]+"')")}if(o.amsat!==false)h+=satChipHtml('Activos',SATACT,'satAct()');$('satChips').innerHTML=h}
+function satCat(g){SATGRP=(SATGRP===g?'':g);satLoad()}
+function satAct(){SATACT=!SATACT;satLoad()}
+function satRender(){var q=($('satSearch').value||'').toUpperCase();SATF=SATS.filter(function(s){return s.name.toUpperCase().indexOf(q)>=0});var h='';for(var i=0;i<SATF.length;i++){var s=SATF[i];var when=s.up?'<span class="okc">ahora</span>':(s.aos?satHM(s.aos):'—');var mx=s.maxel!=null?' · máx '+s.maxel+'°':'';var dot=s.act?'<span class="okc">● </span>':'';h+='<div onclick="satSel('+i+')" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 8px;border-top:1px solid var(--bd);cursor:pointer"><span>'+dot+sEsc(s.name)+'</span><span class="mut" style="font-size:12px;white-space:nowrap">'+when+mx+'</span></div>'}$('satList').innerHTML=h||'<p class="mut" style="padding:12px">Sin satélites. Prueba otra categoría o «Actualizar TLE».</p>'}
 async function satSel(i){var s=SATF[i];if(!s)return;satClose();await cmd({c:'track',t:'sat',id:s.name});poll()}
-async function satUpdate(){$('satMeta').textContent='Actualizando TLE…';await cmd({c:'tle'});setTimeout(satPick,4000)}
+async function satUpdate(){$('satMeta').textContent='Actualizando TLE…';await cmd({c:'tle'});setTimeout(satLoad,5000)}
 function go(){const a=parseFloat($('gaz').value),e=parseFloat($('gel').value);if(isNaN(a))return;const o={c:'pos',az:a};if(!isNaN(e))o.el=e;cmd(o)}
 function cal(p){const d=parseFloat($('cdeg').value);if(isNaN(d))return alert('grados');cmd({c:'cal',axis:$('cax').value,pt:p,deg:d})}
 function here(){const d=parseFloat($('cdeg').value);if(isNaN(d))return alert('grados');cmd({c:'here',axis:$('cax').value,deg:d})}
@@ -183,7 +193,7 @@ async function poll(){try{const r=await api([{c:'get'}]);pos=r[0];$('az').textCo
 if(pos.el!=null){$('el').textContent=pos.el.toFixed(1)}else $('elbox').style.display='none';
 $('tgt').textContent=pos.taz!=null?('→ '+pos.taz.toFixed(1)+(pos.tel!=null?' / '+pos.tel.toFixed(1):'')):'';
 $('st').innerHTML=(pos.mv?'moviendo · ':'')+'<span class="f '+(pos.f=='OK'?'okc':'bad')+'">'+pos.f+'</span>'+(pos.maz!=null&&pos.maz>=360?' · solape':'')+(pos.wind&&pos.wind.ws!=null?' · viento '+pos.wind.ws+(pos.wind.wg!=null?'/'+pos.wind.wg:'')+' m/s'+(pos.wind.bf!=null?' F'+pos.wind.bf:'')+(pos.wind.lk?' (aparcado)':''):'')+(pos.trk?' · '+(pos.trk.t=='sun'?'☀ sol ':'☾ luna ')+(pos.trk.below?'bajo el horizonte ('+pos.trk.el.toFixed(0)+'°)':pos.trk.az.toFixed(1)+' / '+pos.trk.el.toFixed(1)):'');
-var T=pos.trk;if(T){$('trkc').style.display='';var NM={sun:'☀ Sol',moon:'☾ Luna',p2p:'Estación (P2P)',sat:'🛰 '+(T.name||'SAT')};$('trkName').textContent=NM[T.t]||T.t;$('trkAz').textContent=T.az!=null?T.az.toFixed(1):'--';$('trkEl').textContent=T.el!=null?T.el.toFixed(1):'--';var ex=(T.km!=null?' · '+fmtDist(T.km):'');if(T.t=='sat'){ex+=(T.maxel!=null?' · máx '+T.maxel+'°':'')+(T.los?' · LOS '+T.los:'')}$('trkInfo').innerHTML=T.below?('<span class="bad">bajo el horizonte, esperando</span>'):('<span class="okc">siguiendo</span>'+ex);}else $('trkc').style.display='none';
+var T=pos.trk;if(T){$('trkc').style.display='';var NM={sun:'☀ Sol',moon:'☾ Luna',p2p:'Estación (P2P)',sat:'🛰 '+(T.name||'SAT')};$('trkName').textContent=NM[T.t]||T.t;$('trkAz').textContent=T.az!=null?T.az.toFixed(1):'--';$('trkEl').textContent=T.el!=null?T.el.toFixed(1):'--';var ex=(T.km!=null?' · '+fmtDist(T.km):'');if(T.t=='sat'){ex+=(T.maxel!=null?' · máx '+T.maxel+'°':'')+(T.los?' · LOS '+T.los:'')}$('trkInfo').innerHTML=T.below?('<span class="bad">bajo el horizonte, esperando</span>'):('<span class="okc">siguiendo</span>'+ex);}else $('trkc').style.display='none';rcSync();
 $('aprs').textContent=pos.aprs?('APRS: '+pos.aprs):'';draw()}catch(e){$('st').textContent='sin conexión'}}
 async function raw(){try{const r=await api([{c:'raw'}]);$('raz').textContent=r[0].az!=null?r[0].az.toFixed(0):'-';$('rel').textContent=r[0].el!=null?r[0].el.toFixed(0):'-';$('ru').textContent=r[0].unit||''}catch(e){}}
 async function loadCfg(){const r=await api([{c:'cfgget'}]);$('cfg').value=JSON.stringify(JSON.parse(r.map(x=>x.d).join('')),null,1)}
@@ -204,7 +214,7 @@ function catF(){const v=parseFloat($('cfi').value);if(!(v>0))return;cmd({c:'cats
 function catT(n){if(!cat||!cat.f)return;const s=+$('cst').value;cmd({c:'catset',f:(Math.floor(cat.f/s)+n)*s+(n<0&&cat.f%s?s:0)})}
 function catTrk(){cmd({c:'cattrack',on:!(cat&&cat.tr&&cat.tr.en)})}
 async function info(){try{const r=await api([{c:'info'}]);const i=r[0];lim=i.lim;$('ver').textContent=i.ver;$('buildInfo').textContent=`Rotor ${i.ver} · ${i.board} (${i.chip})`;$('hdr').textContent=i.name+' · '+i.call;
-var g=i.gps;if(i.caps&&i.caps.gps&&g){$('gpsc').style.display='';var fx=g.fix>=3?'3D':g.fix>=2?'2D':'sin fix',ok=g.fix>=2;$('gstat').className='mut '+(ok?'okc':'bad');$('gstat').textContent='● '+fx+(g.pps?' · PPS':'')+' · '+(g.sats!=null?g.sats:'?')+'/'+(g.seen!=null?g.seen:'?')+' sat';if(g.lat!=null){$('gpos').textContent=fmtLL(g.lat,g.lon);$('gmeta').innerHTML=(g.alt!=null?fmtAlt(g.alt)+' · ':'')+'<span class="f" style="color:var(--acc)">'+loc8(g.lat,g.lon)+'</span>';}else{$('gpos').textContent='sin posición';$('gmeta').textContent='';}}else $('gpsc').style.display='none';
+var g=i.gps;if(i.caps&&i.caps.gps&&g){$('gpsc').style.display='';var fx=g.fix>=3?'3D':g.fix>=2?'2D':'sin fix',ok=g.fix>=2;$('gstat').className='mut '+(ok?'okc':'bad');$('gstat').textContent='● '+fx+(g.pps?' · PPS':'')+' · '+(g.sats!=null?g.sats:'?')+'/'+(g.seen!=null?g.seen:'?')+' sat';if(g.lat!=null){$('gpos').textContent=fmtLL(g.lat,g.lon);$('gmeta').innerHTML=(g.alt!=null?fmtAlt(g.alt)+' · ':'')+'<span class="f" style="color:var(--acc)">'+loc8(g.lat,g.lon)+'</span>';}else{$('gpos').textContent='sin posición';$('gmeta').textContent='';}}else $('gpsc').style.display='none';rcSync();
 if(i.cat&&!cat)catInit();$('info').textContent=`${i.board} (${i.chip}) · mando: ${i.drv} · IP ${i.ip} · rotctld ${i.rotctld||'off'} · rigctld ${i.rigctld||'off'} · rango AZ ${i.lim.minAz}–${i.lim.maxAz}, EL ${i.lim.minEl}–${i.lim.maxEl}`;if(i.caps&&i.caps.sd&&i.sd&&i.sd.on){const r=$('sdrow');r.style.display='';r.innerHTML=i.sd.ok?`microSD: ${i.sd.freeMB} MB libres · ${i.sd.lines} líneas · <a href="/sd" target="_blank">registro de movimientos</a>`:'microSD: sin tarjeta'}}catch(e){}}
 function themeInit(){var b=$('themeBtn'),m=$('themeMenu');if(!b)return;var L={sistema:'Auto',claro:'Claro',oscuro:'Oscuro'};
 function p(){var k=TEMA.modo();b.textContent='◐ '+L[k];m.querySelectorAll('button[data-m]').forEach(function(x){x.classList.toggle('on',x.dataset.m===k)})}

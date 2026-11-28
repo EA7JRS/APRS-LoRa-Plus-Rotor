@@ -13,24 +13,42 @@ en banda L y para cualquier antena de satélite sobre el rotor.
 ESP32 el modo SAT no está (de momento); el seguimiento sol/luna y P2P sí.
 
 ## Cómo se usa
-- **WebUI** → tarjeta *Mando* → **🛰 SAT**: abre el selector con la lista de satélites del TLE,
-  cada uno con su próximo paso (hora UTC y culminación) y los visibles ahora arriba del todo.
-  Buscar por nombre, pulsar uno y el rotor empieza a seguirlo. La tarjeta *Objetivo en
-  seguimiento* muestra `🛰 nombre`, az/el, culminación máxima, LOS y distancia.
+- **WebUI** → tarjeta *Mando* → **🛰 SAT**: abre el selector con la lista de satélites, cada uno
+  con su próximo paso (hora UTC y culminación) y los visibles ahora arriba del todo. Hay un
+  **buscador**, **filtros por categoría** (Amateur, CubeSats, SatNOGS, Meteo, Geo, LoRa,
+  Estaciones…) y un filtro **Activos** (los que AMSAT ha oído en las últimas 24 h, con un punto
+  verde). Pulsar un satélite y el rotor empieza a seguirlo. La tarjeta *Objetivo* muestra
+  `🛰 nombre`, az/el, culminación máxima, LOS y distancia.
 - **Actualizar TLE**: botón del propio selector (descarga en segundo plano) o automático
-  (ver `sat.refreshH`).
-- **Órdenes** (API JSON / app): `{"c":"sats"}` lista; `{"c":"track","t":"sat","id":"ISS (ZARYA)"}`
-  elige y sigue (el `id` es el nombre o el número de catálogo); `{"c":"track","t":"off"}` para;
-  `{"c":"tle"}` fuerza la descarga. Cualquier orden de mover, parar o aparcar deja de seguir.
+  (ver `sat.refreshH`); también refresca el estado de AMSAT.
+- **Órdenes** (API JSON / app): `{"c":"sats"}` lista (con `grp` = letra de categoría y `act` =
+  solo activos); `{"c":"track","t":"sat","id":"ISS (ZARYA)"}` elige y sigue (el `id` es el nombre
+  o el número de catálogo); `{"c":"track","t":"off"}` para; `{"c":"tle"}` fuerza la descarga.
+  Cualquier orden de mover, parar o aparcar deja de seguir.
 
-## TLE
-- Fuente por defecto: grupo **amateur de Celestrak**
-  (`https://celestrak.org/NORAD/elements/gp.php?GROUP=amateur&FORMAT=tle`), configurable en
-  `sat.tleUrl` (cualquier URL con formato TLE de tres líneas).
-- Caché en `/var/lib/aprs-lora-plus-rotor/amateur.tle`; se refresca cada `sat.refreshH` horas
-  (0 = nunca) y al arrancar si falta o está viejo.
-- El satélite elegido se recuerda en `sat.name` y se vuelve a enlazar al TLE nuevo tras cada
-  actualización.
+## Datos de satélites (lo mismo que la app Android)
+- Fuente por defecto: el **fichero agregado del proyecto** (rama `satdata` de `APRS-LoRa-Plus`,
+  generado a diario por el workflow `satdata.yml`), **la misma que usa la app Android**:
+  `https://raw.githubusercontent.com/EA7JRS/APRS-LoRa-Plus/satdata/sats_all.txt`. Junta muchos
+  grupos de CelesTrak (estaciones, amateur, CubeSats, SatNOGS, meteo, visuales, ciencia,
+  educación, ingeniería, LoRa/TinyGS, geoestacionarios) y añade transpondedores (SatNOGS DB).
+  Configurable en `sat.tleUrl`; también entiende un **TLE plano** de tres líneas (p. ej. un grupo
+  de CelesTrak) si prefieres otra fuente.
+- Formato propio: líneas `S|norad|nombre|cat|grupos`, las dos de TLE y líneas `T|…`
+  (transpondedores, que el rotor ignora de momento; el apuntado solo necesita el TLE). La
+  **categoría** de cada satélite (letra en `grupos`) alimenta el filtro del selector.
+- Caché en `/var/lib/aprs-lora-plus-rotor/sats.txt`; se refresca cada `sat.refreshH` horas
+  (0 = nunca) y al arrancar si falta o está viejo. El satélite elegido se recuerda en `sat.name`
+  y se vuelve a enlazar tras cada actualización.
+
+## Satélites activos (AMSAT)
+- `sat.amsat` (de serie sí) descarga el **AMSAT OSCAR Satellite Status**
+  (`https://status.amsat.org/api/v1/summary.php`, configurable en `sat.amsatUrl`): los satélites
+  que la gente ha reportado oídos en las **últimas 24 h** (todo menos «Not Heard»).
+- El casado con el TLE es por **designador** (AO-91, IO-117, RS-44…), ignorando guiones, ceros,
+  mayúsculas y el sufijo de modo, como hace la propia AMSAT. Algún satélite con nombre común
+  distinto del designador puede no casar (p. ej. Es'hail-2 / QO-100 si el TLE no lleva «QO-100»).
+- En el selector, el filtro **Activos** deja solo esos, y cada activo lleva un punto verde.
 
 ## Posición propia
 Igual que sol/luna y P2P: del **GPS** (gpsd), de la **red** (`lan.pos`: barco o coche) o de la
@@ -39,10 +57,12 @@ config (`aprs.lat` / `aprs.lon`). Sin posición, el selector avisa y no calcula 
 ## Config (`sat`)
 | Clave | De serie | Qué hace |
 |---|---|---|
-| `tleUrl` | Celestrak amateur | URL del fichero TLE |
+| `tleUrl` | `sats_all.txt` del proyecto | fichero de satélites (formato del proyecto o TLE plano) |
 | `name` | (vacío) | satélite recordado (nombre o número de catálogo) |
-| `refreshH` | 12 | cada cuántas horas se refresca el TLE (0 = nunca) |
+| `refreshH` | 12 | cada cuántas horas se refresca el TLE y AMSAT (0 = nunca) |
 | `horizonH` | 8 | horizonte de la predicción de pasos (h) |
+| `amsat` | true | marcar satélites activos con AMSAT Status |
+| `amsatUrl` | AMSAT summary | endpoint del estado de AMSAT |
 
 La elevación mínima para considerar un paso y para esperar «bajo el horizonte» es `sky.minEl`
 (la misma que sol/luna). El umbral de reapuntado es `sky.step`.
