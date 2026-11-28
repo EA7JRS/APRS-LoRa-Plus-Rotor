@@ -45,6 +45,7 @@ from .protocols import RotctlSession, make_server
 from .serialport import SerialPort
 from .web import WebServer
 from .heading import HeadingRotor
+from .attitude import AttitudeRotor
 from .lan import Lan
 from .wind import WindGuard, WindRotor
 from .sky import SkyRotor, P2P, SAT
@@ -68,7 +69,10 @@ class Daemon(ApiHost):
             self.base = HamlibRotor(d["hamlib"], park)
         self.gps = OwnGps(d["gps"])                        # GPS propio (Uputronics GPS/RTC HAT) por gpsd
         # tracker / app / Hamlib -> sol / luna -> rumbo (barco o coche) -> viento -> rotctld de Hamlib o motores
-        self.heading = HeadingRotor(WindRotor(self.base, self.wind), bool(d["lan"]["heading"]), float(d["lan"]["headStep"]))
+        at = d["att"]
+        self.att = AttitudeRotor(WindRotor(self.base, self.wind), bool(at["on"]), float(at["step"]), float(at["staleS"]),
+                                 int(at["rollSign"]), int(at["pitchSign"]), int(at["yawSign"]))
+        self.heading = HeadingRotor(self.att, bool(d["lan"]["heading"]), float(d["lan"]["headStep"]))
         sk = d["sky"]
         self.sky = SkyRotor(self.heading, float(sk["step"]), float(sk["minEl"]), bool(sk["refraction"]),
                             curvature=bool(d["p2p"]["curv"]))
@@ -102,7 +106,7 @@ class Daemon(ApiHost):
                 "call": d["aprs"]["call"],
                 "caps": {"wifi": True, "ble": bool(d["bt"]["ble"]), "spp": bool(d["bt"]["spp"]),
                          "lora": bool(d["aprs"]["enabled"]), "cal": self.proc is None, "move": True, "cat": bool(self.cat),
-                         "wind": True, "lan": True, "sky": True, "p2p": True, "sat": True, "gps": bool(d["gps"]["on"])},
+                         "wind": True, "lan": True, "sky": True, "p2p": True, "sat": True, "att": True, "gps": bool(d["gps"]["on"])},
                 "ip": _ip(), "rotctld": d["net"]["rotctldPort"] if d["net"]["rotctld"] else 0,
                 "up": int(time.monotonic() - self.started), "utc": int(time.time()),
                 **({"hamlib": self.proc.last_error or "ok"} if self.proc else {}),
@@ -129,6 +133,9 @@ class Daemon(ApiHost):
         if h:
             h["dec"] = round(self.lan.declination(), 1)        # declinacion que se suma al rumbo magnetico
             e["hdg"] = h
+        a = self.att.info_event()
+        if a:
+            e["att"] = a
         return e
 
     def sky_start(self, target: int) -> str:
@@ -209,6 +216,10 @@ class Daemon(ApiHost):
 
     def set_peer(self, lat: float, lon: float, alt: float = 0.0) -> str:
         self.sky.set_peer(lat, lon, alt, "net")              # posicion en vivo desde la app / red
+        return ""
+
+    def set_attitude(self, roll: float, pitch: float, yaw: float = 0.0) -> str:
+        self.att.set_attitude(roll, pitch, yaw)              # escora, cabeceo y giro del mastil (IMU / giroscopo)
         return ""
 
     async def sky_loop(self):

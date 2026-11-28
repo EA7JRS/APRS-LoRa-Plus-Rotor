@@ -33,6 +33,7 @@ class ApiHost:
 
     def sky_start(self, target: int) -> str: return "no sky"
     def set_peer(self, lat: float, lon: float, alt: float = 0.0) -> str: return "no sky"   # P2P: otra estacion
+    def set_attitude(self, roll: float, pitch: float, yaw: float = 0.0) -> str: return "no attitude"  # IMU: escora / cabeceo / giro
 
     def info(self) -> dict: return {}
     def pos_extra(self) -> dict: return {}
@@ -272,6 +273,9 @@ class ApiSession:
                 ok(c) if not e else err(c, e)
         elif c == "tle":                                # descargar/actualizar el TLE (en segundo plano)
             e = h.update_tle()
+            ok(c) if not e else err(c, e)
+        elif c == "att":                                # actitud de la base (IMU / giroscopo): r escora, p cabeceo, y giro del mastil
+            e = h.set_attitude(float(_num(d.get("r")) or 0.0), float(_num(d.get("p")) or 0.0), float(_num(d.get("y")) or 0.0))
             ok(c) if not e else err(c, e)
         elif c == "peer":                               # P2P: posicion de la otra estacion {lat,lon,alt} o {loc}
             if d.get("loc"):

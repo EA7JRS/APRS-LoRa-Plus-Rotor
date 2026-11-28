@@ -1163,5 +1163,66 @@ class TestSat(unittest.TestCase):
         self.assertIn("sat.horizonH", config.validate({**c, "sat": dict(c["sat"], horizonH=0.1)}))
 
 
+class TestAttitude(unittest.TestCase):
+    def test_math(self):
+        from aprs_lora_plus_rotor import attitude as A
+        for az, el in [(0, 0), (90, 10), (217, 45), (350, 80)]:
+            am, em = A.aim(az, el, 0, 0, 0)
+            self.assertAlmostEqual(am, az, 6)
+            self.assertAlmostEqual(em, el, 6)
+        # escora a estribor sube la elevacion de un objetivo en el horizonte a estribor
+        am, em = A.aim(90, 0, 20, 0, 0)
+        self.assertAlmostEqual(am, 90, 3)
+        self.assertAlmostEqual(em, 20, 3)
+        # ida y vuelta
+        am, em = A.aim(123.4, 33.3, -12, 8, 5)
+        a2, e2 = A.unaim(am, em, -12, 8, 5)
+        self.assertAlmostEqual(a2, 123.4, 4)
+        self.assertAlmostEqual(e2, 33.3, 4)
+
+    def test_rotor(self):
+        from aprs_lora_plus_rotor.attitude import AttitudeRotor
+        f = FakeRotor()
+        a = AttitudeRotor(f, enabled=False)
+        a.set_pos(100, 30)
+        self.assertEqual((f.az, f.el), (100, 30))                 # apagado: sin cambios
+        a.enabled = True
+        a.set_attitude(20, 0, 0)
+        a.set_pos(90, 0)
+        self.assertAlmostEqual(f.az, 90, 3)
+        self.assertAlmostEqual(f.el, 20, 3)                       # escora 20 -> el 20
+        az, el = a.get_pos()
+        self.assertAlmostEqual(az, 90, 3)
+        self.assertAlmostEqual(el, 0, 3)                          # la posicion informada vuelve a nivelada
+        a2 = AttitudeRotor(FakeRotor(), enabled=True, yaw_sign=-1)
+        a2.set_attitude(0, 0, 10)
+        self.assertAlmostEqual(a2.yaw, -10, 6)                    # el signo calibra el eje
+        ev = a.info_event()
+        self.assertEqual(ev["on"], True)
+        self.assertEqual(ev["r"], 20.0)
+
+    def test_api_and_config(self):
+        f = FakeRotor()
+
+        class H(api.ApiHost):
+            def __init__(h):
+                from aprs_lora_plus_rotor.attitude import AttitudeRotor
+                h.att = AttitudeRotor(f, enabled=True)
+                h.rotor = h.att
+                h.wind = h.cat = None
+            def pin(h):
+                return ""
+            def set_attitude(h, r, p, y=0.0):
+                h.att.set_attitude(r, p, y)
+                return ""
+
+        ses = api.ApiSession()
+        self.assertEqual(ses.handle('{"c":"att","r":20,"p":0,"y":0}', H())[0], '{"e":"ok","c":"att"}')
+        c = json.loads(json.dumps(config.DEFAULTS))
+        self.assertEqual(config.validate(c), "")
+        self.assertIn("att.step", config.validate({**c, "att": dict(c["att"], step=0)}))
+        self.assertIn("rollSign", config.validate({**c, "att": dict(c["att"], rollSign=2)}))
+
+
 if __name__ == "__main__":
     unittest.main()

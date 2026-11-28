@@ -52,6 +52,7 @@ El PIN viaja en claro dentro del enlace: el BLE va cifrado; por TCP/HTTP úsalo 
 | `peer` | `lat`, `lon`, `alt` (m, opcional) o `loc` (locator Maidenhead) | `ok` / `err` (`lat/lon or loc`). Posición del otro extremo del enlace **P2P** en vivo (app / red). Con `p2p.src=net` y siguiendo `p2p`, re-apunta al momento |
 | `sats` | `grp` (letra de categoría, opcional), `act` (bool, solo activos) — sin PIN | evento `{"e":"sats","list":[{"name","grp","act","az","el","rng","up","aos","maxel","los"}],"n","updated","name","haspos","groups":[[letra,nombre]],"amsat","amsatAt","nactive"}`: satélites con posición actual, próximo paso (unix UTC), categoría (`grp`) y si AMSAT los oyó en 24 h (`act`). Solo Raspberry Pi |
 | `tle` | — | `ok` / `err` (`no sky`). Descarga/actualiza el TLE amateur en segundo plano |
+| `att` | `r` (escora/roll °), `p` (cabeceo/pitch °), `y` (giro del mástil/yaw °, opcional) | `ok` / `err` (`no attitude`). Actitud de la base (IMU / giróscopo) para compensar en una plataforma móvil o si el mástil gira con el viento. Con `att.on`, transforma el az/el del objetivo al marco inclinado del rotor (2 y 3 ejes) |
 | `reboot` | — | `ok` y reinicio |
 
 Orden desconocida: `{"e":"err","c":"…","m":"unknown"}`. Línea que no es JSON: `{"e":"err","m":"bad json"}`.
@@ -89,6 +90,7 @@ GPS propio de la Raspberry (`gps.on`, `caps.gps`): `"gps":{"link":true,"fix":3,"
 - `trk` (siguiendo el sol o la luna): `{"t":"moon","az":162.4,"el":22.7,"below":false}`: posición del astro (con la refracción si `sky.refraction`); `below` = bajo `sky.minEl`, esperando.
 - `trk` en modo **P2P**: `{"t":"p2p","az":74.3,"el":-0.1,"below":false,"km":42.5}`: az/el hacia la otra estación y distancia en km; `below` siempre `false` (el enlace apunta aunque la elevación sea ~0 o negativa).
 - `trk` en modo **SAT**: `{"t":"sat","name":"ISS (ZARYA)","az":218.4,"el":41.2,"below":false,"km":1764,"maxel":41,"los":"09:53"}`: az/el del satélite, distancia en km, culminación máxima del paso (`maxel`) y hora UTC de LOS (`los`); `below` = bajo `sky.minEl`, esperando el siguiente paso.
+- `att` (con `att.on` o tras recibir `att`): `{"on":true,"r":5.0,"p":-2.0,"y":0.0,"age":1}` y `old` si el dato se quedó viejo: escora / cabeceo / giro del mástil aplicados (compensación de actitud, `caps.att`; ver `docs/ATTITUDE.md`).
 - `hdg` (con `lan.heading` o si llega rumbo por la red): `{"on":true,"v":123.4,"age":1,"dec":0.9}`; `dec` = declinación que se suma a un rumbo magnético (WMM o `lan.magVar`); `on` = el acimut del evento es verdadero (compensado con el rumbo), `old` = sin rumbo nuevo hace más de 10 s. Con viento medido por la red, `wind` lleva `"src":"lan"` o `"signalk"` y `"local":true`; con el de OpenWeatherMap de la caja, `"src":"owm"`.
 - `maz`: acimut mecánico (control directo; > 360 = en el solape). `taz` / `tel`: objetivo. `aprs`: última orden APRS.
 

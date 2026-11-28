@@ -163,6 +163,17 @@ Seguimiento de satélites (orden `track` `sat`): descarga el TLE, lista los sat�
 
 La elevación mínima para los pasos y el umbral de reapuntado son los de `sky` (`sky.minEl`, `sky.step`).
 
+## `att` (solo Raspberry Pi)
+
+Compensación de actitud en plataforma móvil (coche / barco) o si el mástil gira con el viento (orden `att`). Ver [ATTITUDE.md](ATTITUDE.md).
+
+| Clave | Por defecto | |
+|---|---|---|
+| `att.on` | false | activa la compensación de escora / cabeceo / giro |
+| `att.step` | 0.5 | umbral de reapuntado al cambiar la actitud (grados) |
+| `att.staleS` | 5 | segundos tras los que la actitud se da por vieja |
+| `att.rollSign` / `pitchSign` / `yawSign` | 1 | signo de cada eje (±1) para calibrar la IMU |
+
 ## `driver`, `stepper` y `gps` (solo Raspberry Pi)
 
 `driver`: `hamlib` (de serie; rotctld de Hamlib con el controlador del rotor) o `stepper` (motores paso a paso con el Waveshare Stepper Motor HAT). Detalles y montaje en [RASPBERRY_HATS.md](RASPBERRY_HATS.md).

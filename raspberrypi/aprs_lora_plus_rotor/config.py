@@ -55,6 +55,10 @@ DEFAULTS["p2p"] = {"src": "fixed", "lat": 0.0, "lon": 0.0, "alt": 0.0, "loc": ""
 DEFAULTS["sat"] = {"tleUrl": "https://raw.githubusercontent.com/EA7JRS/APRS-LoRa-Plus/satdata/sats_all.txt",
                    "name": "", "refreshH": 12.0, "horizonH": 8.0,
                    "amsat": True, "amsatUrl": "https://status.amsat.org/api/v1/summary.php"}
+# Compensacion de actitud (coche / barco, o giro del mastil por viento): escora / cabeceo / giro medidos por una IMU y un
+# giroscopo (orden "att" r/p/y). Transforma el az/el del objetivo al marco inclinado del rotor (attitude.py). step = umbral
+# de reapuntado (grados), staleS = segundos tras los que el dato se da por viejo; los signos calibran los ejes de la IMU.
+DEFAULTS["att"] = {"on": False, "step": 0.5, "staleS": 5.0, "rollSign": 1, "pitchSign": 1, "yawSign": 1}
 # Que mueve el rotor: "hamlib" (rotctld de Hamlib con un controlador) o "stepper" (motores paso a paso en la propia Pi con
 # el Waveshare Stepper Motor HAT, stepper.py; docs/RASPBERRY_HATS.md)
 DEFAULTS["driver"] = "hamlib"
@@ -145,6 +149,11 @@ def validate(c: dict) -> str:
             return "sat.refreshH >= 0 / sat.horizonH 0.5-72"
         if st["amsat"] and not (st["amsatUrl"].startswith("http://") or st["amsatUrl"].startswith("https://")):
             return "sat.amsatUrl http(s)://"
+        at = c["att"]
+        if not 0.05 <= float(at["step"]) <= 30 or float(at["staleS"]) <= 0:
+            return "att.step 0.05-30 / att.staleS > 0"
+        if not all(int(at[k]) in (-1, 1) for k in ("rollSign", "pitchSign", "yawSign")):
+            return "att.rollSign / pitchSign / yawSign = -1 o 1"
         a = c["aprs"]
         if not 1 <= len(a["call"]) <= 9:
             return "aprs.call"
