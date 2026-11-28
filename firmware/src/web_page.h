@@ -116,7 +116,11 @@ const t=document.getElementById('csm');t.textContent=v<0?'S—':(v<=9?'S'+v:'S9+
 <div style="border-top:1px solid var(--bd);margin:10px 0 6px"></div><b class="mut">Calibrar ganancia (dos puntos)</b>
 <div class="row"><select id="calAx"><option value="az">Acimut</option><option value="el">Elevación</option><option value="x">Inclinación</option></select><button onclick="calMark()">Marcar punto A</button><input id="calDeg" type="number" step="0.1" placeholder="grados A→B" style="width:120px"><button onclick="calGain(false)">Calcular</button></div>
 <div class="row mut" id="calOut"></div>
-<p class="mut">Lleva el eje a una referencia y pulsa «Marcar punto A». Muévelo a mano (flechas) a otra referencia conocida, escribe los grados reales que ha girado y pulsa «Calcular»: propone la reducción <code>gear</code> real. «Aplicar» la guarda en el perfil y reinicia.</p></div>
+<p class="mut">Lleva el eje a una referencia y pulsa «Marcar punto A». Muévelo a mano (flechas) a otra referencia conocida, escribe los grados reales que ha girado y pulsa «Calcular»: propone la reducción <code>gear</code> real. «Aplicar» la guarda en el perfil y reinicia.</p>
+<div style="border-top:1px solid var(--bd);margin:10px 0 6px"></div><b class="mut">Calibrar con Inmarsat</b>
+<div class="row"><label class="mut">Longitud sat. <input id="inmLon" type="number" step="0.1" style="width:90px"></label><button onclick="inmPoint(false)">Apuntar</button><button onclick="inmPoint(true)">Fijar aquí</button></div>
+<div class="row mut" id="inmOut"></div>
+<p class="mut">Apunta al satélite Inmarsat geoestacionario con la posición del GPS. Afina a mano hasta el máximo de señal de su baliza y pulsa «Fijar aquí»: el cero de acimut y elevación se corrige a los grados calculados. Longitud del satélite en grados (E +, O −); 25 = I-4 F2 (EMEA). Necesita posición GPS.</p></div>
 
 <div class="c adv" style="display:none" id="catRotor"><h3>Rotor</h3>
 <div id="rotPi" style="display:none">
@@ -218,9 +222,11 @@ function advClose(){$('advOvl').style.display='none'}
 document.addEventListener('keydown',function(e){if(e.key==='Escape'){advClose();satClose()}});
 async function cfgGet(){const r=await api([{c:'cfgget'}]);return JSON.parse(r.map(x=>x.d).join(''))}
 async function cfgPut(o){const t=JSON.stringify(o),n=Math.ceil(t.length/180),L=[];for(let i=0;i<n;i++)L.push({c:'cfgset',i,n,d:t.substr(i*180,180)});const r=await api(L);const e=r.find(x=>x.e=='err');alert(e?('Error: '+e.m):'Guardado. Reiniciando…')}
-async function antLoad(){try{const r=await api([{c:'antennas'}]);const L=(r[0]&&r[0].list)||[];const s=$('selAnt');s.innerHTML=L.length?L.map(function(a){return '<option value="'+sEsc(a.name)+'">'+sEsc(a.title||a.name)+'</option>'}).join(''):'<option value="">(sin antenas / no es paso a paso)</option>'}catch(e){}}
+async function antLoad(){try{const r=await api([{c:'antennas'}]);const L=(r[0]&&r[0].list)||[];const s=$('selAnt');s.innerHTML=L.length?L.map(function(a){return '<option value="'+sEsc(a.name)+'">'+sEsc(a.title||a.name)+'</option>'}).join(''):'<option value="">(sin antenas / no es paso a paso)</option>'}catch(e){}try{const c=await cfgGet();if(c.inmarsat&&c.inmarsat.lon!=null&&$('inmLon').value==='')$('inmLon').value=c.inmarsat.lon}catch(e){}}
 function antApply(v){if(v&&confirm('¿Cargar la antena «'+v+'» y reiniciar el equipo?'))cmd({c:'antenna',name:v})}
 // Ayuda de configuracion del Waveshare Stepper Motor HAT (DIP de microstepping, alimentacion y corriente); solo con motores paso a paso.
+// Calibracion con Inmarsat: apunta al satelite geoestacionario (GPS) y, tras afinar al maximo de la baliza, fija el cero.
+async function inmPoint(fix){var o2={c:'inmarsat',fix:!!fix};var lon=parseFloat($('inmLon').value);if(!isNaN(lon))o2.lon=lon;var r=await api([o2]);var o=r[0]||{};if(o.az!=null&&o.e!='err'){$('inmOut').innerHTML='AZ '+o.az+'° · EL '+o.el+'° · '+o.km+' km'+(fix?' · <span class="okc">cero fijado</span>':' · apuntando');}else{var M={'no position':'sin posición GPS','below horizon':'el satélite está bajo el horizonte','only direct drive':'solo con motores paso a paso'};$('inmOut').textContent='Error: '+(M[o.m]||o.m||'?')+(o.az!=null?' (AZ '+o.az+'° EL '+o.el+'°)':'');}}
 // Calibracion de ganancia de los motores paso a paso: marca el punto A, se mueve a mano al B y calcula la reduccion real.
 async function calMark(){var r=await api([{c:'calstep',axis:$('calAx').value,mark:true}]);var o=r[0]||{};$('calOut').textContent=(o.e=='ok')?'Punto A marcado. Mueve el eje a mano y escribe los grados girados.':('Error: '+(o.m||'?'))}
 async function calGain(apply){var deg=parseFloat($('calDeg').value);if(isNaN(deg)||!deg)return alert('grados A→B');var r=await api([{c:'calstep',axis:$('calAx').value,deg:deg,apply:!!apply}]);var o=r[0]||{};if(o.e=='ok'){$('calOut').innerHTML='gear real ≈ <b>'+o.gear+'</b> ('+o.spd+' pasos/°, '+o.steps+' pasos)'+(apply?' · aplicado, reiniciando…':' <button onclick="calGain(true)">Aplicar</button>')}else{$('calOut').textContent='Error: '+(o.m=='mark first'?'marca antes el punto A':(o.m||'?'))}}

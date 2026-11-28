@@ -352,6 +352,36 @@ class TestCrossLevel(unittest.TestCase):
         self.assertEqual(f.x, 5.0)
 
 
+class TestInmarsat(unittest.TestCase):
+    def test_geostationary(self):
+        az, el, dist = geo.geostationary_azel(40.0, 0.0, 0.0)       # mismo meridiano
+        self.assertAlmostEqual(az, 180.0, places=1)                 # al sur
+        self.assertAlmostEqual(el, 43.7, places=0)
+        self.assertAlmostEqual(dist, 37500, delta=1500)
+        az2, el2, _ = geo.geostationary_azel(40.0, 0.0, 30.0)       # satelite al este
+        self.assertTrue(90.0 < az2 < 180.0)
+        self.assertLess(el2, el)
+        _, el3, _ = geo.geostationary_azel(40.0, 0.0, 150.0)        # muy al oeste: bajo el horizonte
+        self.assertLess(el3, 0.0)
+
+    def test_api_inmarsat(self):
+        class H(api.ApiHost):
+            rotor = None
+            def point_inmarsat(s, lon, fix):
+                return "", {"az": 180.0, "el": 43.0, "km": 37500, "lon": lon or 25.0, **({"fixed": True} if fix else {})}
+        h, sess = H(), api.ApiSession()
+        o = sess.handle('{"c":"inmarsat"}', h)[0]
+        self.assertIn('"e":"ok"', o)
+        self.assertIn('"az":180', o)
+        self.assertIn('"fixed":true', sess.handle('{"c":"inmarsat","fix":true}', h)[0])
+
+        class H2(api.ApiHost):
+            rotor = None
+            def point_inmarsat(s, lon, fix):
+                return "no position", {}
+        self.assertIn("no position", sess.handle('{"c":"inmarsat"}', H2())[0])
+
+
 class TestSky(unittest.TestCase):
     def test_formulas(self):
         # Mismos valores que el plotter (pygeomag y PyEphem)

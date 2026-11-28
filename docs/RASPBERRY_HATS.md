@@ -104,6 +104,10 @@ Salen 105,2 / 44,4 / 53,3 pasos por grado; el Zero 2 W va sobrado a 4°/s. El ej
 
 Si no sabes la reducción exacta (dientes sin contar, correa que patina), mídela: en la WebUI, menú ⚙ > **Antena** > *Calibrar ganancia*. Lleva el eje a una referencia y pulsa **Marcar punto A**; muévelo a mano con las flechas a otra referencia conocida, escribe los **grados reales** que ha girado y pulsa **Calcular**. Propone la `gear` real (= pasos recorridos ÷ grados reales × 360 ÷ micropasos ÷ pasos de vuelta); **Aplicar** la guarda en la configuración y reinicia. Por la app o el protocolo JSON es la orden `calstep` (`mark`, luego `deg` y opcional `apply`).
 
+#### Fijar el cero con la baliza Inmarsat
+
+El domo FB250+ es un terminal **FleetBroadband de Inmarsat**: su baliza es una referencia de puntería estupenda. En la WebUI, menú ⚙ > **Antena** > *Calibrar con Inmarsat*, escribe la **longitud del satélite** (grados, E +, O −; 25 = I-4 F2, el de EMEA) y pulsa **Apuntar**: con la posición del GPS calcula el az/el geoestacionario y lleva la antena ahí. Afina a mano (flechas) hasta el **máximo de señal** de la baliza en el receptor y pulsa **Fijar aquí**: el cero de acimut y elevación se corrige a los grados calculados, así que a partir de ahí el apuntado es absoluto. Necesita posición GPS. Por la app o el protocolo es la orden `inmarsat` (`lon`, `fix`); el satélite por defecto se guarda en `inmarsat.lon`.
+
 ## Selector de antenas
 
 La misma caja (Raspberry + Waveshare Stepper Motor HAT) mueve **distintas antenas** con solo elegir su perfil. Cada antena es un archivo JSON con sus datos mecánicos —ejes, reducción `gear`, micropasos, topes, inversión y `enActive`— en un bloque `stepper` que se **superpone** sobre la configuración. Los pines del HAT (y los del TMC2209 del tercer eje) son fijos, así que no van en el perfil; solo cambian los datos de cada antena.

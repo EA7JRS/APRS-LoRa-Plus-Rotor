@@ -64,6 +64,9 @@ DEFAULTS["att"] = {"on": False, "step": 0.5, "staleS": 5.0, "rollSign": 1, "pitc
                    "rollZero": 0.0, "pitchZero": 0.0, "yawZero": 0.0, "level": False, "xSign": 1}
 # Que mueve el rotor: "hamlib" (rotctld de Hamlib con un controlador) o "stepper" (motores paso a paso en la propia Pi con
 # el Waveshare Stepper Motor HAT, stepper.py; docs/RASPBERRY_HATS.md)
+# Calibracion apuntando a un satelite geoestacionario Inmarsat (orden "inmarsat"): con la posicion GPS calcula az/el al
+# satelite en la longitud "lon" (E+, O-); se afina a mano al maximo de la baliza y se fija el cero. 25 = I-4 F2 (EMEA).
+DEFAULTS["inmarsat"] = {"lon": 25.0, "name": "Inmarsat I-4 F2 (25°E)"}
 DEFAULTS["driver"] = "hamlib"
 DEFAULTS["stepper"] = copy.deepcopy(stepper.DEFAULTS)
 # GPS propio (Uputronics GPS/RTC HAT con gpsd): su posicion manda sobre lan.pos y aprs.lat / aprs.lon (gnss.py)
@@ -139,6 +142,8 @@ def validate(c: dict) -> str:
             return "lan.udp"
         if not 0.5 <= float(ln["headStep"]) <= 45 or not -90 <= float(ln["magVar"]) <= 90:
             return "lan.headStep 0.5-45 / lan.magVar -90..90"
+        if not -180.0 <= float(c["inmarsat"]["lon"]) <= 180.0:
+            return "inmarsat.lon -180..180"
         if c["driver"] not in ("hamlib", "stepper"):
             return "driver hamlib | stepper"
         if c["driver"] == "stepper":

@@ -40,6 +40,7 @@ El PIN viaja en claro dentro del enlace: el BLE va cifrado; por TCP/HTTP úsalo 
 | `here` | `axis`, `deg` | `ok` / `err`. Corrige el desfase: la posición actual pasa a valer `deg` (control directo y motores paso a paso de la Raspberry) |
 | `home` | — | `ok` / `err`. Busca los finales de carrera (motores paso a paso de la Raspberry con `stepper.*.home`) |
 | `calstep` | `axis` (`az`/`el`/`x`), y o bien `mark` (`true`) o bien `deg` (grados reales A→B) y opcional `apply` (`true`) | Calibración de ganancia de los motores paso a paso (dos puntos). Con `mark` marca el punto A; con `deg` calcula y responde `{"e":"ok","gear","spd","steps"}`; con `apply` además guarda la `gear` y reinicia. `err` (`deg`, `mark first`, `axis`) |
+| `inmarsat` | `lon` (longitud del satélite, opcional; si no, `inmarsat.lon`), `fix` (bool) | Calibración con un satélite geoestacionario Inmarsat, con la posición del GPS. Sin `fix` apunta a su az/el; con `fix` corrige el cero (la orientación actual pasa a valer ese az/el). Responde `{"az","el","km","lon"[,"fixed"]}`. `err` (`no position`, `below horizon`, `only direct drive`) con el az/el calculado |
 | `raw` | — | evento `raw` |
 | `antennas` | — | evento `{"e":"antennas","list":[{"name","title","axes","desc"}]}`: antenas disponibles para el selector (motores paso a paso de la Raspberry) |
 | `antenna` | `name` | `ok` / `err` (`unknown antenna`). Carga el perfil de esa antena sobre `stepper`, pasa a `driver` `stepper`, guarda y reinicia |

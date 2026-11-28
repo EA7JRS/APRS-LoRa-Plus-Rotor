@@ -48,6 +48,7 @@ class ApiHost:
     def cal_mark(self, axis: str) -> str: return "only direct drive"             # calibracion de ganancia: marcar punto A
     def cal_gain(self, axis: str, deg: float) -> dict | None: return None        # calcular 'gear' real con los grados A->B
     def apply_gain(self, axis: str, gear: float) -> str: return "not supported"  # guardar la 'gear' calculada y reiniciar
+    def point_inmarsat(self, lon, fix: bool) -> tuple[str, dict]: return "not supported", {}   # apuntar / fijar cero con Inmarsat
     def list_sats(self, group=None, active: bool = False) -> list: return []     # satelites del TLE con su proximo paso
     def sat_info(self) -> dict: return {}
     def select_sat(self, key: str) -> str: return "no sky"
@@ -312,6 +313,9 @@ class ApiSession:
             else:
                 e = h.set_peer(float(lat), float(lon), float(_num(d.get("alt")) or 0.0))
                 ok(c) if not e else err(c, e)
+        elif c == "inmarsat":                           # calibracion: apuntar / fijar el cero con un satelite Inmarsat
+            e, dd = h.point_inmarsat(_num(d.get("lon")), bool(d.get("fix")))
+            ok(c, **dd) if not e else out.append(dumps({"e": "err", "c": c, "m": e, **dd}))
         elif c == "reboot":
             ok(c)
             h.reboot()

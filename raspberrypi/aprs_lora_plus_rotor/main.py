@@ -305,6 +305,31 @@ class Daemon(ApiHost):
         patch = {"driver": "stepper", "stepper": {**prof["stepper"], "antenna": name}}
         return self.apply_config(json.dumps(patch))
 
+    def point_inmarsat(self, lon, fix: bool) -> tuple[str, dict]:
+        """Calibracion con un satelite geoestacionario Inmarsat. Sin 'fix' apunta a su az/el (con la posicion GPS);
+        con 'fix' corrige el cero: la orientacion actual (afinada a mano al maximo de la baliza) pasa a valer ese az/el."""
+        pos = self.lan.position()
+        if not pos:
+            return "no position", {}
+        slon = float(lon) if lon is not None else float(self.cfg.data["inmarsat"]["lon"])
+        if not -180.0 <= slon <= 180.0:
+            return "lon", {}
+        alt = self.gps.alt if (self.gps.position() and self.gps.alt is not None) else 0.0
+        az, el, dist = geo.geostationary_azel(pos[0], pos[1], slon, alt or 0.0)
+        info = {"az": round(az, 2), "el": round(el, 2), "km": round(dist), "lon": slon}
+        if el < 0:
+            return "below horizon", info
+        if fix:
+            if not isinstance(self.base, StepperRotor):
+                return "only direct drive", info
+            self.base.here("az", az)
+            if self.base.has_el:
+                self.base.here("el", el)
+            info["fixed"] = True
+        else:
+            self.rotor.set_pos(az, el)
+        return "", info
+
     def clear_fault(self):
         self.wind.release()
         if isinstance(self.base, StepperRotor):

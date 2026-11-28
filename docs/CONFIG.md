@@ -163,6 +163,15 @@ Seguimiento de satélites (orden `track` `sat`): descarga el TLE, lista los sat�
 
 La elevación mínima para los pasos y el umbral de reapuntado son los de `sky` (`sky.minEl`, `sky.step`).
 
+## `inmarsat`
+
+Calibración apuntando a un satélite geoestacionario Inmarsat (orden `inmarsat`), para fijar el cero de acimut / elevación con la baliza del satélite y la posición del GPS. Ver [RASPBERRY_HATS.md](RASPBERRY_HATS.md).
+
+| Clave | Por defecto | |
+|---|---|---|
+| `inmarsat.lon` | 25.0 | longitud del satélite en grados (E +, O −); 25 = I-4 F2 (EMEA) |
+| `inmarsat.name` | Inmarsat I-4 F2 (25°E) | nombre para mostrar |
+
 ## `att` (solo Raspberry Pi)
 
 Compensación de actitud en plataforma móvil (coche / barco) o si el mástil gira con el viento (orden `att`). Ver [ATTITUDE.md](ATTITUDE.md).
