@@ -24,6 +24,18 @@ Controlador de rotores de antena **compatible con Hamlib** para el ecosistema **
                        └───────────────────────────────────────────────────┘
 ```
 
+## La pantalla táctil
+
+En las placas con pantalla, la caja se maneja desde la propia pantalla: esfera y mando del rotor, CAT de la emisora con Doppler del satélite, e información con el «Acerca de».
+
+| Esfera y mando | Emisora (CAT) con seguimiento Doppler |
+|:---:|:---:|
+| ![Esfera y mando del rotor](docs/img/rotor_pantalla_esfera.png) | ![CAT de la emisora](docs/img/rotor_pantalla_cat.png) |
+| **Información y «Acerca de»** | **Disposición vertical (LCD 3,5")** |
+| ![Información del equipo](docs/img/rotor_pantalla_info.png) | <img src="docs/img/rotor_pantalla_vertical.png" alt="Disposición vertical" width="260"> |
+
+Capturas de la **versión 5.5.1** generadas en el PC con `firmware/test_host/lcd_preview` (LVGL real); aún sin probar en placa. La misma esfera aparece en la WebUI, la app Android, APRS LoRa+ Display y sat-aprs.
+
 ## Qué hace cada placa
 
 | | ESP32 | ESP32-S3 | ESP32-C5 LCD 3,5" | ESP32-S3 AMOLED 2,41" | ESP32-S3 LCD 7" (7B / 7) | Pico 2 W | Pico 2 | Raspberry Pi |
