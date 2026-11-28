@@ -9,6 +9,8 @@
 #   sudo ./install.sh --link-uart  UART para una pantalla del rotor por cable (LCD-7 / LCD-7B): GPIO8 TX, GPIO9 RX, GS-232B
 #                                  (Pi 4 y 5; en la 3 y la Zero 2 W, adaptador USB-serie); reinicia la Pi
 #   sudo ./install.sh --seatel   antena Sea Tel por RS422 (pyserial): seatel_rotctld como servicio en el puerto 4543 (ENSAYO)
+#   sudo ./install.sh --no-ble   apaga el Bluetooth del rotor (bt.ble/spp = false): para una Pi que comparte el BT con otro
+#                                servicio (p. ej. meshtasticd); el rotor va por WiFi/TCP 4534 y se reactiva poniendo bt.ble
 #                                puerto con SEATEL_DEV=/dev/ttyXXX: adaptador USB-RS422 (/dev/ttyUSB0, por defecto) o un UART del
 #                                propio Pi con un transceptor RS422 (/dev/ttyAMA0, /dev/serial0: activa el UART y quita la consola)
 #                                el demonio la usa con driver hamlib model 2 (ver docs/SEATEL.md)
@@ -17,7 +19,7 @@
 #   PI5_RTC=1 sudo ./install.sh --gps   Pi 5: deja su reloj propio (con su pila) en vez del RV-3028 del Uputronics
 set -e
 
-GADGET=""; STEPPER=""; GPS=""; LINK=""; LINKDEV=""; SEATEL=""
+GADGET=""; STEPPER=""; GPS=""; LINK=""; LINKDEV=""; SEATEL=""; NOBLE=""
 for a in "$@"; do
     case "$a" in
         --gadget) GADGET=1 ;;
@@ -25,6 +27,7 @@ for a in "$@"; do
         --gps) GPS=1 ;;
         --link-uart) LINK=1 ;;
         --seatel) SEATEL=1 ;;
+        --no-ble) NOBLE=1 ;;
         *) echo "opcion desconocida: $a"; exit 1 ;;
     esac
 done
@@ -172,13 +175,18 @@ if [ -n "$SEATEL" ]; then
 fi
 
 # Configuracion: driver "stepper" y GPS propio (si se ha pedido); con los dos HAT, el STEP del motor 2 no puede ser el GPIO18
-if [ -n "$STEPPER$GPS$LINKDEV" ]; then
-    STEPPER="$STEPPER" GPS="$GPS" LINKDEV="$LINKDEV" python3 - "$CONF/config.json" <<'EOP'
+if [ -n "$STEPPER$GPS$LINKDEV$NOBLE" ]; then
+    STEPPER="$STEPPER" GPS="$GPS" LINKDEV="$LINKDEV" NOBLE="$NOBLE" python3 - "$CONF/config.json" <<'EOP'
 import json, os, sys
 p = sys.argv[1]
 d = json.load(open(p))
 if os.environ.get("STEPPER"):
     d["driver"] = "stepper"
+if os.environ.get("NOBLE"):                              # --no-ble: la Pi comparte el BT con otro servicio (p. ej. meshtasticd)
+    bt = d.setdefault("bt", {})
+    bt["ble"] = False
+    bt["spp"] = False
+    print("   bt.ble = false (Bluetooth apagado; el rotor va por WiFi/TCP 4534)")
 if os.environ.get("GPS"):
     d.setdefault("gps", {})["on"] = True
     st = d.setdefault("stepper", {}).setdefault("el", {})
@@ -213,6 +221,7 @@ FLAGS=""
 [ -n "$GPS" ] && FLAGS="$FLAGS --gps"
 [ -n "$LINK" ] && FLAGS="$FLAGS --link-uart"
 [ -n "$SEATEL" ] && FLAGS="$FLAGS --seatel"
+[ -n "$NOBLE" ] && FLAGS="$FLAGS --no-ble"
 echo "== Ayudante de actualizacion en $DEST/update.sh"
 cat > "$DEST/update.sh" <<EOF
 #!/bin/sh
