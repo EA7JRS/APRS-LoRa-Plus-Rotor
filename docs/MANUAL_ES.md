@@ -199,15 +199,17 @@ En `http://APRS-Rotor.local/` (placas) o en `http://IP:8080/` (Raspberry Pi). Us
 
 | Sección | Qué hace |
 |---|---|
-| **Posición** | esfera (como la de la pantalla, sección 8; la aguja gira por el lado corto), acimut y elevación actuales, **objetivo** que se sigue (sol / luna / P2P con az/el y km), estado y lectura en bruto |
-| **GPS** | (con GPS propio) fix (2D / 3D), satélites usados/vistos, PPS, y latitud / longitud / altura |
-| **Mando** | **Ir** a un acimut y una elevación; CCW / CW / UP / DOWN mientras se mantienen pulsados; **STOP**; **Park**; **Borrar fallo** |
+| **Posición** | esfera (como la de la pantalla, sección 8; la aguja gira por el lado corto), acimut y elevación actuales, estado y lectura en bruto |
+| **Mando** | (junto a Posición) **Ir** a un acimut y una elevación; CCW / CW / UP / DOWN mientras se mantienen pulsados; **STOP**; **Park**; **Borrar fallo**; seguir el sol / la luna |
+| **GPS** | (con GPS propio) estado (fix 2D / 3D, PPS, satélites usados/vistos), **posición** en el formato elegido, **altura** en las unidades elegidas y **locator Maidenhead de 8 caracteres** (p. ej. `IM97mo15`) calculado de la posición |
+| **Objetivo en seguimiento** | (debajo del GPS, al seguir sol / luna / P2P) nombre, az/el y distancia en las unidades elegidas, o «bajo el horizonte, esperando» |
 | **Calibración** | Punto A, Punto B y corregir el desfase (control directo) |
 | **CAT** | (con `cat.proto`) frecuencia, paso, modos, A/B, tono CTCSS, S-meter (el mismo que la pantalla y la app), PTT y seguimiento con Doppler |
 | **Configuración** | el fichero entero: *Leer*, editar, *Guardar y reiniciar*; las contraseñas aparecen como `********` y no se tocan |
 | **Actualizar firmware** | subir un `firmware.bin` |
 | **Acerca de** | versión, placa y © 2026 Manuel - EA7JRS |
 | **Aspecto** | botón de la cabecera: **Automático** (el del sistema), **Claro** u **Oscuro**; se recuerda en el navegador, como las demás WebUI de EA7JRS. La esfera se queda oscura. |
+| **Coordenadas / Unidades** | en el mismo menú de la cabecera: **formato de coordenadas** (Decimal, GMS grados-minutos-segundos, GM grados-minutos náutico) y **unidades** (Métrico, Imperial, Náutico; la altura en m / ft y las distancias en km / mi / NM). Se recuerdan en el navegador. |
 
 ## 8. Pantalla táctil
 

@@ -201,15 +201,17 @@ At `http://APRS-Rotor.local/` (boards) or `http://IP:8080/` (Raspberry Pi). User
 
 | Section | What it does |
 |---|---|
-| **Posición** (position) | dial (as on the touch screen, section 8; the needle turns the short way), current azimuth and elevation, the **target** being tracked (sun / moon / P2P with az/el and km), status and raw reading |
-| **GPS** | (with its own GPS) fix (2D / 3D), satellites used/seen, PPS, and latitude / longitude / altitude |
-| **Mando** (control) | **Ir** (go) to an azimuth and elevation; CCW / CW / UP / DOWN while held; **STOP**; **Park**; **Borrar fallo** (clear fault) |
+| **Posición** (position) | dial (as on the touch screen, section 8; the needle turns the short way), current azimuth and elevation, status and raw reading |
+| **Mando** (control) | (next to Position) **Ir** (go) to an azimuth and elevation; CCW / CW / UP / DOWN while held; **STOP**; **Park**; **Borrar fallo** (clear fault); track sun / moon |
+| **GPS** | (with its own GPS) status (fix 2D / 3D, PPS, satellites used/seen), **position** in the chosen format, **altitude** in the chosen units and an **8-character Maidenhead locator** (e.g. `IM97mo15`) computed from the position |
+| **Objetivo en seguimiento** (target being tracked) | (below GPS, when tracking sun / moon / P2P) name, az/el and distance in the chosen units, or "below the horizon, waiting" |
 | **Calibración** (calibration) | point A, point B and offset fix (direct drive) |
 | **CAT** | (with `cat.proto`) frequency, step, modes, A/B, CTCSS tone, S-meter (the same as the screen and the app), PTT and Doppler tracking |
 | **Configuración** (configuration) | the whole file: *Leer* (read), edit, *Guardar y reiniciar* (save and restart); passwords show as `********` and are left unchanged |
 | **Actualizar firmware** (update firmware) | upload a `firmware.bin` |
 | **Acerca de** (about) | version, board and © 2026 Manuel - EA7JRS |
 | **Aspecto** (appearance) | header button: **Automatic** (system), **Light** or **Dark**; remembered in the browser, like the other EA7JRS WebUIs. The dial stays dark. |
+| **Coordinates / Units** | in the same header menu: **coordinate format** (Decimal, DMS degrees-minutes-seconds, DM degrees-decimal-minutes / nautical) and **units** (Metric, Imperial, Nautical; altitude in m / ft and distances in km / mi / NM). Remembered in the browser. |
 
 ## 8. Touch screen
 

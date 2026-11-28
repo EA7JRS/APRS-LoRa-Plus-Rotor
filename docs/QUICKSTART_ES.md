@@ -75,7 +75,7 @@ En la WebUI, **Calibración**: lleva el rotor a un extremo (por ejemplo 0°), es
 - **Emisora o SDR (CAT, opcional)**: emisora a `cat.rx` / `cat.tx` (3,3 V; MAX3232 si es RS-232), `cat.proto` (1 Icom, 2 Yaesu, 3 FT-817/857/897, 4 Kenwood/Elecraft, 5 SDRconnect para el RSPdx-R2, 6 SDR++/gqrx), `cat.baud`, `cat.civ` (Icom). Se maneja con el botón **CAT** de la pantalla, la WebUI, la app (*Radio (CAT)*, con Doppler de satélites) o por rigctld en el puerto 4532. PTT apagado salvo `cat.ptt: true`. Ver [CAT.md](CAT.md).
 - **Enlace punto a punto (P2P)**: `track` > *P2P* para apuntar a otra estación (locator, la app o APRS); dos cajas se alinean entre sí. Ver el [apartado 22](MANUAL_ES.md#22-enlace-punto-a-punto-p2p).
 - **Raspberry Pi con HAT**: motores paso a paso (Waveshare Stepper Motor HAT, 2 ejes) + un **TMC2209** para el 3er eje de antenas estabilizadas (domo FB250+), con **selector de antenas** (`antenna`). Ver [RASPBERRY_HATS.md](RASPBERRY_HATS.md).
-- **Aspecto de la WebUI**: botón de la cabecera, Automático / Claro / Oscuro (se recuerda en el navegador).
+- **Aspecto de la WebUI**: botón de la cabecera, Automático / Claro / Oscuro (se recuerda en el navegador). En el mismo menú: **formato de coordenadas** (Decimal / GMS / GM náutico) y **unidades** (Métrico / Imperial / Náutico). La tarjeta GPS muestra el **locator de 8 caracteres**.
 
 ## Si algo falla
 
