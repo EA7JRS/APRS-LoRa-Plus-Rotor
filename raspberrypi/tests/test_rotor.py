@@ -1259,6 +1259,36 @@ class TestPeak(unittest.TestCase):
         self.assertTrue(h.stopped)
 
 
+class TestDrift(unittest.TestCase):
+    def test_plan(self):
+        from aprs_lora_plus_rotor import drift as DR
+        az, el = DR.meridian_azel(40.0, 40.0)
+        self.assertEqual((az, round(el)), (180.0, 90))               # dec = lat: cenit, al sur
+        self.assertEqual(DR.meridian_azel(40.0, 60.0)[0], 0.0)       # dec > lat: al norte
+        self.assertAlmostEqual(DR.meridian_azel(40.0, 10.0)[1], 60.0)
+        p = DR.plan(40.0, 0.0, 60.0, 10.0)
+        self.assertEqual(len(p), 7)
+        self.assertEqual((p[0][0], p[-1][0]), (0.0, 60.0))
+        p2 = DR.plan(40.0, -60.0, -40.0, 10.0)                       # dec -60 no culmina sobre el horizonte: se descarta
+        self.assertEqual(len(p2), 2)
+        self.assertTrue(all(el >= 0 for _, _, el in p2))
+
+    def test_api(self):
+        class H(api.ApiHost):
+            rotor = None
+            started = stopped = False
+            def drift_start(s):
+                s.started = True
+                return ""
+            def drift_stop(s):
+                s.stopped = True
+        h, sess = H(), api.ApiSession()
+        self.assertIn('"e":"ok"', sess.handle('{"c":"drift","on":true}', h)[0])
+        self.assertTrue(h.started)
+        sess.handle('{"c":"drift","on":false}', h)
+        self.assertTrue(h.stopped)
+
+
 class TestAntennas(unittest.TestCase):
     def test_bundled_list_and_get(self):
         names = {a["name"]: a for a in antennas.list_antennas()}

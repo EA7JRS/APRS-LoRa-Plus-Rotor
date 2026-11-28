@@ -58,6 +58,8 @@ class ApiHost:
     def point_info(self) -> dict: return {}                                         # estado del modelo de apuntado
     def peak_start(self) -> str: return "not supported"                             # auto-pico con el SDR: arrancar el barrido
     def peak_stop(self): pass                                                       # auto-pico: parar
+    def drift_start(self) -> str: return "not supported"                            # barrido por deriva (H1): arrancar
+    def drift_stop(self): pass                                                       # barrido por deriva: parar
     def list_sats(self, group=None, active: bool = False) -> list: return []     # satelites del TLE con su proximo paso
     def sat_info(self) -> dict: return {}
     def select_sat(self, key: str) -> str: return "no sky"
@@ -350,6 +352,13 @@ class ApiSession:
                 ok(c)
             else:
                 e = h.peak_start()
+                ok(c) if not e else err(c, e)
+        elif c == "drift":                              # barrido por deriva (H1): {"on":true} arranca, {"on":false} para
+            if d.get("on") is False:
+                h.drift_stop()
+                ok(c)
+            else:
+                e = h.drift_start()
                 ok(c) if not e else err(c, e)
         elif c == "reboot":
             ok(c)

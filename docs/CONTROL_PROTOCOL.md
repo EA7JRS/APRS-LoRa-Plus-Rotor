@@ -50,6 +50,7 @@ El PIN viaja en claro dentro del enlace: el BLE va cifrado; por TCP/HTTP úsalo 
 | `pointclear` | — | Borra las referencias |
 | `pointset` | `on` (bool) | Activa / desactiva el modelo |
 | `peak` | `on` (bool) | Auto-pico con el SDR: `on` true arranca el barrido, false lo para. `err` (`no probe …`, `already running`). El progreso va en `peak` del evento `pos` |
+| `drift` | `on` (bool) | Barrido por deriva (radioastronomía H1): `on` true recorre las declinaciones de `drift.*` en el meridiano (fijo `dwell` s en cada una, registra en CSV), false lo para. `err` (`no position`, `nothing above horizon`, `already running`). El progreso (`i`, `n`, `dec`) va en `drift` del evento `pos` |
 | `antenna` | `name` | `ok` / `err` (`unknown antenna`). Carga el perfil de esa antena sobre `stepper`, pasa a `driver` `stepper`, guarda y reinicia |
 | `cfgget` | — | eventos `cfg` con la configuración entera en trozos |
 | `cfgset` | `i`, `n`, `d` | `ok` por trozo; con el último, `{"e":"ok","c":"cfgset","i":…,"done":true}` y el equipo se reinicia para aplicarla |

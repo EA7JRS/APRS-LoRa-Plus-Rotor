@@ -35,7 +35,7 @@ import sys
 import threading
 import time
 
-from . import __version__, antennas, astro, board, geo, sat, pointing, peak
+from . import __version__, antennas, astro, board, geo, sat, pointing, peak, drift
 from .api import ApiHost, ApiSession, pos_event  # noqa: F401
 from .aprs import AprsConfig, AprsControl, LORA_HEADER, parse_position, status_line
 from .bluez import Bluetooth
@@ -108,6 +108,7 @@ class Daemon(ApiHost):
         self.bt: Bluetooth | None = None
         self.cat = Cat(d["cat"]) if d["cat"]["type"] != "none" else None
         self._peak: dict = {}                              # estado del auto-pico con el SDR
+        self._drift: dict = {}                             # estado del barrido por deriva
 
     # ---- ApiHost --------------------------------------------------------------------------------------------------------
     def info(self) -> dict:
@@ -152,6 +153,8 @@ class Daemon(ApiHost):
             e["att"] = a
         if self._peak:
             e["peak"] = {k: v for k, v in self._peak.items() if k != "stop"}
+        if self._drift:
+            e["drift"] = {k: v for k, v in self._drift.items() if k != "stop"}
         return e
 
     def sky_start(self, target: int) -> str:
@@ -452,6 +455,51 @@ class Daemon(ApiHost):
             self._peak = {"running": False, "done": True, "daz": da, "del": de, "pmax": round(pmax, 2), "n": len(samples)}
         else:
             self._peak = {"running": False, "done": True, "n": 0, "err": "no readings"}
+
+    # ---- barrido por deriva (radioastronomia H1) ------------------------------------------------------------------------
+    def drift_start(self) -> str:
+        if self._drift.get("running"):
+            return "already running"
+        pos = self.lan.position()
+        if not pos:
+            return "no position"
+        dr = self.cfg.data["drift"]
+        steps = drift.plan(pos[0], float(dr["decStart"]), float(dr["decEnd"]), float(dr["decStep"]))
+        if not steps:
+            return "nothing above horizon"
+        self._drift = {"running": True, "stop": False, "i": 0, "n": len(steps)}
+        threading.Thread(target=self._drift_scan, args=(steps,), name="drift", daemon=True).start()
+        return ""
+
+    def drift_stop(self):
+        if self._drift.get("running"):
+            self._drift["stop"] = True
+
+    def _drift_scan(self, steps):
+        dr = self.cfg.data["drift"]
+        dwell = max(1.0, float(dr["dwell"]))
+        path = dr["csv"]
+        try:
+            os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+            new = not os.path.exists(path)
+            f = open(path, "a", encoding="utf-8")
+            if new:
+                f.write("utc,dec,az,el\n")
+        except OSError as e:
+            self._drift = {"running": False, "done": True, "err": str(e)}
+            return
+        for i, (dec, az, el) in enumerate(steps):
+            if self._drift.get("stop"):
+                break
+            self._drift.update(i=i + 1, dec=dec)
+            self.pbase.set_pos(az, el)                       # apuntado fijo (con el modelo), sin seguimiento
+            f.write(f"{int(time.time())},{dec},{az},{el}\n")
+            f.flush()
+            end = time.monotonic() + dwell
+            while time.monotonic() < end and not self._drift.get("stop"):
+                time.sleep(0.5)
+        f.close()
+        self._drift = {"running": False, "done": True, "n": len(steps), "i": self._drift.get("i", 0)}
 
     def clear_fault(self):
         self.wind.release()

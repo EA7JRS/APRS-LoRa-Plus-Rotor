@@ -184,6 +184,9 @@ Modelo de apuntado multipunto (corrige el desalineado mecánico) y auto-pico con
 | `peak.host` / `port` | "" / 0 | sonda de potencia del SDR por la red (vacío = sin auto-pico) |
 | `peak.kind` / `query` | line / "" | `line` (una línea con el número) o `rigctl` (`l STRENGTH` a un rigctld); `query` a enviar |
 | `peak.span` / `step` / `dwell` | 3 / 0.5 / 1 | medio lado y paso de la rejilla (grados) y segundos de espera por punto |
+| `drift.decStart` / `decEnd` / `decStep` | 0 / 60 / 5 | barrido por deriva (H1): declinaciones (grados) y paso |
+| `drift.dwell` | 300 | segundos fijo en cada declinación mientras el cielo cruza el haz |
+| `drift.csv` | `/var/lib/aprs-lora-plus-rotor/drift.csv` | registro del apuntado del barrido (utc, dec, az, el) |
 
 ## `att` (solo Raspberry Pi)
 
