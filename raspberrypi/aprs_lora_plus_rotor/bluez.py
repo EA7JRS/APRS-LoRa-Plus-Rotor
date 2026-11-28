@@ -71,8 +71,8 @@ if HAVE_DBUS:
         @dbus_property(access=PropertyAccess.READ)
         def LocalName(self) -> "s": return self.name  # noqa: F821
 
-        @dbus_property(access=PropertyAccess.READ)
-        def Includes(self) -> "as": return ["tx-power"]  # noqa: F821,F722
+        # Sin "Includes" (p. ej. tx-power): algunos controladores solo soportan "local-name"
+        # (SupportedIncludes) y rechazan el anuncio si se pide un include que no tienen.
 
         @method()
         def Release(self): pass
@@ -179,7 +179,13 @@ class Bluetooth:
         intro = await self.bus.introspect("org.bluez", hci)
         adapter = self.bus.get_proxy_object("org.bluez", hci, intro)
         props = adapter.get_interface("org.freedesktop.DBus.Properties")
-        await props.call_set("org.bluez.Adapter1", "Powered", Variant("b", True))
+        try:
+            await props.call_set("org.bluez.Adapter1", "Powered", Variant("b", True))
+        except Exception as e:                           # el controlador no enciende (rfkill, otro servicio, firmware)
+            dev = self.cfg.get("adapter", "hci0")
+            raise RuntimeError(
+                f"no se pudo encender el adaptador {dev} ({e}). Comprueba: 'rfkill unblock bluetooth', "
+                f"que no lo use otro servicio (p. ej. meshtasticd) y 'bluetoothctl power on'") from e
         await props.call_set("org.bluez.Adapter1", "Alias", Variant("s", self.name))
         await props.call_set("org.bluez.Adapter1", "Pairable", Variant("b", True))
         # Agente "Just Works"

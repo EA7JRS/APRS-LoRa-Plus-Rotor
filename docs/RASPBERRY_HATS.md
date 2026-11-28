@@ -228,6 +228,15 @@ El BLE viene encendido (`bt.ble: true`). En la app, pestaña **Rotor** → busca
 - No pongas `dtoverlay=disable-bt`: quita el Bluetooth. En la Pi 3 y la 4 el GPS va por el mini UART (`/dev/serial0`) y el Bluetooth sigue con su UART; en la Pi 5 el Bluetooth va aparte.
 - Olvidar un móvil: en Android, *Bluetooth → APRS-Rotor → Olvidar*, y en la Pi `bluetoothctl devices` y `bluetoothctl remove <MAC>`.
 
+**Si la app no encuentra la caja por Bluetooth**, mira el log: `journalctl -u aprs-lora-plus-rotor -b | grep -i bluetooth`.
+- `BLE listo: <nombre>` → está anunciando; revisa permisos de Bluetooth/ubicación en el móvil.
+- `no se pudo encender el adaptador hci0 …` → el controlador BT no enciende. Comprueba `bluetoothctl show` (`Powered: no`) y:
+  - `sudo rfkill unblock bluetooth` y `sudo systemctl restart bluetooth`;
+  - que no lo tenga tomado otro servicio (p. ej. **meshtasticd**, que usa BLE): `sudo systemctl stop meshtasticd` (y `disable` si no lo usas) mientras pruebas;
+  - `bluetoothctl power on` para ver el error real (`Failed to set mode (0x03)` suele ser rfkill o el controlador en mal estado: reinicia la Pi);
+  - luego `sudo systemctl restart aprs-lora-plus-rotor`.
+Mientras tanto, por WiFi funciona con la IP de la Pi o su nombre `.local` (`pimesh.local`).
+
 ## Sin probar
 
 Escrito con los datos de Waveshare y de Uputronics. La pantalla por WiFi probada en el PC contra el rotctld de la Pi (`\dump_state`, `p`, `P`, `M`, `S`, `K`). Probado en el PC con un GPIO simulado (rampas, topes, solape, finales de carrera, posición guardada) y con mensajes de gpsd de ejemplo. **No se ha probado con las placas, motores ni un GPS de verdad.**
