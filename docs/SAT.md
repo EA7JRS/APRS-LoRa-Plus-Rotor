@@ -66,7 +66,7 @@ config (`aprs.lat` / `aprs.lon`). Sin posición, el selector avisa y no calcula 
 
 La elevación mínima para considerar un paso y para esperar «bajo el horizonte» es `sky.minEl`
 (la misma que sol/luna). El umbral de reapuntado es `sky.step`. En modo satélite el seguimiento
-recalcula y re-apunta cada **0,5 s** (los LEO se mueven rápido), frente a los 2 s de sol/luna/P2P.
+recalcula y re-apunta a **10 Hz** (cada 0,1 s; los LEO se mueven rápido), frente a los 2 s de sol/luna/P2P.
 Si los motores aún se quedan atrás cerca del cenit (paso alto), sube la velocidad y la aceleración
 del eje (`stepper.<eje>.dps` y `.accel`).
 
