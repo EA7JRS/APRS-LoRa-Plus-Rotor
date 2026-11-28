@@ -161,9 +161,9 @@ function gP(k,d){try{var v=localStorage.getItem(k);if(v)return v}catch(e){}retur
 function coordPref(){return gP('rotor-coord','dec')}
 function unitPref(){return gP('rotor-units','metric')}
 function z2(n){n=''+n;return n.length<2?'0'+n:n}
-function dms(v,P,N,dw){var h=v<0?N:P;v=Math.abs(v);var d=Math.floor(v),m=(v-d)*60,s=Math.round((m-Math.floor(m))*60);m=Math.floor(m);if(s==60){s=0;m++}if(m==60){m=0;d++}d=''+d;while(d.length<dw)d='0'+d;return d+'°'+z2(m)+"'"+z2(s)+'"'+h}
-function ddm(v,P,N,dw){var h=v<0?N:P;v=Math.abs(v);var d=Math.floor(v),m=(v-d)*60;d=''+d;while(d.length<dw)d='0'+d;return d+'°'+(m<10?'0':'')+m.toFixed(3)+"'"+h}
-function fmtLL(la,lo){var f=coordPref();if(f=='dms')return dms(la,'N','S',2)+' '+dms(lo,'E','W',3);if(f=='ddm')return ddm(la,'N','S',2)+' '+ddm(lo,'E','W',3);return la.toFixed(5)+', '+lo.toFixed(5)}
+function dms(v,P,N,dw){var h=v<0?N:P;v=Math.abs(v);var d=Math.floor(v),m=(v-d)*60,s=(m-Math.floor(m))*60;m=Math.floor(m);s=Math.round(s*100)/100;if(s>=60){s-=60;m++}if(m==60){m=0;d++}d=''+d;while(d.length<dw)d='0'+d;var ss=s.toFixed(2);if(s<10)ss='0'+ss;return d+'°'+z2(m)+"'"+ss+'"'+h}
+function ddm(v,P,N,dw){var h=v<0?N:P;v=Math.abs(v);var d=Math.floor(v),m=(v-d)*60;d=''+d;while(d.length<dw)d='0'+d;return d+'°'+(m<10?'0':'')+m.toFixed(4)+"'"+h}
+function fmtLL(la,lo){var f=coordPref();if(f=='dms')return dms(la,'N','S',2)+' '+dms(lo,'E','W',3);if(f=='ddm')return ddm(la,'N','S',2)+' '+ddm(lo,'E','W',3);return la.toFixed(6)+', '+lo.toFixed(6)}
 function fmtAlt(m){return unitPref()=='metric'?Math.round(m)+' m':Math.round(m*3.28084)+' ft'}
 function fmtDist(km){var u=unitPref();if(u=='imperial')return (km*0.621371).toFixed(km<16?2:1)+' mi';if(u=='nautical')return (km*0.539957).toFixed(km<16?2:1)+' NM';return km<1?Math.round(km*1000)+' m':km.toFixed(km<16?2:1)+' km'}
 // Locator Maidenhead de 8 caracteres (subcuadrícula extendida), calculado de lat/lon.
